@@ -60,7 +60,8 @@
         <h2>Результаты</h2>
         <p id="final-score-text"></p>
         <div id="error-list"></div>
-        <button class="btn-nav" onclick="location.reload()">Попробовать снова</button>
+        <button id="rno-btn" class="btn-nav" style="background: #28a745; color: white; display: none;" onclick="startRNO()">✍️ Работа над ошибками</button>
+		<button class="btn-nav" onclick="location.reload()">В меню</button>
     </div>
 </div>
 
@@ -4378,7 +4379,7 @@
     let questions = []; // Это рабочий массив для текущей игры
     let currentQ = 0;
     let userAnswers = [];
-
+	let wrongQuestionsIndexes = [];
 function shuffle(array) {
         let arr = [...array];
         for (let i = arr.length - 1; i > 0; i--) {
@@ -4539,9 +4540,10 @@ function getGrade(percent, type) {
 
     const errorList = document.getElementById('error-list');
     errorList.innerHTML = '<h3>Разбор ошибок:</h3>';
-    
+    wrongQuestionsIndexes = []; // Очищаем старые ошибки перед новым списком
     questions.forEach((q, i) => {
         if (userAnswers[i] !== q.correct) {
+			wrongQuestionsIndexes.push(allQuestions.indexOf(q));
             const item = document.createElement('div');
             item.className = 'error-item';
             item.innerHTML = `
@@ -4551,7 +4553,38 @@ function getGrade(percent, type) {
             `;
             errorList.appendChild(item);
         }
+		
     });
+	showRNOButton();
+}
+function showRNOButton() {
+    const btn = document.getElementById('rno-btn');
+    if (wrongQuestionsIndexes.length > 0) {
+        btn.style.display = 'inline-block';
+    } else {
+        btn.style.display = 'none';
+    }
+}
+function startRNO() {
+    if (wrongQuestionsIndexes.length === 0) return;
+
+    // 1. Формируем новый список вопросов из ошибок
+    questions = wrongQuestionsIndexes.map(index => allQuestions[index]);
+    
+    // 2. Сбрасываем индекс на ПЕРВЫЙ вопрос (индекс 0)
+    currentQ = 0; 
+    
+    // 3. Подготовка данных для нового цикла
+    userAnswers = new Array(questions.length).fill(null);
+    wrongQuestionsIndexes = []; 
+    
+    // 4. Переключаем видимость экранов
+    document.getElementById('results-ui').style.display = 'none';
+    document.getElementById('quiz-ui').style.display = 'block';
+    
+    // 5. ТА САМАЯ ТЕЛЕПОРТАЦИЯ: отрисовываем первый вопрос из списка ошибок
+    showQuestion(); 
+    updateProgress(); // Обновим еще и полоску прогресса/цифры
 }
 </script>
 
