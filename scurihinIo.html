@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Корзина Скурихина: Настраиваемые нормы</title>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --primary: #2c3e50;
+            --accent: #27ae60;
+            --protein: #3498db;
+            --fat: #f1c40f;
+            --carb: #e67e22;
+            --micro: #9b59b6;
+            --danger: #e74c3c;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--primary);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header { background: var(--primary); color: white; padding: 10px; text-align: center; }
+
+        main {
+            display: grid;
+            grid-template-columns: 320px 1fr 380px;
+            gap: 15px;
+            padding: 15px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        section {
+            background: var(--card-bg);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        /* Полка и форма */
+        #product-list { overflow-y: auto; flex: 1; margin-bottom: 10px; }
+        .product-card {
+            padding: 10px; background: #f8f9fa; border: 1px solid #e9ecef;
+            border-radius: 8px; margin-bottom: 5px; cursor: grab;
+        }
+
+        /* Корзина */
+        #basket {
+            flex: 1; border: 3px dashed #cbd5e0; border-radius: 12px;
+            margin-bottom: 10px; overflow-y: auto; padding: 10px;
+        }
+        .basket-item {
+            display: grid; grid-template-columns: 1fr 70px 30px 30px;
+            align-items: center; gap: 5px; background: #fff;
+            padding: 8px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 5px;
+        }
+
+        /* Аналитика и Нормы */
+        #progress-scroll { overflow-y: auto; flex: 1; }
+        .stat-row { margin-bottom: 12px; }
+        .stat-info { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px; }
+        
+        .progress-container { height: 10px; background: #edf2f7; border-radius: 5px; overflow: hidden; }
+        .progress-fill { height: 100%; transition: width 0.3s; }
+        .over-limit { background-color: var(--danger) !important; }
+        .limit-text { color: var(--danger); font-weight: bold; }
+
+        .goals-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;
+            background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 15px;
+        }
+        .goals-grid label { font-size: 0.7rem; display: block; color: #666; }
+        .goals-grid input { width: 100%; box-sizing: border-box; font-size: 0.8rem; }
+
+        /* Таблица-чек */
+        #summary-container { max-height: 150px; overflow: auto; font-size: 0.7rem; border-top: 1px solid #eee; }
+        table { width: 100%; border-collapse: collapse; }
+        td, th { border: 1px solid #eee; padding: 3px; text-align: center; }
+
+        input { padding: 4px; border: 1px solid #ccc; border-radius: 4px; }
+        button { cursor: pointer; border: none; border-radius: 4px; }
+        .add-btn { background: var(--accent); color: white; padding: 8px; width: 100%; margin-top: 5px; }
+        .del-btn { background: var(--danger); color: white; }
+    </style>
+</head>
+<body>
+
+<header><strong>Интерактивный рацион: Настройка личных норм</strong></header>
+
+<main>
+    <section>
+    <h3>Продукты (100г)</h3>
+    
+    <select id="category-filter" onchange="renderShelf()" style="width: 100%; margin-bottom: 10px; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;">
+        <option value="Все">-- Все главы --</option>
+        <option value="Зерновые">Глава 1. Зерно и продукты переработки</option>
+        <option value="Хлеб">Глава 2. Хлеб и хлебобулочные изделия</option>
+        <option value="Кондитерские">Глава 3. Кондитерские изделия</option>
+        <option value="Молочные">Глава 4. Молочные продукты</option>
+        <option value="Жиры">Глава 5. Жиры и жировые продукты</option>
+        <option value="Овощи">Глава 6. Овощи, картофель, плоды, ягоды</option>
+        <option value="Мясо">Глава 7. Мясо и мясные продукты</option>
+        <option value="Птица">Глава 8. Птица и яйцепродукты</option>
+        <option value="Рыба">Глава 9. Рыба и морепродукты</option>
+        <option value="Консервы">Глава 10. Консервы и концентраты</option>
+        <option value="Детское">Глава 11. Продукты детского питания</option>
+        <option value="Напитки">Глава 12. Напитки</option>
+        <option value="Мои">⭐ Мои созданные продукты</option>
+    </select>
+    <div id="product-list"></div>
+        <div style="font-size: 0.8rem;">
+            <strong>Добавить свой:</strong>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:3px;" id="new-prod-form">
+                <input type="text" id="p-name" placeholder="Название" style="grid-column: span 2">
+                <input type="number" id="p-cal" placeholder="Ккал">
+                <input type="number" id="p-prot" placeholder="Бел">
+                <input type="number" id="p-fat" placeholder="Жир">
+                <input type="number" id="p-carb" placeholder="Угл">
+                <input type="number" id="p-vitA" placeholder="A">
+                <input type="number" id="p-vitC" placeholder="C">
+                <input type="number" id="p-ca" placeholder="Ca">
+                <input type="number" id="p-fe" placeholder="Fe">
+				<input type="number" id="p-vitB1" placeholder="B1">
+				<input type="number" id="p-vitB2" placeholder="B2">
+				<input type="number" id="p-vitPP" placeholder="PP">
+				<input type="number" id="p-p" placeholder="Фосфор">
+				<input type="number" id="p-mg" placeholder="Магний">
+				<input type="number" id="p-na" placeholder="Натрий">
+				<input type="number" id="p-k" placeholder="Калий">
+				<input type="number" id="p-water" placeholder="Вода (г)">
+            </div>
+            <button class="add-btn" onclick="addNewProduct()">Создать продукт</button>
+			<div style="display: flex; gap: 5px; margin-top: 10px;">
+    <button onclick="exportProducts()" style="flex: 1; background: #34495e; color: white; padding: 5px; font-size: 0.7rem;">
+        Сохранить набор
+    </button>
+    
+    <input type="file" onchange="importProducts(event)" style="display:none" id="importBtn">
+    
+    <button onclick="document.getElementById('importBtn').click()" style="flex: 1; background: #34495e; color: white; padding: 5px; font-size: 0.7rem;">
+        Загрузить набор
+    </button>
+</div>
+        </div>
+    </section>
+
+    <section>
+        <h3>Корзина (Drag-n-Drop)</h3>
+        <div id="basket"></div>
+        
+        <h3>Итоговый чек</h3>
+        <div id="summary-container">
+            <table>
+                <thead>
+                    <tr><th>Имя</th><th>Вес</th><th>Кк</th><th>Б</th><th>Ж</th><th>У</th><th>A</th><th>C</th><th>Ca</th><th>Fe</th></tr>
+                </thead>
+                <tbody id="summary-body"></tbody>
+            </table>
+        </div>
+    </section>
+    <section>
+        <h3>Ваши нормативы</h3>
+        <div class="goals-grid" id="goals-form">
+            </div>
+
+        <h3>Прогресс</h3>
+        <div id="progress-scroll"></div>
+    </section>
+</main>
+
+<script>
+    // Начальная база
+    let products = [
+        // --- ЗЕРНОВЫЕ ---
+// --- ЗЕРНОВЫЕ ---
+{ id: 1, category: "Зерновые", name: "Пшеница мягкая озимая", cal: 290, prot: 11.2, fat: 2.1, carb: 55.2, vitA: 0.01, vitB1: 0.41, vitB2: 0.17, vitPP: 5.04, vitC: 0, ca: 50, p: 340, mg: 111, na: 8, k: 323, fe: 5.1, water: 14.0 },
+{ id: 2, category: "Зерновые", name: "Пшеница мягкая яровая", cal: 291, prot: 12.5, fat: 2.3, carb: 53.9, vitA: 0.01, vitB1: 0.46, vitB2: 0.13, vitPP: 5.60, vitC: 0, ca: 57, p: 400, mg: 104, na: 8, k: 350, fe: 5.7, water: 14.0 },
+{ id: 3, category: "Зерновые", name: "Пшеница твердая", cal: 301, prot: 13.0, fat: 2.5, carb: 55.3, vitA: 0.01, vitB1: 0.37, vitB2: 0.10, vitPP: 4.94, vitC: 0, ca: 62, p: 368, mg: 114, na: 8, k: 325, fe: 5.3, water: 14.0 },
+{ id: 4, category: "Зерновые", name: "Рожь", cal: 287, prot: 9.9, fat: 2.2, carb: 55.5, vitA: 0.02, vitB1: 0.44, vitB2: 0.20, vitPP: 1.30, vitC: 0, ca: 59, p: 366, mg: 120, na: 4, k: 424, fe: 5.4, water: 14.0 },
+{ id: 5, category: "Зерновые", name: "Тритикале", cal: 293, prot: 12.8, fat: 2.1, carb: 54.5, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 55, p: 396, mg: 120, na: 5, k: 368, fe: 5.0, water: 14.0 },
+{ id: 6, category: "Зерновые", name: "Овес", cal: 250, prot: 10.0, fat: 6.2, carb: 37.6, vitA: 0.02, vitB1: 0.48, vitB2: 0.12, vitPP: 1.50, vitC: 0, ca: 117, p: 361, mg: 135, na: 37, k: 421, fe: 5.5, water: 13.5 },
+{ id: 7, category: "Зерновые", name: "Ячмень", cal: 264, prot: 10.3, fat: 2.4, carb: 49.4, vitA: 0, vitB1: 0.33, vitB2: 0.13, vitPP: 4.48, vitC: 0, ca: 93, p: 353, mg: 150, na: 32, k: 453, fe: 7.4, water: 14.0 },
+{ id: 8, category: "Зерновые", name: "Просо", cal: 311, prot: 11.2, fat: 3.9, carb: 56.6, vitA: 0.01, vitB1: 0.32, vitB2: 0.07, vitPP: 2.85, vitC: 0, ca: 51, p: 320, mg: 130, na: 28, k: 328, fe: 3.5, water: 13.5 },
+{ id: 9, category: "Зерновые", name: "Гречиха", cal: 295, prot: 10.8, fat: 3.2, carb: 54.4, vitA: 0.01, vitB1: 0.30, vitB2: 0.14, vitPP: 3.87, vitC: 0, ca: 70, p: 334, mg: 258, na: 4, k: 325, fe: 8.3, water: 14.0 },
+{ id: 10, category: "Зерновые", name: "Рис", cal: 283, prot: 7.5, fat: 2.6, carb: 56.1, vitA: 0, vitB1: 0.34, vitB2: 0.08, vitPP: 3.82, vitC: 0, ca: 40, p: 328, mg: 116, na: 30, k: 314, fe: 2.1, water: 14.0 },
+{ id: 11, category: "Зерновые", name: "Сорго", cal: 323, prot: 10.6, fat: 4.1, carb: 59.6, vitA: 0, vitB1: 0.46, vitB2: 0.16, vitPP: 3.30, vitC: 0, ca: 99, p: 298, mg: 127, na: 28, k: 246, fe: 4.4, water: 13.5 },
+{ id: 12, category: "Зерновые", name: "Кукуруза зубовидная", cal: 320, prot: 8.3, fat: 4.0, carb: 61.4, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 52, p: 308, mg: 120, na: 14, k: 387, fe: 4.5, water: 14.0 },
+{ id: 13, category: "Зерновые", name: "Кукуруза кремнистая", cal: 316, prot: 9.2, fat: 4.2, carb: 58.9, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 0, p: 0, mg: 0, na: 0, k: 0, fe: 0, water: 14.0 },
+{ id: 14, category: "Зерновые", name: "Кукуруза крахмалистая", cal: 325, prot: 9.4, fat: 4.8, carb: 59.6, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 0, p: 0, mg: 0, na: 0, k: 0, fe: 0, water: 14.0 },
+{ id: 15, category: "Зерновые", name: "Кукуруза восковидная", cal: 314, prot: 10.1, fat: 5.0, carb: 55.8, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 0, p: 0, mg: 0, na: 0, k: 0, fe: 0, water: 14.0 },
+{ id: 16, category: "Зерновые", name: "Кукуруза сахарная", cal: 338, prot: 11.2, fat: 4.5, carb: 37.9, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 0, p: 0, mg: 0, na: 0, k: 0, fe: 0, water: 14.0 },
+{ id: 17, category: "Зерновые", name: "Кукуруза лопающаяся", cal: 318, prot: 10.7, fat: 4.3, carb: 58.0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 0, p: 0, mg: 0, na: 0, k: 0, fe: 0, water: 14.0 },
+{ id: 18, category: "Зерновые", name: "Кукуруза (в среднем)", cal: 325, prot: 10.3, fat: 4.9, carb: 58.5, vitA: 0.32, vitB1: 0.38, vitB2: 0.14, vitPP: 2.10, vitC: 0, ca: 34, p: 301, mg: 104, na: 27, k: 340, fe: 3.7, water: 14.0 },
+{ id: 19, category: "Зерновые", name: "Кукуруза высоколизиновая", cal: 314, prot: 11.2, fat: 4.8, carb: 55.2, vitA: 0.21, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 44, p: 320, mg: 180, na: 20, k: 360, fe: 5.0, water: 14.0 },
+
+// --- ЗЕРНОБОБОВЫЕ ---
+{ id: 20, category: "Зерновые", name: "Горох", cal: 298, prot: 20.5, fat: 2.0, carb: 48.6, vitA: 0.01, vitB1: 0.81, vitB2: 0.15, vitPP: 2.20, vitC: 0, ca: 115, p: 329, mg: 107, na: 33, k: 873, fe: 6.8, water: 14.0 },
+{ id: 21, category: "Зерновые", name: "Фасоль", cal: 292, prot: 21.0, fat: 2.0, carb: 46.6, vitA: 0, vitB1: 0.50, vitB2: 0.18, vitPP: 2.10, vitC: 0, ca: 150, p: 480, mg: 103, na: 40, k: 1100, fe: 5.9, water: 14.0 },
+{ id: 22, category: "Зерновые", name: "Маш", cal: 300, prot: 23.5, fat: 2.0, carb: 46.2, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 192, p: 358, mg: 174, na: 40, k: 1000, fe: 6.0, water: 14.0 },
+{ id: 23, category: "Зерновые", name: "Чина", cal: 286, prot: 24.4, fat: 2.2, carb: 41.3, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 141, p: 360, mg: 99, na: 49, k: 633, fe: 8.3, water: 14.0 },
+{ id: 24, category: "Зерновые", name: "Чечевица", cal: 284, prot: 24.0, fat: 1.5, carb: 42.7, vitA: 0.03, vitB1: 0.50, vitB2: 0.21, vitPP: 1.80, vitC: 0, ca: 83, p: 390, mg: 80, na: 55, k: 672, fe: 11.8, water: 14.0 },
+{ id: 25, category: "Зерновые", name: "Нут", cal: 309, prot: 20.1, fat: 4.3, carb: 46.4, vitA: 0.09, vitB1: 0.08, vitB2: 0, vitPP: 0, vitC: 0, ca: 193, p: 444, mg: 126, na: 72, k: 968, fe: 2.6, water: 14.0 },
+{ id: 26, category: "Зерновые", name: "Соя", cal: 332, prot: 34.9, fat: 17.3, carb: 9.2, vitA: 0.07, vitB1: 0.94, vitB2: 0.22, vitPP: 2.20, vitC: 0, ca: 348, p: 603, mg: 226, na: 6, k: 1607, fe: 15.0, water: 12.0 },
+
+// --- МУКА ---
+{ id: 27, category: "Зерновые", name: "Пшеничная высшего сорта", cal: 334, prot: 10.3, fat: 1.1, carb: 68.9, vitA: 0, vitB1: 0.17, vitB2: 0.04, vitPP: 1.20, vitC: 0, ca: 18, p: 86, mg: 16, na: 3, k: 122, fe: 1.2, water: 14.0 },
+{ id: 28, category: "Зерновые", name: "Пшеничная в/с витаминизированная", cal: 334, prot: 10.3, fat: 1.1, carb: 68.9, vitA: 0, vitB1: 0.57, vitB2: 0.44, vitPP: 3.20, vitC: 0, ca: 18, p: 86, mg: 16, na: 3, k: 122, fe: 1.2, water: 14.0 },
+{ id: 29, category: "Зерновые", name: "Пшеничная в/с для мукомольных заводов", cal: 332, prot: 11.0, fat: 1.4, carb: 67.3, vitA: 0, vitB1: 0.17, vitB2: 0.06, vitPP: 0, vitC: 0, ca: 28, p: 102, mg: 33, na: 4, k: 158, fe: 2.4, water: 14.0 },
+{ id: 30, category: "Зерновые", name: "Пшеничная 1 сорта", cal: 331, prot: 10.6, fat: 1.3, carb: 67.6, vitA: 0, vitB1: 0.25, vitB2: 0.08, vitPP: 2.20, vitC: 0, ca: 24, p: 115, mg: 44, na: 4, k: 176, fe: 2.1, water: 14.0 },
+{ id: 31, category: "Зерновые", name: "Пшеничная 1 сорта витаминизированная", cal: 331, prot: 10.6, fat: 1.3, carb: 67.6, vitA: 0, vitB1: 0.65, vitB2: 0.48, vitPP: 4.20, vitC: 0, ca: 24, p: 115, mg: 44, na: 4, k: 176, fe: 2.1, water: 14.0 },
+{ id: 32, category: "Зерновые", name: "Пшеничная II сорта", cal: 290, prot: 11.7, fat: 1.8, carb: 63.7, vitA: 0.01, vitB1: 0.41, vitB2: 0.17, vitPP: 5.04, vitC: 0, ca: 50, p: 340, mg: 111, na: 8, k: 323, fe: 5.1, water: 14.0 },
+{ id: 33, category: "Зерновые", name: "Пшеничная обойная", cal: 291, prot: 11.5, fat: 2.2, carb: 56.8, vitA: 0.01, vitB1: 0.46, vitB2: 0.13, vitPP: 5.60, vitC: 0, ca: 57, p: 400, mg: 104, na: 8, k: 350, fe: 5.7, water: 14.0 },
+{ id: 34, category: "Зерновые", name: "Ржаная сеяная", cal: 301, prot: 6.9, fat: 1.4, carb: 64.3, vitA: 0.01, vitB1: 0.37, vitB2: 0.10, vitPP: 4.94, vitC: 0, ca: 62, p: 368, mg: 114, na: 8, k: 325, fe: 5.3, water: 14.0 },
+{ id: 35, category: "Зерновые", name: "Ржаная обдирная", cal: 287, prot: 8.9, fat: 1.7, carb: 60.2, vitA: 0.02, vitB1: 0.44, vitB2: 0.20, vitPP: 1.30, vitC: 0, ca: 59, p: 366, mg: 120, na: 4, k: 424, fe: 5.4, water: 14.0 },
+{ id: 36, category: "Зерновые", name: "Ржаная обойная", cal: 250, prot: 10.7, fat: 1.9, carb: 56.8, vitA: 0.02, vitB1: 0.48, vitB2: 0.12, vitPP: 1.50, vitC: 0, ca: 117, p: 361, mg: 135, na: 37, k: 421, fe: 5.5, water: 14.0 },
+{ id: 37, category: "Зерновые", name: "Соевая необезжиренная", cal: 311, prot: 36.5, fat: 18.6, carb: 15.0, vitA: 0.01, vitB1: 0.32, vitB2: 0.07, vitPP: 2.85, vitC: 0, ca: 51, p: 320, mg: 130, na: 28, k: 328, fe: 3.5, water: 9.0 },
+{ id: 38, category: "Зерновые", name: "Соевая полуобезжиренная", cal: 295, prot: 43.0, fat: 9.5, carb: 16.7, vitA: 0.01, vitB1: 0.30, vitB2: 0.14, vitPP: 3.87, vitC: 0, ca: 70, p: 334, mg: 258, na: 4, k: 325, fe: 8.3, water: 9.0 },
+{ id: 39, category: "Зерновые", name: "Соевая обезжиренная", cal: 283, prot: 48.9, fat: 1.0, carb: 21.7, vitA: 0, vitB1: 0.34, vitB2: 0.08, vitPP: 3.82, vitC: 0, ca: 40, p: 328, mg: 116, na: 30, k: 314, fe: 2.1, water: 9.0 },
+{ id: 40, category: "Зерновые", name: "Ячменная", cal: 323, prot: 10.0, fat: 1.6, carb: 56.1, vitA: 0, vitB1: 0.46, vitB2: 0.16, vitPP: 3.30, vitC: 0, ca: 99, p: 298, mg: 127, na: 28, k: 246, fe: 4.4, water: 14.0 },
+{ id: 41, category: "Зерновые", name: "Кукурузная", cal: 320, prot: 7.2, fat: 1.5, carb: 70.2, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 52, p: 308, mg: 120, na: 14, k: 387, fe: 4.5, water: 14.0 },
+
+// --- КРУПА ---
+{ id: 42, category: "Зерновые", name: "Манная", cal: 325, prot: 10.3, fat: 1.0, carb: 67.7, vitA: 0.32, vitB1: 0.38, vitB2: 0.14, vitPP: 2.10, vitC: 0, ca: 34, p: 301, mg: 104, na: 27, k: 340, fe: 3.7, water: 14.0 },
+{ id: 43, category: "Зерновые", name: "Гречневая ядрица", cal: 314, prot: 12.6, fat: 3.3, carb: 62.1, vitA: 0.21, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 44, p: 320, mg: 180, na: 20, k: 360, fe: 5.0, water: 14.0 },
+{ id: 44, category: "Зерновые", name: "Гречневая продел", cal: 298, prot: 9.5, fat: 2.3, carb: 65.9, vitA: 0.01, vitB1: 0.81, vitB2: 0.15, vitPP: 2.20, vitC: 0, ca: 115, p: 329, mg: 107, na: 33, k: 873, fe: 6.8, water: 14.0 },
+{ id: 45, category: "Зерновые", name: "Рисовая", cal: 292, prot: 7.0, fat: 1.0, carb: 71.4, vitA: 0.01, vitB1: 0.50, vitB2: 0.18, vitPP: 2.10, vitC: 0, ca: 150, p: 480, mg: 103, na: 40, k: 1100, fe: 5.9, water: 14.0 },
+{ id: 46, category: "Зерновые", name: "Пшено", cal: 300, prot: 11.5, fat: 3.3, carb: 66.5, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 192, p: 358, mg: 174, na: 40, k: 1000, fe: 6.0, water: 14.0 },
+{ id: 47, category: "Зерновые", name: "Толокно", cal: 286, prot: 11.5, fat: 6.0, carb: 50.2, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 141, p: 360, mg: 99, na: 49, k: 633, fe: 8.3, water: 10.0 },
+{ id: 48, category: "Зерновые", name: "Овсяная", cal: 284, prot: 11.0, fat: 6.1, carb: 49.7, vitA: 0.03, vitB1: 0.50, vitB2: 0.21, vitPP: 1.80, vitC: 0, ca: 83, p: 390, mg: 80, na: 55, k: 672, fe: 11.8, water: 12.0 },
+{ id: 49, category: "Зерновые", name: "Овсяные хлопья Геркулес", cal: 309, prot: 11.0, fat: 6.2, carb: 50.1, vitA: 0.09, vitB1: 0.08, vitB2: 0, vitPP: 0, vitC: 0, ca: 193, p: 444, mg: 126, na: 72, k: 968, fe: 2.6, water: 12.0 },
+{ id: 50, category: "Зерновые", name: "Перловая", cal: 332, prot: 9.3, fat: 1.1, carb: 66.5, vitA: 0.07, vitB1: 0.94, vitB2: 0.22, vitPP: 2.20, vitC: 0, ca: 348, p: 603, mg: 226, na: 6, k: 1607, fe: 15.0, water: 14.0 },
+{ id: 51, category: "Зерновые", name: "Ячневая", cal: 332, prot: 10.0, fat: 1.3, carb: 66.3, vitA: 0, vitB1: 0.17, vitB2: 0.04, vitPP: 1.20, vitC: 0, ca: 18, p: 86, mg: 16, na: 3, k: 122, fe: 1.2, water: 14.0 },
+{ id: 52, category: "Зерновые", name: "Пшеничная Полтавская", cal: 334, prot: 11.5, fat: 1.3, carb: 63.1, vitA: 0, vitB1: 0.57, vitB2: 0.44, vitPP: 3.20, vitC: 0, ca: 18, p: 86, mg: 16, na: 3, k: 122, fe: 1.2, water: 14.0 },
+{ id: 53, category: "Зерновые", name: "Пшеничная Артек", cal: 332, prot: 11.0, fat: 1.2, carb: 68.3, vitA: 0, vitB1: 0.17, vitB2: 0.06, vitPP: 0, vitC: 0, ca: 28, p: 102, mg: 33, na: 4, k: 158, fe: 2.4, water: 14.0 },
+{ id: 54, category: "Зерновые", name: "Кукурузная", cal: 334, prot: 8.3, fat: 1.2, carb: 71.6, vitA: 0, vitB1: 0.57, vitB2: 0.44, vitPP: 3.20, vitC: 0, ca: 18, p: 86, mg: 16, na: 3, k: 122, fe: 1.2, water: 14.0 },
+{ id: 55, category: "Зерновые", name: "Горох лущеный", cal: 332, prot: 23.0, fat: 1.6, carb: 50.8, vitA: 0, vitB1: 0.17, vitB2: 0.06, vitPP: 0, vitC: 0, ca: 28, p: 102, mg: 33, na: 4, k: 158, fe: 2.4, water: 14.0 },
+{ id: 56, category: "Зерновые", name: "Здоровье", cal: 0, prot: 15.9, fat: 0.6, carb: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 0, p: 0, mg: 0, na: 0, k: 0, fe: 0, water: 13.0 },
+{ id: 57, category: "Зерновые", name: "Пионерская", cal: 0, prot: 17.7, fat: 2.2, carb: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 0, p: 0, mg: 0, na: 0, k: 0, fe: 0, water: 13.0 },
+{ id: 58, category: "Зерновые", name: "Флотская", cal: 0, prot: 11.5, fat: 2.1, carb: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 0, p: 0, mg: 0, na: 0, k: 0, fe: 0, water: 13.0 },
+{ id: 59, category: "Зерновые", name: "Сильная", cal: 0, prot: 21.2, fat: 2.0, carb: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 0, p: 0, mg: 0, na: 0, k: 0, fe: 0, water: 13.0 },
+{ id: 60, category: "Зерновые", name: "Спортивная", cal: 0, prot: 18.7, fat: 5.4, carb: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 0, p: 0, mg: 0, na: 0, k: 0, fe: 0, water: 13.0 },
+{ id: 61, category: "Зерновые", name: "Южная", cal: 0, prot: 13.3, fat: 3.1, carb: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 0, p: 0, mg: 0, na: 0, k: 0, fe: 0, water: 13.0 },
+
+// --- МАКАРОННЫЕ ИЗДЕЛИЯ ---
+{ id: 62, category: "Зерновые", name: "Макаронные изделия высшего сорта", cal: 337, prot: 10.4, fat: 1.1, carb: 69.7, vitA: 0, vitB1: 0.17, vitB2: 0.04, vitPP: 1.21, vitC: 0, ca: 19, p: 87, mg: 16, na: 3, k: 123, fe: 1.6, water: 13.0 },
+{ id: 63, category: "Зерновые", name: "Макаронные изделия в/с витаминизированные", cal: 337, prot: 10.4, fat: 1.1, carb: 69.7, vitA: 0, vitB1: 0.58, vitB2: 0.44, vitPP: 3.24, vitC: 0, ca: 19, p: 87, mg: 16, na: 3, k: 123, fe: 1.6, water: 13.0 },
+{ id: 64, category: "Зерновые", name: "Макаронные изделия I сорта", cal: 335, prot: 10.7, fat: 1.3, carb: 68.4, vitA: 0, vitB1: 0.25, vitB2: 0.08, vitPP: 2.20, vitC: 0, ca: 25, p: 116, mg: 45, na: 4, k: 178, fe: 1.5, water: 13.0 },
+{ id: 65, category: "Зерновые", name: "Макаронные изделия в/с, яичные", cal: 345, prot: 11.3, fat: 2.1, carb: 68.0, vitA: 0, vitB1: 0.17, vitB2: 0.08, vitPP: 1.21, vitC: 0, ca: 42, p: 106, mg: 17, na: 17, k: 132, fe: 2.1, water: 13.0 },
+{ id: 66, category: "Зерновые", name: "Макаронные изделия в/с, с увеличенным содержанием яиц", cal: 346, prot: 11.8, fat: 2.8, carb: 67.0, vitA: 0, vitB1: 0.17, vitB2: 0.10, vitPP: 1.21, vitC: 0, ca: 26, p: 116, mg: 17, na: 24, k: 136, fe: 2.1, water: 13.0 },
+{ id: 67, category: "Зерновые", name: "Макаронные изделия в/с, молочные", cal: 345, prot: 11.5, fat: 2.9, carb: 67.0, vitA: 0, vitB1: 0.17, vitB2: 0.13, vitPP: 1.17, vitC: 0, ca: 86, p: 139, mg: 25, na: 33, k: 188, fe: 1.2, water: 13.0 },
+{ id: 68, category: "Зерновые", name: "Макаронные изделия в/с, «Мозаика»", cal: 337, prot: 11.2, fat: 1.1, carb: 69.1, vitA: 0, vitB1: 0.18, vitB2: 0.05, vitPP: 1.30, vitC: 0, ca: 34, p: 94, mg: 22, na: 45, k: 212, fe: 1.6, water: 13.0 }
+    ];
+
+    // Настраиваемые нормы
+    let goals = {
+        cal: 2000, prot: 100, fat: 60, carb: 250,
+        vitA: 0.9, vitB1: 1.5, vitB2: 1.8, vitPP: 20, vitC: 90,
+        ca: 1000, p: 800, mg: 400, na: 1300, k: 2500, fe: 18, water: 2000
+    };
+
+    let basket = [];
+
+    function init() {
+        renderShelf();
+        renderGoalsEditor();
+        updateUI();
+
+        const b = document.getElementById('basket');
+        b.ondragover = (e) => e.preventDefault();
+        b.ondrop = (e) => {
+            const id = e.dataTransfer.getData('pid');
+            const p = products.find(x => x.id == id);
+            if(p) {
+                basket.push({...p, weight: 100, bId: Date.now()});
+                updateUI();
+            }
+        };
+    }
+
+    function renderGoalsEditor() {
+        const container = document.getElementById('goals-form');
+        container.innerHTML = '';
+        Object.keys(goals).forEach(key => {
+            const div = document.createElement('div');
+            div.innerHTML = `<label>${key.toUpperCase()}</label>
+                             <input type="number" value="${goals[key]}" oninput="updateGoal('${key}', this.value)">`;
+            container.appendChild(div);
+        });
+    }
+
+    function updateGoal(key, val) {
+        goals[key] = parseFloat(val) || 0;
+        updateUI();
+    }
+function renderShelf() {
+    const list = document.getElementById('product-list');
+    const filter = document.getElementById('category-filter').value;
+    list.innerHTML = '';
+    
+    products.forEach(p => {
+        // Логика фильтрации
+        const matchCategory = (filter === "Все") || (p.category === filter);
+        const isMyProduct = (filter === "Мои" && p.isCustom);
+        
+        if (matchCategory || isMyProduct) {
+            const d = document.createElement('div');
+            d.className = 'product-card';
+            d.draggable = true;
+
+            const deleteBtn = p.isCustom 
+                ? `<button onclick="deleteFromShelf(${p.id})" style="float:right; border:none; background:none; color:red; cursor:pointer;">×</button>` 
+                : '';
+
+            d.innerHTML = `
+                ${deleteBtn}
+                <strong>${p.name}</strong>
+                <br><small>${p.cal} ккал | Б:${p.prot} Ж:${p.fat}</small>
+            `;
+
+            d.ondragstart = (e) => e.dataTransfer.setData('pid', p.id);
+            list.appendChild(d);
+        }
+    });
+}
+function deleteFromShelf(id) {
+    products = products.filter(p => p.id !== id);
+    renderShelf();
+}
+function exportProducts() {
+    const dataStr = JSON.stringify(products.filter(p => p.isCustom));
+    const blob = new Blob([dataStr], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = "my_products.json";
+    link.click();
+}
+function importProducts(event) {
+    const file = event.target.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const imported = JSON.parse(e.target.result);
+        // Добавляем только те, которых еще нет (по ID)
+        imported.forEach(p => {
+            if (!products.find(old => old.id === p.id)) products.push(p);
+        });
+        renderShelf();
+    };
+    reader.readAsText(file);
+}
+
+
+    function updateUI() {
+        renderBasket();
+        renderProgress();
+        renderSummary();
+    }
+
+    function renderBasket() {
+        const b = document.getElementById('basket');
+        b.innerHTML = '';
+        basket.forEach(item => {
+            const d = document.createElement('div');
+            d.className = 'basket-item';
+            d.innerHTML = `<span>${item.name}</span>
+                           <input type="number" value="${item.weight}" oninput="changeW(${item.bId}, this.value)">
+                           <span>г</span>
+                           <button class="del-btn" onclick="removeI(${item.bId})">×</button>`;
+            b.appendChild(d);
+        });
+    }
+
+    function changeW(id, v) {
+        const i = basket.find(x => x.bId === id);
+        if(i) i.weight = parseFloat(v) || 0;
+        updateUI();
+    }
+
+    function removeI(id) {
+        basket = basket.filter(x => x.bId !== id);
+        updateUI();
+    }
+
+    function renderProgress() {
+        const total = basket.reduce((acc, i) => {
+            const r = i.weight / 100;
+            Object.keys(goals).forEach(k => acc[k] = (acc[k] || 0) + (i[k] * r));
+            return acc;
+        }, {});
+
+        const container = document.getElementById('progress-scroll');
+        container.innerHTML = '';
+
+        Object.keys(goals).forEach(key => {
+            const val = total[key] || 0;
+            const goal = goals[key];
+            const perc = Math.min((val / (goal || 1)) * 100, 100);
+            const isOver = val > goal && goal > 0;
+
+            container.innerHTML += `
+                <div class="stat-row">
+                    <div class="stat-info">
+                        <span style="font-weight:bold">${key.toUpperCase()}</span>
+                        <span class="${isOver ? 'limit-text' : ''}">${val.toFixed(1)} / ${goal} ${isOver ? '⚠' : ''}</span>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-fill ${isOver ? 'over-limit' : ''}" 
+                             style="width:${perc}%; background:${getCol(key)}"></div>
+                    </div>
+                </div>`;
+        });
+    }
+
+    function getCol(k) {
+        if(['cal','prot','fat','carb'].includes(k)) return '#3498db';
+        if(k.startsWith('vit')) return '#9b59b6';
+		if(k === 'water') return '#1abc9c'; // Бирюзовый цвет для воды
+        return '#27ae60';
+    }
+
+    function renderSummary() {
+        const body = document.getElementById('summary-body');
+        body.innerHTML = '';
+        basket.forEach(i => {
+            const r = i.weight / 100;
+            body.innerHTML += `<tr>
+                <td>${i.name}</td><td>${i.weight}</td>
+                <td>${(i.cal*r).toFixed(0)}</td><td>${(i.prot*r).toFixed(1)}</td>
+                <td>${(i.fat*r).toFixed(1)}</td><td>${(i.carb*r).toFixed(1)}</td>
+                <td>${(i.vitA*r).toFixed(2)}</td><td>${(i.vitC*r).toFixed(1)}</td>
+                <td>${(i.ca*r).toFixed(0)}</td><td>${(i.fe*r).toFixed(1)}</td>
+				<td>${(i.water * r).toFixed(1)}</td>
+            </tr>`;
+        });
+    }
+
+function addNewProduct() {
+    const getValue = (id) => parseFloat(document.getElementById(id).value) || 0;
+    const p = {
+        id: Date.now(),
+        isCustom: true,
+        category: "Мои", // Автоматически помечаем как пользовательский
+        name: document.getElementById('p-name').value || "Продукт",
+        cal: getValue('p-cal'),
+        prot: getValue('p-prot'),
+        fat: getValue('p-fat'),
+        carb: getValue('p-carb'),
+        vitA: getValue('p-vitA'),
+        vitB1: getValue('p-vitB1'),
+        vitB2: getValue('p-vitB2'),
+        vitPP: getValue('p-vitPP'),
+        vitC: getValue('p-vitC'),
+        ca: getValue('p-ca'),
+        p: getValue('p-p'),
+        mg: getValue('p-mg'),
+        na: getValue('p-na'),
+        k: getValue('p-k'),
+        fe: getValue('p-fe'),
+        water: getValue('p-water')
+    };
+    products.push(p);
+    document.getElementById('category-filter').value = "Мои"; // Сразу переключаемся на "Мои"
+    renderShelf();
+}
+
+    init();
+</script>
+</body>
+</html>
