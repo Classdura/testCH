@@ -91,7 +91,27 @@
         input { padding: 4px; border: 1px solid #ccc; border-radius: 4px; }
         button { cursor: pointer; border: none; border-radius: 4px; }
         .add-btn { background: var(--accent); color: white; padding: 8px; width: 100%; margin-top: 5px; }
-        .del-btn { background: var(--danger); color: white; }
+        .del-btn { background: var(--danger); color: white; 
+		@media (max-width: 1024px) {
+    main {
+        grid-template-columns: 1fr; /* Все секции друг под другом */
+        overflow-y: auto;
+        display: block;
+    }
+    section {
+        margin-bottom: 15px;
+        max-height: none; /* Снимаем ограничения высоты для мобилок */
+    }
+    #product-list, #basket, #progress-scroll {
+        max-height: 400px; /* Ограничиваем только внутренние списки */
+    }
+}
+
+/* Делаем кнопки удобными для нажатия пальцем */
+button, .product-card {
+    min-height: 44px; 
+}
+		}
     </style>
 </head>
 <body>
@@ -271,22 +291,25 @@
 
     let basket = [];
 
-    function init() {
-        renderShelf();
-        renderGoalsEditor();
-        updateUI();
+function init() {
+    renderShelf();
+    renderGoalsEditor();
+    updateUI();
 
-        const b = document.getElementById('basket');
-        b.ondragover = (e) => e.preventDefault();
-        b.ondrop = (e) => {
-            const id = e.dataTransfer.getData('pid');
-            const p = products.find(x => x.id == id);
-            if(p) {
-                basket.push({...p, weight: 100, bId: Date.now()});
-                updateUI();
-            }
-        };
+    const b = document.getElementById('basket');
+    b.ondragover = (e) => e.preventDefault();
+    b.ondrop = (e) => {
+        const id = e.dataTransfer.getData('pid');
+        addToBasket(id); // Используем нашу новую функцию
+    };
+}
+	function addToBasket(id) {
+    const p = products.find(x => x.id == id);
+    if(p) {
+        basket.push({...p, weight: 100, bId: Date.now()});
+        updateUI();
     }
+}
 
     function renderGoalsEditor() {
         const container = document.getElementById('goals-form');
@@ -317,7 +340,7 @@ function renderShelf() {
             const d = document.createElement('div');
             d.className = 'product-card';
             d.draggable = true;
-
+			d.onclick = () => addToBasket(p.id);
             const deleteBtn = p.isCustom 
                 ? `<button onclick="deleteFromShelf(${p.id})" style="float:right; border:none; background:none; color:red; cursor:pointer;">×</button>` 
                 : '';
@@ -327,7 +350,7 @@ function renderShelf() {
                 <strong>${p.name}</strong>
                 <br><small>${p.cal} ккал | Б:${p.prot} Ж:${p.fat}</small>
             `;
-
+			
             d.ondragstart = (e) => e.dataTransfer.setData('pid', p.id);
             list.appendChild(d);
         }
