@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Корзина Скурихина: Настраиваемые нормы</title>
     <style>
         :root {
@@ -30,13 +30,13 @@
         header { background: var(--primary); color: white; padding: 10px; text-align: center; }
 
         main {
-            display: grid;
-            grid-template-columns: 320px 1fr 380px;
-            gap: 15px;
-            padding: 15px;
-            flex: 1;
-            overflow: hidden;
-        }
+    display: grid;
+    grid-template-columns: 320px 1fr 380px; /* Ваша базовая разметка */
+    gap: 15px;
+    padding: 15px;
+    flex: 1;
+    overflow: hidden; /* Это важно для ноутбуков, чтобы скроллились только внутренние части */
+}
 
         section {
             background: var(--card-bg);
@@ -91,19 +91,57 @@
         input { padding: 4px; border: 1px solid #ccc; border-radius: 4px; }
         button { cursor: pointer; border: none; border-radius: 4px; }
         .add-btn { background: var(--accent); color: white; padding: 8px; width: 100%; margin-top: 5px; }
-        .del-btn { background: var(--danger); color: white; 
-		@media (max-width: 1024px) {
+        .del-btn {
+    min-width: 35px;
+    min-height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+} 
+/* Специальные правила для мобильных устройств (экраны меньше 768px) */
+@media screen and (max-width: 850px) {
+    body {
+        height: auto;
+        overflow-y: auto; /* Разрешаем прокрутку всей страницы */
+    }
+
     main {
-        grid-template-columns: 1fr; /* Все секции друг под другом */
-        overflow-y: auto;
+        display: block !important; /* Отключаем сетку (grid) */
+        padding: 10px;
+        height: auto;
+    }
+
+    section {
+        width: 100% !important;
+        margin-bottom: 20px;
+        max-height: none !important; /* Секции могут расти вниз */
         display: block;
     }
-    section {
-        margin-bottom: 15px;
-        max-height: none; /* Снимаем ограничения высоты для мобилок */
-    }
+
     #product-list, #basket, #progress-scroll {
-        max-height: 400px; /* Ограничиваем только внутренние списки */
+        height: 300px; /* Фиксируем высоту внутренних списков, чтобы не были бесконечными */
+        overflow-y: auto;
+        border: 1px solid #ddd;
+    }
+
+    #basket {
+        border: 2px dashed var(--accent); /* Выделяем корзину визуально */
+        background: #fff;
+    }
+
+    .goals-grid {
+        grid-template-columns: 1fr 1fr; /* Поля норм в 2 колонки на мобиле */
+    }
+
+    /* Таблица чека на мобильных */
+    #summary-container {
+        max-height: none;
+        overflow-x: auto; /* Позволяем таблице листаться вправо-влево */
+    }
+    
+    table {
+        min-width: 600px; /* Чтобы колонки не слипались в кашу */
     }
 }
 
