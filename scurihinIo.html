@@ -1719,31 +1719,37 @@ button, .product-card {
 
 	// Открытие меню
 function runAutoRec() {
+    // 1. Проверка выбранных глав
     const selectedChapters = Array.from(document.querySelectorAll('#chapter-checks input:checked')).map(cb => cb.value);
     if (selectedChapters.length === 0) return alert("Выберите хотя бы одну главу!");
 
-    // Список критических нутриентов для анализа (в порядке приоритета)
+    // 2. Список приоритетов (убедитесь, что эти ключи есть в вашем объекте goals и в продуктах!)
+    // Я добавил те ключи, которые видел в вашем коде на GitHub
     const priorities = ['prot', 'fat', 'carb', 'cal', 'water', 'vitA', 'vitC', 'ca', 'fe'];
     
-    // Ограничитель итераций, чтобы не зависнуть (максимум 10 добавлений)
-    for (let iteration = 0; iteration < 10; iteration++) {
+    // Цикл подбора (максимум 12 шагов, чтобы собрать полноценный рацион)
+    for (let iteration = 0; iteration < 12; iteration++) {
         
-        // 1. Считаем текущий итог в корзине
+        // Считаем, что уже есть в корзине
         const currentTotal = basket.reduce((acc, i) => {
             const r = i.weight / 100;
-            Object.keys(goals).forEach(k => acc[k] = (acc[k] || 0) + (i[k] * r));
+            priorities.forEach(k => {
+                acc[k] = (acc[k] || 0) + ((parseFloat(i[k]) || 0) * r);
+            });
             return acc;
         }, {});
 
-        // 2. Ищем самый дефицитный нутриент (в % от нормы)
+        // Ищем самый большой дефицит в процентах
         let mostNeeded = null;
         let maxDeficitPct = 0;
 
         priorities.forEach(key => {
+            const goalVal = parseFloat(goals[key]) || 0;
             const currentVal = currentTotal[key] || 0;
-            const goalVal = goals[key] || 0;
+            
             if (goalVal > 0) {
                 const deficitPct = (goalVal - currentVal) / goalVal;
+                // Ищем нутриент, которого не хватает больше всего
                 if (deficitPct > maxDeficitPct) {
                     maxDeficitPct = deficitPct;
                     mostNeeded = key;
@@ -1751,24 +1757,31 @@ function runAutoRec() {
             }
         });
 
-        // Если дефицит меньше 5%, считаем рацион собранным
+        // Если всё заполнено на 95%, выходим
         if (!mostNeeded || maxDeficitPct < 0.05) break;
 
-        // 3. Выбираем лучший продукт из выбранных глав для этого нутриента
-        let candidates = products.filter(p => selectedChapters.includes(p.category));
+        // Фильтруем продукты по главам и наличию нужного нутриента
+        let candidates = products.filter(p => 
+            selectedChapters.includes(p.category) && (parseFloat(p[mostNeeded]) > 0)
+        );
+
         if (candidates.length === 0) break;
 
-        // Сортируем: сверху тот, у кого больше всего нужного вещества на 100 ккал (чтобы не перебрать калорий)
-        candidates.sort((a, b) => (b[mostNeeded] / (b.cal || 1)) - (a[mostNeeded] / (a.cal || 1)));
+        // Сортируем: лучший тот, у кого больше искомого вещества на единицу калорий
+        candidates.sort((a, b) => {
+            const valA = (parseFloat(a[mostNeeded]) || 0) / (parseFloat(a.cal) || 1);
+            const valB = (parseFloat(b[mostNeeded]) || 0) / (parseFloat(b.cal) || 1);
+            return valB - valA;
+        });
         
         const bestProduct = candidates[0];
 
-        // 4. Рассчитываем граммовку
-        // Нужно закрыть дефицит, но не более чем на 200г за раз
-        const gap = goals[mostNeeded] - (currentTotal[mostNeeded] || 0);
-        let weightNeeded = (gap / (bestProduct[mostNeeded] || 1)) * 100;
+        // Расчет граммовки для закрытия "дыры"
+        const gap = parseFloat(goals[mostNeeded]) - (currentTotal[mostNeeded] || 0);
+        let weightNeeded = (gap / (parseFloat(bestProduct[mostNeeded]) || 0.1)) * 100;
         
-        weightNeeded = Math.min(Math.max(weightNeeded, 30), 200); // От 30г до 200г
+        // Ограничители порции для реалистичности (от 50г до 250г)
+        weightNeeded = Math.min(Math.max(weightNeeded, 50), 250);
 
         // Добавляем в корзину
         basket.push({
@@ -1781,6 +1794,7 @@ function runAutoRec() {
     updateUI();
     closeAutoMenu();
 }
+
 	
 
 	// Функция экспорта норм
