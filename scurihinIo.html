@@ -1718,6 +1718,36 @@ button, .product-card {
     let basket = [];
 
 	// Открытие меню
+	// Функция для открытия меню
+function openAutoMenu() {
+    const menu = document.getElementById('auto-menu');
+    menu.style.display = 'block';
+    renderChapterChecks(); // Инициализация списка категорий
+}
+
+// Функция для закрытия меню
+function closeAutoMenu() {
+    document.getElementById('auto-menu').style.display = 'none';
+}
+
+// Вспомогательная функция для наполнения меню чекбоксами (главами)
+function renderChapterChecks() {
+    const container = document.getElementById('chapter-checks');
+    const categories = [...new Set(products.map(p => p.category))];
+    
+    container.innerHTML = categories.map(cat => `
+        <div style="margin: 5px 0;">
+            <input type="checkbox" id="cat-${cat}" value="${cat}" checked>
+            <label for="cat-${cat}">${cat}</label>
+        </div>
+    `).join('');
+}
+
+// Заглушка для функции формирования рациона (чтобы не было ошибок при нажатии)
+function runAutoRec() {
+    alert("Функция формирования рациона в разработке!");
+    closeAutoMenu();
+}
 function runAutoRec() {
     // 1. Проверка выбранных глав
     const selectedChapters = Array.from(document.querySelectorAll('#chapter-checks input:checked')).map(cb => cb.value);
