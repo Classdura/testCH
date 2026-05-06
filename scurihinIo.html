@@ -241,17 +241,18 @@ button, .product-card {
     <section>
         <h3>Ваши нормативы</h3>
         <div class="goals-grid" id="goals-form">
-			<div style="display: flex; gap: 5px; margin-top: 10px; padding: 0 10px;">
-    <button onclick="exportGoals()" style="flex: 1; background: #8e44ad; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
-        Сохранить нормы
-    </button>
-    <input type="file" id="importGoalsBtn" style="display:none" onchange="importGoals(event)">
-    <button onclick="document.getElementById('importGoalsBtn').click()" style="flex: 1; background: #8e44ad; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">
-        Загрузить нормы
-    </button>
-			</div>
             </div>
-
+<div style="display: flex; gap: 5px; margin-top: 10px; padding: 5px;">
+        <button onclick="exportGoals()" style="flex: 1; background: #8e44ad; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
+            💾 Сохранить нормы
+        </button>
+        
+        <input type="file" id="importGoalsBtn" style="display:none" onchange="importGoals(event)">
+        
+        <button onclick="document.getElementById('importGoalsBtn').click()" style="flex: 1; background: #8e44ad; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
+            📂 Загрузить нормы
+        </button>
+</div>
         <h3>Прогресс</h3>
         <div id="progress-scroll"></div>
     </section>
