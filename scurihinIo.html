@@ -31,11 +31,13 @@
 
         main {
     display: grid;
-    grid-template-columns: 320px 1fr 380px; /* Ваша базовая разметка */
+    grid-template-columns: 320px 1fr 380px; /* Фиксируем ширину боковых панелей */
     gap: 15px;
     padding: 15px;
     flex: 1;
-    overflow: hidden; /* Это важно для ноутбуков, чтобы скроллились только внутренние части */
+    overflow: hidden; /* Запрещает горизонтальный сдвиг всей сетки */
+    width: 100%;
+    box-sizing: border-box;
 }
 
         section {
@@ -108,12 +110,6 @@
     body {
         height: auto;
         overflow-y: auto; /* Разрешаем прокрутку всей страницы */
-    }
-
-    main {
-        display: block !important; /* Отключаем сетку (grid) */
-        padding: 10px;
-        height: auto;
     }
 
     section {
@@ -1844,6 +1840,14 @@ function renderShelf() {
         div.onclick = () => addToBasket(p.id);
         
         shelf.appendChild(div);
+		
+		// удаление:
+const deleteBtn = p.isCustom 
+    ? `<button onclick="event.stopPropagation(); deleteProduct(${p.id})" 
+        style="float:right; background:none; border:none; color:var(--danger); cursor:pointer; font-weight:bold;">×</button>` 
+    : "";
+
+div.innerHTML = `${p.name} <small>(${p.cal} ккал)</small> ${deleteBtn}`;
     });
 
     if (filtered.length === 0) {
@@ -1903,6 +1907,13 @@ function importProducts(event) {
         if(i) i.weight = parseFloat(v) || 0;
         updateUI();
     }
+	function deleteProduct(id) {
+    if (confirm("Вы уверены, что хотите удалить этот продукт?")) {
+        // Оставляем только те продукты, чей ID не совпадает с удаляемым
+        products = products.filter(p => p.id !== id);
+        renderShelf(); // Перерисовываем список
+    }
+}
 
     function removeI(id) {
         basket = basket.filter(x => x.bId !== id);
