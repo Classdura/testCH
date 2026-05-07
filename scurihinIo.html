@@ -204,25 +204,25 @@ button, .product-card {
     </select>
     <div id="product-list"></div>
         <div style="font-size: 0.8rem;">
-            <strong>Добавить свой:</strong>
+            <strong>Добавить свой продукт:</strong>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:3px;" id="new-prod-form">
                 <input type="text" id="p-name" placeholder="Название" style="grid-column: span 2">
                 <input type="number" id="p-cal" placeholder="Ккал">
-                <input type="number" id="p-prot" placeholder="Бел">
-                <input type="number" id="p-fat" placeholder="Жир">
-                <input type="number" id="p-carb" placeholder="Угл">
-                <input type="number" id="p-vitA" placeholder="A">
-                <input type="number" id="p-vitC" placeholder="C">
-                <input type="number" id="p-ca" placeholder="Ca">
-                <input type="number" id="p-fe" placeholder="Fe">
-				<input type="number" id="p-vitB1" placeholder="B1">
-				<input type="number" id="p-vitB2" placeholder="B2">
-				<input type="number" id="p-vitPP" placeholder="PP">
-				<input type="number" id="p-p" placeholder="Фосфор">
-				<input type="number" id="p-mg" placeholder="Магний">
-				<input type="number" id="p-na" placeholder="Натрий">
-				<input type="number" id="p-k" placeholder="Калий">
-				<input type="number" id="p-water" placeholder="Вода (г)">
+                <input type="number" id="p-prot" placeholder="Белок (г)">
+                <input type="number" id="p-fat" placeholder="Жир (г)">
+                <input type="number" id="p-carb" placeholder="Угл (г)">
+                <input type="number" id="p-vitA" placeholder="A (мг)">
+				<input type="number" id="p-vitB1" placeholder="B1 (мг)">
+				<input type="number" id="p-vitB2" placeholder="B2 (мг)">
+				<input type="number" id="p-vitPP" placeholder="PP (мг)">
+				<input type="number" id="p-vitC" placeholder="C (мг)">
+				<input type="number" id="p-ca" placeholder="Кальций (мг)">
+				<input type="number" id="p-p" placeholder="Фосфор (мг)">
+				<input type="number" id="p-fe" placeholder="Fe (мг)">
+				<input type="number" id="p-mg" placeholder="Магний (мг)">
+				<input type="number" id="p-na" placeholder="Натрий (мг)">
+				<input type="number" id="p-k" placeholder="Калий (мг)">
+				<input type="number" id="p-water" placeholder="Вода (г или мл)">
             </div>
             <button class="add-btn" onclick="addNewProduct()">Создать продукт</button>
 			<div style="display: flex; gap: 5px; margin-top: 10px;">
@@ -242,15 +242,6 @@ button, .product-card {
     <section>
         <h3>Корзина (Drag-n-Drop)</h3>
         <div id="basket"></div>
-        
-        <h3>Итоговый чек</h3>
-        <div id="summary-container">
-            <table>
-                <thead>
-                    <tr><th>Имя</th><th>Вес</th><th>Кк</th><th>Б</th><th>Ж</th><th>У</th><th>A</th><th>C</th><th>Ca</th><th>Fe</th></tr>
-                </thead>
-                <tbody id="summary-body"></tbody>
-            </table>
         </div>
     </section>
     <section>
