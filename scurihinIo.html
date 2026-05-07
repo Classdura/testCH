@@ -40,6 +40,21 @@
     box-sizing: border-box;
 }
 
+* {
+    box-sizing: border-box;
+}
+
+/* Специфично для формы добавления продукта */
+#new-prod-form input {
+    width: 100%;       /* Занимает ровно ширину ячейки грида */
+    max-width: 100%;   /* Запрещает расширять родителя */
+    margin: 0;         /* Убираем внешние отступы, которые могут толкать границы */
+}
+
+/* Чтобы родительская секция не пыталась скроллить форму по горизонтали */
+section {
+    overflow-x: hidden !important; 
+}
         section {
             background: var(--card-bg);
             border-radius: 12px;
