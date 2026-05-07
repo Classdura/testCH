@@ -65,7 +65,11 @@
             align-items: center; gap: 5px; background: #fff;
             padding: 8px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 5px;
         }
-
+		#product-search:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 5px rgba(39, 174, 96, 0.3);
+}
         /* Аналитика и Нормы */
         #progress-scroll { overflow-y: auto; flex: 1; }
         .stat-row { margin-bottom: 12px; }
@@ -155,9 +159,6 @@ button, .product-card {
 <body>
 
 <header><strong>Интерактивный рацион: Настройка личных норм</strong></header>
-<button onclick="openAutoMenu()" style="background: #ff69b4; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px;">
-    Автоматически определить рацион питания
-</button>
 
 <div id="auto-menu" style="display:none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 2px solid #ff69b4; border-radius: 12px; z-index: 1000; box-shadow: 0 0 20px rgba(0,0,0,0.3); width: 300px;">
     <h4>Выберите любимые группы:</h4>
@@ -169,8 +170,11 @@ button, .product-card {
 <main>
     <section>
     <h3>Продукты (100г)</h3>
-    
+    <div style="margin-bottom: 10px;">
+    <input type="text" id="product-search" oninput="renderShelf()" placeholder="Поиск продукта..." style="width: 100%; box-sizing: border-box; padding: 10px; border: 2px solid var(--primary);">
+</div>
     <select id="category-filter" onchange="renderShelf()" style="width: 100%; margin-bottom: 10px; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: inherit;">
+	
         <option value="Все">-- Все главы --</option>
         <option value="Зерновые">Глава 1. Зерно и продукты переработки</option>
         <option value="Хлеб">Глава 2. Хлеб и хлебобулочные изделия</option>
@@ -1717,18 +1721,6 @@ button, .product-card {
 
     let basket = [];
 
-	// Открытие меню
-	// Функция для открытия меню
-function openAutoMenu() {
-    const menu = document.getElementById('auto-menu');
-    menu.style.display = 'block';
-    renderChapterChecks(); // Инициализация списка категорий
-}
-
-// Функция для закрытия меню
-function closeAutoMenu() {
-    document.getElementById('auto-menu').style.display = 'none';
-}
 
 // Вспомогательная функция для наполнения меню чекбоксами (главами)
 function renderChapterChecks() {
@@ -1742,89 +1734,6 @@ function renderChapterChecks() {
         </div>
     `).join('');
 }
-
-// Заглушка для функции формирования рациона (чтобы не было ошибок при нажатии)
-function runAutoRec() {
-    alert("Функция формирования рациона в разработке!");
-    closeAutoMenu();
-}
-function runAutoRec() {
-    // 1. Проверка выбранных глав
-    const selectedChapters = Array.from(document.querySelectorAll('#chapter-checks input:checked')).map(cb => cb.value);
-    if (selectedChapters.length === 0) return alert("Выберите хотя бы одну главу!");
-
-    // 2. Список приоритетов (убедитесь, что эти ключи есть в вашем объекте goals и в продуктах!)
-    // Я добавил те ключи, которые видел в вашем коде на GitHub
-    const priorities = ['prot', 'fat', 'carb', 'cal', 'water', 'vitA', 'vitC', 'ca', 'fe'];
-    
-    // Цикл подбора (максимум 12 шагов, чтобы собрать полноценный рацион)
-    for (let iteration = 0; iteration < 12; iteration++) {
-        
-        // Считаем, что уже есть в корзине
-        const currentTotal = basket.reduce((acc, i) => {
-            const r = i.weight / 100;
-            priorities.forEach(k => {
-                acc[k] = (acc[k] || 0) + ((parseFloat(i[k]) || 0) * r);
-            });
-            return acc;
-        }, {});
-
-        // Ищем самый большой дефицит в процентах
-        let mostNeeded = null;
-        let maxDeficitPct = 0;
-
-        priorities.forEach(key => {
-            const goalVal = parseFloat(goals[key]) || 0;
-            const currentVal = currentTotal[key] || 0;
-            
-            if (goalVal > 0) {
-                const deficitPct = (goalVal - currentVal) / goalVal;
-                // Ищем нутриент, которого не хватает больше всего
-                if (deficitPct > maxDeficitPct) {
-                    maxDeficitPct = deficitPct;
-                    mostNeeded = key;
-                }
-            }
-        });
-
-        // Если всё заполнено на 95%, выходим
-        if (!mostNeeded || maxDeficitPct < 0.05) break;
-
-        // Фильтруем продукты по главам и наличию нужного нутриента
-        let candidates = products.filter(p => 
-            selectedChapters.includes(p.category) && (parseFloat(p[mostNeeded]) > 0)
-        );
-
-        if (candidates.length === 0) break;
-
-        // Сортируем: лучший тот, у кого больше искомого вещества на единицу калорий
-        candidates.sort((a, b) => {
-            const valA = (parseFloat(a[mostNeeded]) || 0) / (parseFloat(a.cal) || 1);
-            const valB = (parseFloat(b[mostNeeded]) || 0) / (parseFloat(b.cal) || 1);
-            return valB - valA;
-        });
-        
-        const bestProduct = candidates[0];
-
-        // Расчет граммовки для закрытия "дыры"
-        const gap = parseFloat(goals[mostNeeded]) - (currentTotal[mostNeeded] || 0);
-        let weightNeeded = (gap / (parseFloat(bestProduct[mostNeeded]) || 0.1)) * 100;
-        
-        // Ограничители порции для реалистичности (от 50г до 250г)
-        weightNeeded = Math.min(Math.max(weightNeeded, 50), 250);
-
-        // Добавляем в корзину
-        basket.push({
-            ...bestProduct, 
-            weight: Math.round(weightNeeded), 
-            bId: Date.now() + Math.random()
-        });
-    }
-
-    updateUI();
-    closeAutoMenu();
-}
-
 	
 
 	// Функция экспорта норм
@@ -1900,34 +1809,46 @@ function init() {
         updateUI();
     }
 function renderShelf() {
-    const list = document.getElementById('product-list');
+    const shelf = document.getElementById('product-list');
     const filter = document.getElementById('category-filter').value;
-    list.innerHTML = '';
+    const searchText = document.getElementById('product-search').value.toLowerCase();
     
-    products.forEach(p => {
-        // Логика фильтрации
-        const matchCategory = (filter === "Все") || (p.category === filter);
-        const isMyProduct = (filter === "Мои" && p.isCustom);
-        
-        if (matchCategory || isMyProduct) {
-            const d = document.createElement('div');
-            d.className = 'product-card';
-            d.draggable = true;
-			d.onclick = () => addToBasket(p.id);
-            const deleteBtn = p.isCustom 
-                ? `<button onclick="deleteFromShelf(${p.id})" style="float:right; border:none; background:none; color:red; cursor:pointer;">×</button>` 
-                : '';
+    shelf.innerHTML = '';
 
-            d.innerHTML = `
-                ${deleteBtn}
-                <strong>${p.name}</strong>
-                <br><small>${p.cal} ккал | Б:${p.prot} Ж:${p.fat}</small>
-            `;
-			
-            d.ondragstart = (e) => e.dataTransfer.setData('pid', p.id);
-            list.appendChild(d);
-        }
+    // Фильтруем массив продуктов по двум критериям одновременно
+    const filtered = products.filter(p => {
+        // Проверка категории
+        const categoryMatch = (filter === 'Все' || p.category === filter);
+        // Проверка текста поиска (ищем в названии)
+        const searchMatch = p.name.toLowerCase().includes(searchText);
+        
+        return categoryMatch && searchMatch;
     });
+
+    // Отрисовка отфильтрованных карточек
+    filtered.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'product-card';
+        div.draggable = true;
+        div.innerHTML = `
+            <strong>${p.name}</strong><br>
+            <small>Ккал: ${p.cal} | Б: ${p.prot} | Ж: ${p.fat} | У: ${p.carb}</small>
+        `;
+        
+        // События для Drag-n-Drop
+        div.ondragstart = (e) => {
+            e.dataTransfer.setData('text/plain', p.id);
+        };
+        
+        // Поддержка клика для мобилок (альтернатива драг-н-дропу)
+        div.onclick = () => addToBasket(p.id);
+        
+        shelf.appendChild(div);
+    });
+
+    if (filtered.length === 0) {
+        shelf.innerHTML = '<div style="padding:10px; color:gray; text-align:center;">Ничего не найдено</div>';
+    }
 }
 function deleteFromShelf(id) {
     products = products.filter(p => p.id !== id);
