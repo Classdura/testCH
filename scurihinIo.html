@@ -43,7 +43,29 @@
 * {
     box-sizing: border-box;
 }
+/* Выделение специфических единиц (RE и NE) */
+.special-unit-label {
+    color: #e74c3c !important; /* Красный цвет для заголовка */
+    font-weight: bold;
+}
 
+.unit-comment {
+    display: block;
+    font-size: 0.65rem;
+    color: #e74c3c;
+    line-height: 1;
+    margin-top: 2px;
+}
+
+/* Улучшение внешнего вида полей ввода в сетке */
+.goals-grid .stat-item {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    padding: 5px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+}
 /* Специфично для формы добавления продукта */
 #new-prod-form input {
     width: 100%;       /* Занимает ровно ширину ячейки грида */
@@ -168,7 +190,6 @@ button, .product-card {
     </style>
 </head>
 <body>
-
 <header><strong>Интерактивный рацион: Настройка личных норм</strong></header>
 
 <div id="auto-menu" style="display:none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 2px solid #ff69b4; border-radius: 12px; z-index: 1000; box-shadow: 0 0 20px rgba(0,0,0,0.3); width: 300px;">
@@ -246,21 +267,26 @@ button, .product-card {
     </section>
     <section>
         <h3>Ваши нормативы</h3>
-        <div class="goals-grid" id="goals-form">
-            </div>
-<div style="display: flex; gap: 5px; margin-top: 10px; padding: 5px;">
+    <div style="font-size: 0.7rem; color: #666; margin-bottom: 10px; padding: 5px; background: #fff5f5; border-left: 3px solid #e74c3c;">
+        * Витамин <b>А</b> вводится в <b>мкг RE</b> (ретинолэквивалент)<br>
+        * Витамин <b>ПП</b> вводится в <b>мг NE</b> (ниацинэквивалент)
+    </div>
+
+    <div class="goals-grid" id="goals-form">
+        </div>
+
+    <div style="display: flex; gap: 5px; margin-top: 10px; padding: 5px;">
         <button onclick="exportGoals()" style="flex: 1; background: #8e44ad; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
             💾 Сохранить нормы
         </button>
-        
         <input type="file" id="importGoalsBtn" style="display:none" onchange="importGoals(event)">
-        
         <button onclick="document.getElementById('importGoalsBtn').click()" style="flex: 1; background: #8e44ad; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
             📂 Загрузить нормы
         </button>
 </div>
         <h3>Прогресс</h3>
         <div id="progress-scroll"></div>
+		
     </section>
 </main>
 
@@ -1477,7 +1503,7 @@ button, .product-card {
 { id: 1095, category: "Консервы", name: "Горошек зеленый", cal: 40, prot: 3.1, fat: 0.2, carb: 7.3, vitA: 0.30, vitB1: 0.11, vitB2: 0.05, vitPP: 0.70, vitC: 10.0, ca: 20, p: 62, mg: 21, na: 360, k: 99, fe: 0.7, water: 84.2 },
 { id: 1096, category: "Консервы", name: "Кукуруза дробленая", cal: 72, prot: 2.4, fat: 0.5, carb: 15.0, vitA: 0, vitB1: 0.03, vitB2: 0.05, vitPP: 1.00, vitC: 6.0, ca: 5, p: 55, mg: 0, na: 360, k: 0, fe: 0.6, water: 81.0 },
 { id: 1097, category: "Консервы", name: "Кукуруза целыми зернами", cal: 58, prot: 2.2, fat: 0.4, carb: 11.7, vitA: 0.02, vitB1: 0.02, vitB2: 0.05, vitPP: 0.95, vitC: 4.8, ca: 5, p: 50, mg: 0, na: 400, k: 0, fe: 0.4, water: 87.0 },
-{ id: 1098, category: "Консервы", name: "Морковь натуральная", cal: 29, prot: 1.0, fat: 0.1, carb: 6.9, vitA: 5.40, vitB1: 0.03, vitB2: 0.04, vitPP: 0.60, vitC: 4.0, ca: 42, p: 41, mg: 13, na: 440, k: 161, fe: 0.6, water: 88.6 },
+{ id: 1098, category: "Консервы", name: "Консерва: Морковь натуральная", cal: 29, prot: 1.0, fat: 0.1, carb: 6.9, vitA: 5.40, vitB1: 0.03, vitB2: 0.04, vitPP: 0.60, vitC: 4.0, ca: 42, p: 41, mg: 13, na: 440, k: 161, fe: 0.6, water: 88.6 },
 { id: 1099, category: "Консервы", name: "Свекла натуральная", cal: 31, prot: 1.2, fat: 0, carb: 7.7, vitA: 0, vitB1: 0.01, vitB2: 0.03, vitPP: 0.20, vitC: 4.0, ca: 15, p: 29, mg: 16, na: 480, k: 288, fe: 0.6, water: 89.0 },
 { id: 1100, category: "Консервы", name: "Томаты с кожицей", cal: 20, prot: 1.1, fat: 0, carb: 4.2, vitA: 1.0, vitB1: 0.01, vitB2: 0.02, vitPP: 0.40, vitC: 15.0, ca: 10, p: 35, mg: 15, na: 480, k: 260, fe: 0.8, water: 92.2 },
 { id: 1101, category: "Консервы", name: "Томаты без кожицы", cal: 11, prot: 0.5, fat: 0, carb: 2.6, vitA: 1.0, vitB1: 0.01, vitB2: 0.02, vitPP: 0.40, vitC: 15.0, ca: 10, p: 35, mg: 15, na: 320, k: 260, fe: 0.8, water: 95.3 },
@@ -1717,12 +1743,12 @@ button, .product-card {
     // Настраиваемые нормы
     let goals = {
         cal: 2000, prot: 100, fat: 60, carb: 250,
-        vitA: 0.9, vitB1: 1.5, vitB2: 1.8, vitPP: 20, vitC: 90,
+        vitA: 900, vitB1: 1.5, vitB2: 1.8, vitPP: 20, vitC: 90,
         ca: 1000, p: 800, mg: 400, na: 1300, k: 2500, fe: 18, water: 2000
     };
+	
 
     let basket = [];
-
 
 // Вспомогательная функция для наполнения меню чекбоксами (главами)
 function renderChapterChecks() {
@@ -1817,43 +1843,43 @@ function renderShelf() {
     
     shelf.innerHTML = '';
 
-    // Фильтруем массив продуктов по двум критериям одновременно
     const filtered = products.filter(p => {
-        // Проверка категории
         const categoryMatch = (filter === 'Все' || p.category === filter);
-        // Проверка текста поиска (ищем в названии)
         const searchMatch = p.name.toLowerCase().includes(searchText);
-        
         return categoryMatch && searchMatch;
     });
 
-    // Отрисовка отфильтрованных карточек
     filtered.forEach(p => {
         const div = document.createElement('div');
         div.className = 'product-card';
         div.draggable = true;
+        
+        // Кнопка удаления (только для своих)
+        const deleteBtn = p.isCustom 
+            ? `<button onclick="event.stopPropagation(); deleteProduct(${p.id})" 
+                style="float:right; background:none; border:none; color:var(--danger); cursor:pointer; font-weight:bold; font-size:1.2rem;">×</button>` 
+            : "";
+
+        // Формируем внутренности: Название, калории и ГЛАВА
         div.innerHTML = `
-            <strong>${p.name}</strong><br>
-            <small>Ккал: ${p.cal} | Б: ${p.prot} | Ж: ${p.fat} | У: ${p.carb}</small>
+            ${deleteBtn}
+            <div style="pointer-events: none;">
+                <strong>${p.name}</strong> <small>(${p.cal} ккал)</small><br>
+                <small style="color: #888; font-style: italic;">Глава: ${p.category || 'Общее'}</small>
+            </div>
         `;
         
-        // События для Drag-n-Drop
+        // Drag-n-Drop (используем ID)
         div.ondragstart = (e) => {
             e.dataTransfer.setData('text/plain', p.id);
         };
         
-        // Поддержка клика для мобилок (альтернатива драг-н-дропу)
-        div.onclick = () => addToBasket(p.id);
+        // Клик (передаем ID, так как твоя функция addToBasket скорее всего ищет по ID)
+        div.onclick = () => {
+            addToBasket(p.id); 
+        };
         
         shelf.appendChild(div);
-		
-		// удаление:
-const deleteBtn = p.isCustom 
-    ? `<button onclick="event.stopPropagation(); deleteProduct(${p.id})" 
-        style="float:right; background:none; border:none; color:var(--danger); cursor:pointer; font-weight:bold;">×</button>` 
-    : "";
-
-div.innerHTML = `${p.name} <small>(${p.cal} ккал)</small> ${deleteBtn}`;
     });
 
     if (filtered.length === 0) {
@@ -1888,11 +1914,82 @@ function importProducts(event) {
 }
 
 
-    function updateUI() {
-        renderBasket();
-        renderProgress();
-        renderSummary();
+function updateUI() {
+    // 1. Инициализируем ВСЕ нутриенты нулями
+    const totals = {
+        cal: 0, prot: 0, fat: 0, carb: 0, 
+        vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, 
+        ca: 0, p: 0, mg: 0, na: 0, k: 0, fe: 0, water: 0
+    };
+
+    // 2. Суммируем всё, что лежит в корзине
+    basket.forEach(item => {
+        const r = item.weight / 100;
+        for (let key in totals) {
+            if (item[key] !== undefined) {
+                totals[key] += item[key] * r;
+            }
+        }
+    });
+
+    const progressScroll = document.getElementById('progress-scroll');
+    if (progressScroll) {
+        progressScroll.innerHTML = '';
+        
+        // 3. ПОЛНЫЙ список для отображения в прогрессе
+        // Математика Витамина А: база(мг) * 1000 = мкг RE
+        const stats = [
+            { label: 'Калории', val: totals.cal, goal: goals.cal, unit: 'ккал' },
+            { label: 'Белки', val: totals.prot, goal: goals.prot, unit: 'г' },
+            { label: 'Жиры', val: totals.fat, goal: goals.fat, unit: 'г' },
+            { label: 'Углеводы', val: totals.carb, goal: goals.carb, unit: 'г' },
+            { label: 'Витамин А', val: totals.vitA * 1000, goal: goals.vitA, unit: 'мкг RE' },
+            { label: 'Витамин ПП', val: totals.vitPP, goal: goals.vitPP, unit: 'мг NE' },
+            { label: 'Витамин С', val: totals.vitC, goal: goals.vitC, unit: 'мг' },
+            { label: 'Витамин B1', val: totals.vitB1, goal: goals.vitB1, unit: 'мг' },
+            { label: 'Витамин B2', val: totals.vitB2, goal: goals.vitB2, unit: 'мг' },
+            { label: 'Железо (Fe)', val: totals.fe, goal: goals.fe, unit: 'мг' },
+            { label: 'Кальций (Ca)', val: totals.ca, goal: goals.ca, unit: 'мг' },
+            { label: 'Магний (Mg)', val: totals.mg, goal: goals.mg, unit: 'мг' },
+            { label: 'Натрий (Na)', val: totals.na, goal: goals.na, unit: 'мг' },
+            { label: 'Калий (K)', val: totals.k, goal: goals.k, unit: 'мг' },
+            { label: 'Фосфор (P)', val: totals.p, goal: goals.p, unit: 'мг' },
+            { label: 'Вода', val: totals.water, goal: goals.water, unit: 'мл' }
+        ];
+
+        stats.forEach(s => {
+            const goalVal = parseFloat(s.goal) || 0;
+            const per = goalVal > 0 ? (s.val / goalVal) * 100 : 0;
+            const isOver = per > 100;
+            
+            // Теперь всё черное (без специальных стилей для А и ПП)
+            progressScroll.innerHTML += `
+                <div class="stat-row">
+                    <div class="stat-info">
+                        <span>${s.label} (${s.unit})</span>
+                        <span class="${isOver ? 'limit-text' : ''}">${s.val.toFixed(1)} / ${goalVal}</span>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-fill ${isOver ? 'over-limit' : ''}" 
+                             style="width: ${Math.min(per, 100)}%; background: ${getBarColor(s.label)}"></div>
+                    </div>
+                </div>`;
+        });
     }
+
+    // 4. Отрисовка списка продуктов (чека) и итоговой таблицы
+    if (typeof renderBasket === 'function') renderBasket();
+    if (typeof renderSummaryTable === 'function') renderSummaryTable(totals);
+}
+
+// Проверьте наличие этой функции для цвета полосок, чтобы не было ошибок
+function getBarColor(label) {
+    if (label.includes('Белки')) return '#3498db';
+    if (label.includes('Жиры')) return '#f1c40f';
+    if (label.includes('Углеводы')) return '#e67e22';
+    if (label.includes('Калории')) return '#2c3e50';
+    return '#9b59b6';
+}
 
     function renderBasket() {
         const b = document.getElementById('basket');
