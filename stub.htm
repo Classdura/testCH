@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Раздел в разработке</title>
+    <style>
+        /* Базовый стиль из testhw.html */
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: #eef2f7; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+        }
+        
+        .container { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+            width: 90%; 
+            max-width: 500px; 
+            text-align: center; 
+        }
+
+        .icon { font-size: 5rem; margin-bottom: 20px; }
+        
+        h1 { color: #dc3545; margin-bottom: 15px; } /* Красный из .berserk */
+        
+        p { color: #666; font-size: 1.1em; line-height: 1.6; margin-bottom: 30px; }
+
+        /* Индикатор прогресса */
+        .progress-container {
+            background: #eee;
+            border-radius: 10px;
+            height: 10px;
+            width: 100%;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            background: #6f42c1; /* Фиолетовый из .chaos */
+            height: 100%;
+            width: 35%; /* Типа процесс идет */
+        }
+
+        .btn-home {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #007bff; /* Синий из .random */
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .btn-home:hover {
+            transform: scale(1.05);
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="icon">🚧</div>
+    <h1>Ещё в работе...</h1>
+    <p>Этот раздел находится на стадии проектирования, согласования и реализации. Пожалуйста, загляните позже!</p>
+    
+    <div class="progress-container">
+        <div class="progress-bar"></div>
+    </div>
+
+    <a href="index.html" class="btn-home">⬅ Вернуться в лобби</a>
+</div>
+
+</body>
+</html>
