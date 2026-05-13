@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Главное меню - Гигиена</title>
+    <style>
+        /* Наследуем основной стиль из testhw.html */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #eef2f7; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px; 
+        }
+        
+        .container { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+            width: 100%; 
+            max-width: 600px; 
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 1.8em;
+        }
+
+        .lobby-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Стили кнопок-ссылок в твоем стиле */
+        .nav-btn {
+            display: block;
+            padding: 18px 25px;
+            font-size: 1.1em;
+            text-decoration: none;
+            color: white;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-3px);
+            opacity: 0.9;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+
+        /* Цвета для разных разделов (взято из твоих классов .random, .berserk, .chaos) */
+        .radiation { background: #6f42c1; } /* Радиационная (фиолетовый) */
+        .children { background: #007bff; }  /* ГДИП (синий) */
+        .communal { background: #28a745; }   /* Коммуналка (зеленый - новый акцент) */
+        .labor { background: #dc3545; }      /* Труды (красный) */
+        .nutrition { background: #fd7e14; }  /* Питание (оранжевый - новый акцент) */
+        .others { background: #6c757d; }     /* Другие (серый) */
+
+        .footer-text {
+            margin-top: 25px;
+            font-size: 0.9em;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Выбор направления. Тесты и проекты.</h1>
+    
+    <div class="lobby-menu">
+        <a href="radiation_test.html" class="nav-btn radiation">☢️ Радиационная гигиена</a>
+        <a href="children_test.html" class="nav-btn children">👶 Гигиена детей и подростков</a>
+        <a href="communal_test.html" class="nav-btn communal">🏢 Коммунальная гигиене</a>
+        <a href="labor_test.html" class="nav-btn labor">🛠️ Гигиена труда</a>
+        <a href="nutrition_test.html" class="nav-btn nutrition">🍎 Гигиена питания</a>
+        
+        <div style="margin: 10px 0; border-top: 1px solid #eee;"></div>
+        
+        <a href="projects.html" class="nav-btn others">📂 Другие проекты</a>
+    </div>
+
+    <div class="footer-text">Удачи на тестировании!</div>
+</div>
+
+</body>
+</html>
