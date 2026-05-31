@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чек-лист проверки Роспотребнадзора</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 p-4 md:p-8">
+    <div class="max-w-6xl mx-auto bg-white p-6 rounded-lg shadow-md">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">Чек-лист проверки</h1>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-blue-50 rounded border border-blue-200">
+            <div class="col-span-2">
+                <label class="block text-sm font-bold text-blue-800 mb-1">Вставьте JSON:</label>
+                <textarea id="jsonInput" class="w-full h-20 p-2 border rounded text-xs" placeholder='[{"id": 1, "object": "Название", ...}]'></textarea>
+                <button onclick="loadFromInput()" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">Загрузить данные</button>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-gray-700">Вид продукции:</label>
+                <input type="text" id="productField" class="w-full p-2 border rounded" placeholder="Например: Сметана">
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-gray-700">Вид контроля:</label>
+                <input type="text" id="activityField" class="w-full p-2 border rounded" placeholder="Например: Рейдовый осмотр">
+            </div>
+        </div>
+
+        <div id="checklistContainer" class="space-y-0 border-x border-b border-gray-200"></div>
+
+        <button onclick="generateReport()" class="mt-8 w-full bg-emerald-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-emerald-700">Сформировать заключение</button>
+        <div id="resultArea" class="mt-6 p-6 hidden bg-white border border-gray-300 rounded shadow-inner whitespace-pre-line text-gray-800"></div>
+    </div>
+
+    <script>
+        let checklist = [];
+
+        function loadFromInput() {
+            try {
+                checklist = JSON.parse(document.getElementById('jsonInput').value);
+                renderChecklist();
+            } catch (e) { alert("Ошибка JSON!"); }
+        }
+
+        function renderChecklist() {
+            const container = document.getElementById('checklistContainer');
+            container.innerHTML = checklist.map(item => {
+                if (item.isHeader) return `<div class="bg-gray-200 p-3 font-bold text-gray-800 col-span-12 border-t">${item.object}</div>`;
+                return `
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border-b border-gray-200 items-center ${item.status === false ? 'bg-red-50' : item.status === true ? 'bg-green-50' : ''}">
+                        <div class="col-span-2 font-medium text-sm">${item.object}</div>
+                        <div class="col-span-4 text-sm">${item.requirement}</div>
+                        <div class="col-span-3 text-xs italic text-gray-500">${item.doc}</div>
+                        <div class="col-span-3 flex flex-col items-center gap-1">
+                            <div class="flex space-x-2">
+                                <button onclick="setStatus(${item.id}, true)" class="px-3 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600">ДА</button>
+                                <button onclick="setStatus(${item.id}, false)" class="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">НЕТ</button>
+                            </div>
+                            ${item.time ? `<span class="text-[10px] text-gray-400">Установлено: ${item.time}</span>` : ''}
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        function setStatus(id, value) {
+            const item = checklist.find(i => i.id === id);
+            // Защита от случайного нажатия (миссклика)
+            if (item.status !== null) {
+                if (!confirm("Вы уверены, что хотите изменить уже установленный статус?")) return;
+            }
+            item.status = value;
+            item.time = new Date().toLocaleTimeString();
+            renderChecklist();
+        }
+
+        function generateReport() {
+            const product = document.getElementById('productField').value || "Продукция";
+            const activity = document.getElementById('activityField').value || "Проверка";
+            const items = checklist.filter(i => !i.isHeader);
+            
+            if (items.some(i => i.status === null)) return alert("Заполните все пункты!");
+            
+            const nonCompliant = items.filter(i => i.status === false);
+            const res = document.getElementById('resultArea');
+            res.classList.remove('hidden');
+
+            let reportText = `ЗАКЛЮЧЕНИЕ\nПо результатам ${activity} в отношении: ${product}\n\n`;
+            
+            if (nonCompliant.length === 0) {
+                reportText += "Продукция соответствует требованиям технических регламентов.";
+            } else {
+                reportText += "Выявлены следующие нарушения:\n\n";
+                nonCompliant.forEach((item, index) => {
+                    reportText += `${index + 1}. ${item.object}\n${item.requirement}. Согласно ${item.doc}.\nЗаключение: Продукция не соответствует требованиям безопасности.\n\n`;
+                });
+            }
+            res.textContent = reportText;
+        }
+    </script>
+</body>
+</html>
