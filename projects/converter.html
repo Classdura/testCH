@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Конвертер DOCX в Чек-лист</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4 md:p-8">
+    <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+        <h1 class="text-xl font-bold mb-4 text-gray-800">Конвертер DOCX в Чек-лист</h1>
+        <p class="text-sm text-gray-600 mb-6">Загрузи свой Word-файл с таблицей, и скрипт превратит его в готовый JSON.</p>
+        
+        <input type="file" id="docxInput" accept=".docx" class="mb-6 block w-full text-sm text-gray-500 
+            file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 
+            file:text-sm file:font-semibold file:bg-blue-600 file:text-white 
+            hover:file:bg-blue-700">
+        
+        <div id="outputArea" class="hidden">
+            <h2 class="font-bold mb-2 text-gray-700">Готовый JSON:</h2>
+            <textarea id="jsonOutput" class="w-full h-64 p-4 bg-gray-900 text-green-400 font-mono text-xs rounded border border-gray-700"></textarea>
+            <button onclick="copyToClipboard()" class="mt-4 w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700 transition">Скопировать в буфер</button>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('docxInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(loadEvent) {
+                mammoth.convertToHtml({arrayBuffer: loadEvent.target.result})
+                .then(function(result){
+                    const html = result.value; 
+                    const div = document.createElement('div');
+                    div.innerHTML = html;
+                    
+                    // Находим первую таблицу в документе
+                    const table = div.querySelector('table');
+                    if (!table) { alert("Таблица не найдена!"); return; }
+                    
+                    const rows = Array.from(table.querySelectorAll('tr'));
+                    
+                    const data = rows.map((tr, index) => {
+                        const tds = Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim());
+                        
+                        // Если строка пустая или имеет мало данных — это заголовок
+                        const isHeader = tds.length < 2 || (tds[1] === "" && tds[2] === "");
+                        
+                        if (isHeader) {
+                            return { id: index, object: tds[0], isHeader: true };
+                        }
+                        
+                        return {
+                            id: index,
+                            object: tds[0],
+                            requirement: tds[1] || "-",
+                            doc: tds[2] || "-",
+                            status: null,
+                            time: null
+                        };
+                    }).filter(item => item.object !== ""); // Убираем пустые строки
+                    
+                    document.getElementById('jsonOutput').value = JSON.stringify(data, null, 2);
+                    document.getElementById('outputArea').classList.remove('hidden');
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function copyToClipboard() {
+            const output = document.getElementById('jsonOutput');
+            output.select();
+            document.execCommand('copy');
+            alert("Данные в буфере! Теперь вставь их в сайт с Чек-листом.");
+        }
+    </script>
+</body>
+</html>
