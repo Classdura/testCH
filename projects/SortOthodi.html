@@ -1,1 +1,615 @@
-h
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сортировка медицинских отходов по СанПиН</title>
+    <style>
+        /* --- Frutiger Aero Эстетика --- */
+        @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 30%, #7dd3fc 70%, #38bdf8 100%);
+            background-attachment: fixed;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #334155;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        /* Пузыри на фоне в стиле Frutiger Aero */
+        body::before, body::after {
+            content: '';
+            position: fixed;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.5), 0 10px 30px rgba(0, 0, 0, 0.05);
+            z-index: -1;
+            filter: blur(5px);
+        }
+        body::before { top: -50px; left: -50px; }
+        body::after { bottom: -50px; right: -50px; width: 400px; height: 400px; }
+
+        /* Глянцевые кнопки */
+        .btn {
+            padding: 12px 28px;
+            font-size: 1rem;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.2) 100%);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1), inset 0 2px 2px rgba(255,255,255,0.5);
+            color: #0369a1;
+            text-shadow: 0 1px 1px rgba(255,255,255,0.8);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4), inset 0 2px 5px rgba(255,255,255,0.7);
+            background: linear-gradient(to bottom, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.4) 100%);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn-primary {
+            background: linear-gradient(to bottom, #38bdf8 0%, #0284c7 100%);
+            color: white;
+            border-color: #0284c7;
+            text-shadow: 0 -1px 1px rgba(0,0,0,0.2);
+        }
+        .btn-primary:hover {
+            background: linear-gradient(to bottom, #7dd3fc 0%, #0369a1 100%);
+            box-shadow: 0 6px 20px rgba(2, 132, 199, 0.4);
+        }
+
+        /* Экраны */
+        .screen {
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1), inset 0 1px 1px rgba(255,255,255,0.6);
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+            transition: all 0.5s ease;
+        }
+
+        .hidden {
+            display: none !important;
+            opacity: 0;
+        }
+
+        /* Главное меню */
+        #menu-screen h1 {
+            font-size: 2.5rem;
+            color: #0369a1;
+            margin-bottom: 20px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .description-plate {
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255,255,255,0.4);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .menu-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .info-block {
+            margin-top: 25px;
+            padding: 20px;
+            background: rgba(224, 242, 254, 0.7);
+            border-radius: 16px;
+            border-left: 6px solid #38bdf8;
+            text-align: left;
+            animation: slideDown 0.3s ease-out;
+            font-size: 0.95rem;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Игровой интерфейс */
+        #game-screen {
+            max-width: 1400px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        /* Контейнеры */
+        .containers-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            width: 100%;
+        }
+
+        @media (max-width: 1024px) {
+            .containers-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 640px) {
+            .containers-grid { grid-template-columns: 1fr; }
+        }
+
+        .waste-container {
+            border-radius: 20px;
+            padding: 20px 10px;
+            min-height: 250px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08), inset 0 4px 4px rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.4);
+        }
+
+        .waste-container h3 {
+            font-size: 1.2rem;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            margin-bottom: 5px;
+            pointer-events: none;
+        }
+
+        /* Цвета баков по СанПиН в стиле Frutiger Aero (глянец) */
+        .class-a {
+            background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 50%, #e2e8f0 100%);
+            color: #334155;
+            border-color: #cbd5e1;
+        }
+        .class-b {
+            background: linear-gradient(135deg, #fef08a 0%, #fde047 50%, #eab308 100%);
+            color: #713f12;
+            border-color: #facc15;
+        }
+        .class-v {
+            background: linear-gradient(135deg, #fca5a5 0%, #ef4444 50%, #b91c1c 100%);
+            color: #ffffff;
+            border-color: #f87171;
+        }
+        .class-g {
+            background: linear-gradient(135deg, #4b5563 0%, #1f2937 50%, #111827 100%);
+            color: #ffffff;
+            border-color: #374151;
+        }
+        .class-d {
+            background: linear-gradient(135deg, #93c5fd 0%, #3b82f6 50%, #1d4ed8 100%);
+            color: #ffffff;
+            border-color: #60a5fa;
+        }
+
+        /* Подсветка бака при наведении карточки */
+        .waste-container.drag-over {
+            transform: scale(1.03);
+            box-shadow: 0 12px 25px rgba(56, 189, 248, 0.5), inset 0 0 15px rgba(255,255,255,0.6);
+        }
+
+        /* Общая куча отходов */
+        .pool-section {
+            background: rgba(255, 255, 255, 0.3);
+            border: 2px dashed rgba(255,255,255,0.6);
+            border-radius: 20px;
+            padding: 25px;
+            min-height: 180px;
+            box-shadow: inset 0 4px 10px rgba(0,0,0,0.03);
+        }
+
+        .pool-section h2 {
+            font-size: 1.3rem;
+            color: #0369a1;
+            margin-bottom: 15px;
+        }
+
+        .items-pool {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            min-height: 100px;
+        }
+
+        /* Карточки отходов */
+        .waste-item {
+            background: linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.85) 100%);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 12px;
+            padding: 10px 16px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: grab;
+            user-select: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,1);
+            color: #1e293b;
+            max-width: 280px;
+            text-align: center;
+        }
+
+        .waste-item:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.08);
+            border-color: #38bdf8;
+        }
+
+        .waste-item:active {
+            cursor: grabbing;
+        }
+
+        .waste-item.dragging {
+            opacity: 0.4;
+            transform: scale(0.95);
+        }
+
+        /* Стилизация карточек внутри контейнеров (компактный вид) */
+        .waste-container .waste-item {
+            width: 90%;
+            max-width: 100%;
+            font-size: 0.8rem;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.85);
+            color: #0f172a;
+            border-color: transparent;
+        }
+
+        /* Кнопка проверки внизу */
+        .controls-panel {
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Победный модал */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+            padding: 40px;
+            border-radius: 24px;
+            border: 2px solid #22c55e;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            animation: scaleUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .modal-content h2 {
+            color: #16a34a;
+            font-size: 2.2rem;
+            margin-bottom: 15px;
+        }
+
+        .modal-content p {
+            font-size: 1.1rem;
+            margin-bottom: 25px;
+            color: #374151;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scaleUp { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="menu-screen" class="screen">
+        <h1>Сортировка медицинских отходов</h1>
+        <div class="description-plate">
+            Добро пожаловать в интерактивный тренажер! Вам предстоит распределить опасные и безопасные медицинские отходы по соответствующим классам согласно правилам СанПиН. Проверьте свои знания экологии и медицинской безопасности.
+        </div>
+        <div class="menu-buttons">
+            <button class="btn" id="about-btn">О игре</button>
+            <button class="btn btn-primary" id="play-btn">Играть</button>
+        </div>
+        <div id="info-block" class="info-block hidden">
+            Это ознакомительная игра для определения справимся ли мы с сортировкой отходов после ознакомления с санпин.
+        </div>
+    </div>
+
+    <div id="game-screen" class="screen hidden">
+        <div class="containers-grid">
+            <div class="waste-container class-a" data-class="А">
+                <h3>Класс А</h3>
+                <span style="font-size: 0.85rem; opacity: 0.8;">(Белый)</span>
+            </div>
+            <div class="waste-container class-b" data-class="Б">
+                <h3>Класс Б</h3>
+                <span style="font-size: 0.85rem; opacity: 0.8;">(Желтый)</span>
+            </div>
+            <div class="waste-container class-v" data-class="В">
+                <h3>Класс В</h3>
+                <span style="font-size: 0.85rem; opacity: 0.8;">(Красный)</span>
+            </div>
+            <div class="waste-container class-g" data-class="Г">
+                <h3>Класс Г</h3>
+                <span style="font-size: 0.85rem; opacity: 0.8;">(Черный)</span>
+            </div>
+            <div class="waste-container class-d" data-class="Д">
+                <h3>Класс Д</h3>
+                <span style="font-size: 0.85rem; opacity: 0.8;">(Синий)</span>
+            </div>
+        </div>
+
+        <div class="pool-section">
+            <h2>Неотсортированные отходы</h2>
+            <div class="items-pool" id="items-pool"></div>
+        </div>
+
+        <div class="controls-panel">
+            <button class="btn btn-primary" id="check-btn" style="padding: 15px 40px; font-size: 1.2rem;">Проверить</button>
+        </div>
+    </div>
+
+    <div id="win-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Ура ты справился!</h2>
+            <p>Все медицинские отходы успешно и абсолютно верно распределены по классам СанПиН!</p>
+            <button class="btn btn-primary" id="restart-btn">Играть снова</button>
+        </div>
+    </div>
+
+    <script>
+        // Данные игры
+        const wasteData = [
+            // Класс А
+            { text: "Использованные средства личной гигиены больных неинфекционными заболеваниями", class: "А" },
+            { text: "Предметы ухода однократного применения для неинфекционных пациентов", class: "А" },
+            { text: "Канцелярские принадлежности", class: "А" },
+            { text: "Упаковочные материалы (картон, бумага)", class: "А" },
+            { text: "Мебель, потерявшая потребительские свойства", class: "А" },
+            { text: "Инвентарь, подлежащий списанию", class: "А" },
+            { text: "Сметы от уборки территории медицинской организации", class: "А" },
+            { text: "Пищевые отходы центральных пищеблоков (кроме инфекционных отделений)", class: "А" },
+            { text: "Пищевые отходы столовых для работников организации", class: "А" },
+            { text: "Строительный мусор", class: "А" },
+            // Класс Б
+            { text: "Материалы, загрязненные кровью или другими биологическими жидкостями", class: "Б" },
+            { text: "Инструменты (шприцы, иглы), контактировавшие с кровью", class: "Б" },
+            { text: "Патологоанатомические отходы (органы, ткани)", class: "Б" },
+            { text: "Органические операционные отходы", class: "Б" },
+            { text: "Пищевые отходы из инфекционных отделений (патогены 3–4 групп)", class: "Б" },
+            { text: "Отходы микробиологических лабораторий, работающих с 3–4 группами патогенности", class: "Б" },
+            { text: "Биологические отходы вивариев", class: "Б" },
+            { text: "Живые вакцины, непригодные к использованию", class: "Б" },
+            { text: "Использованный перевязочный материал", class: "Б" },
+            { text: "Использованные и бракованные медицинские перчатки", class: "Б" },
+            // Класс В
+            { text: "Материалы, загрязненные выделениями больных инфекциями 1–2 групп патогенности", class: "В" },
+            { text: "Инструменты, контактировавшие с крайне опасными инфекциями", class: "В" },
+            { text: "Секционный материал (при вскрытии тел умерших от особо опасных инфекций)", class: "В" },
+            { text: "Отходы лабораторий, осуществляющих деятельность с возбудителями 1–2 групп патогенности", class: "В" },
+            { text: "Пищевые отходы из палат пациентов с инфекциями 1–2 групп патогенности", class: "В" },
+            { text: "Отходы фтизиатрических (туберкулезных) стационаров, загрязненные мокротой", class: "В" },
+            { text: "Отходы микробиологических лабораторий, работающих с возбудителями туберкулеза", class: "В" },
+            { text: "Жидкие выделения (моча, фекалии, рвотные массы) особо опасных инфекционных больных", class: "В" },
+            { text: "Списанное сырье производств лекарственных средств с использованием патогенов 1–2 групп", class: "В" },
+            { text: "Отходы от использования генно-инженерно-модифицированных органимзов в медицинских целях", class: "В" },
+            // Класс Г
+            { text: "Использованные ртутные термометры", class: "Г" },
+            { text: "Люминесцентные лампы и ртутьсодержащие трубки", class: "Г" },
+            { text: "Просроченные лекарственные средства", class: "Г" },
+            { text: "Отходы цитостатиков (препараты для лечения опухолей)", class: "Г" },
+            { text: "Отходы приготовления растворов цитостатиков", class: "Г" },
+            { text: "Генотоксические препараты", class: "Г" },
+            { text: "Диагностические средства, не подлежащие использованию", class: "Г" },
+            { text: "Дезинфекционные средства с истекшим сроком годности", class: "Г" },
+            { text: "Отработанные масла и фильтры от эксплуатации оборудования", class: "Г" },
+            { text: "Отходы рентгеновского производства (проявители, фиксаж)", class: "Г" },
+            // Класс Д
+            { text: "Твердые предметы, загрязненные радионуклидами", class: "Д" },
+            { text: "Жидкие радиоактивные растворы", class: "Д" },
+            { text: "Газообразные выбросы с содержанием изотопов", class: "Д" },
+            { text: "Отработанные источники ионизирующего излучения (иглы, зерна для терапии)", class: "Д" },
+            { text: "Биологические отходы пациентов, проходивших изотопную терапию", class: "Д" },
+            { text: "Расходные материалы радиологических отделений", class: "Д" },
+            { text: "Загрязненная спецодежда персонала лабораторий радиоизотопной диагностики", class: "Д" },
+            { text: "Лабораторная посуда и контейнеры для транспортировки изотопов", class: "Д" },
+            { text: "Генераторы радиоактивных изотопов с истекшим сроком службы", class: "Д" },
+            { text: "Материалы, использованные при дезактивации помещений для работы с радионуклидами", class: "Д" }
+        ];
+
+        // Навигация и элементы
+        const menuScreen = document.getElementById('menu-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const infoBlock = document.getElementById('info-block');
+        const itemsPool = document.getElementById('items-pool');
+        const winModal = document.getElementById('win-modal');
+
+        const aboutBtn = document.getElementById('about-btn');
+        const playBtn = document.getElementById('play-btn');
+        const checkBtn = document.getElementById('check-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const containers = document.querySelectorAll('.waste-container');
+
+        // Переключение инфо-блока
+        aboutBtn.addEventListener('click', () => {
+            infoBlock.classList.toggle('hidden');
+        });
+
+        // Старт игры
+        playBtn.addEventListener('click', () => {
+            menuScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            initGame();
+        });
+
+        // Перезапуск игры
+        restartBtn.addEventListener('click', () => {
+            winModal.classList.add('hidden');
+            gameScreen.classList.add('hidden');
+            menuScreen.classList.remove('hidden');
+            infoBlock.classList.add('hidden');
+        });
+
+        // Функция перемешивания Фишера-Йетса
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // Инициализация игры и генерация карточек
+        function initGame() {
+            itemsPool.innerHTML = '';
+            containers.forEach(container => {
+                // Очищаем контейнеры от старых карточек, оставляя заголовки
+                const title = container.querySelector('h3');
+                const subtitle = container.querySelector('span');
+                container.innerHTML = '';
+                container.appendChild(title);
+                container.appendChild(subtitle);
+            });
+
+            const shuffledData = shuffle([...wasteData]);
+
+            shuffledData.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.classList.add('waste-item');
+                card.setAttribute('draggable', 'true');
+                card.id = `waste-${index}`;
+                card.innerText = item.text;
+                // Зашиваем правильный ответ в data-атрибут
+                card.setAttribute('data-correct-class', item.class);
+
+                // События Drag-and-Drop для карточки
+                card.addEventListener('dragstart', dragStart);
+                card.addEventListener('dragend', dragEnd);
+
+                itemsPool.appendChild(card);
+            });
+        }
+
+        // Логика перетаскивания карточек
+        let draggedItem = null;
+
+        function dragStart(e) {
+            draggedItem = this;
+            setTimeout(() => this.classList.add('dragging'), 0);
+        }
+
+        function dragEnd() {
+            this.classList.remove('dragging');
+            draggedItem = null;
+        }
+
+        // Настройка зон сброса (баки и сама куча)
+        containers.forEach(container => {
+            container.addEventListener('dragover', dragOver);
+            container.addEventListener('dragenter', dragEnter);
+            container.addEventListener('dragleave', dragLeave);
+            container.addEventListener('drop', dropToContainer);
+        });
+
+        const poolSection = document.querySelector('.pool-section');
+        poolSection.addEventListener('dragover', dragOver);
+        poolSection.addEventListener('drop', dropToPool);
+
+        function dragOver(e) {
+            e.preventDefault(); // Разрешаем сброс
+        }
+
+        function dragEnter(e) {
+            e.preventDefault();
+            if(this.classList.contains('waste-container')) {
+                this.classList.add('drag-over');
+            }
+        }
+
+        function dragLeave() {
+            this.classList.remove('drag-over');
+        }
+
+        function dropToContainer(e) {
+            this.classList.remove('drag-over');
+            if (draggedItem) {
+                this.appendChild(draggedItem);
+            }
+        }
+
+        function dropToPool(e) {
+            if (draggedItem) {
+                itemsPool.appendChild(draggedItem);
+            }
+        }
+
+        // Логика проверки результатов
+        checkBtn.addEventListener('click', () => {
+            let hasErrors = false;
+            let totalItemsPlaced = 0;
+
+            containers.forEach(container => {
+                const targetClass = container.getAttribute('data-class');
+                const itemsInside = container.querySelectorAll('.waste-item');
+
+                itemsInside.forEach(item => {
+                    totalItemsPlaced++;
+                    const correctClass = item.getAttribute('data-correct-class');
+                    
+                    // Если класс бака не совпадает с истинным классом карточки
+                    if (targetClass !== correctClass) {
+                        hasErrors = true;
+                        // Возвращаем карточку в общую кучу
+                        itemsPool.appendChild(item);
+                    }
+                });
+            });
+
+            // Проверка: все ли карточки распределены
+            const remainingInPool = itemsPool.querySelectorAll('.waste-item').length;
+
+            if (hasErrors) {
+                alert("Ой! Некоторые элементы распределены неверно или возвращены в кучу. Попробуй еще раз!");
+            } else if (remainingInPool > 0) {
+                alert("Ты распределил верно часть предметов, но в куче еще остались отходы! Нужно рассортировать всё.");
+            } else if (totalItemsPlaced === wasteData.length) {
+                // Победа
+                winModal.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
