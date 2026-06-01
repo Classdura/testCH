@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Коммунальная гигиена — Frutiger Aero</title>
+    <style>
+        /* --- Базовая эстетика Frutiger Aero --- */
+        @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 30%, #7dd3fc 70%, #38bdf8 100%);
+            background-attachment: fixed;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #334155;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        /* Объемные пузыри на заднем плане */
+        body::before, body::after {
+            content: '';
+            position: fixed;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.5), 0 10px 30px rgba(0, 0, 0, 0.05);
+            z-index: -1;
+            filter: blur(5px);
+        }
+        body::before { top: -50px; left: -50px; }
+        body::after { bottom: -50px; right: -50px; width: 400px; height: 400px; }
+
+        /* Стеклянный контейнер */
+        .screen {
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1), inset 0 1px 1px rgba(255,255,255,0.6);
+            width: 100%;
+            max-width: 950px;
+            text-align: center;
+        }
+
+        /* НОВАЯ ФОРМА: Заголовок-параллелограмм из image_fd9927.png */
+        .header-parallelogram {
+            position: relative;
+            margin: 0 auto 40px auto;
+            max-width: 850px;
+            width: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.3) 100%);
+            border: 1px solid rgba(255,255,255,0.6);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.05), inset 0 2px 3px rgba(255,255,255,0.7);
+            /* Скос углов */
+            transform: skewX(-15deg); 
+            padding: 15px 0;
+            border-radius: 4px; /* Легкое скругление на стыках скоса */
+        }
+
+        /* Текст внутри заголовка разворачиваем обратно, чтобы он не был косым */
+        .header-parallelogram h1 {
+            transform: skewX(15deg);
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #0369a1;
+            text-shadow: 0 1px 1px rgba(255,255,255,0.8);
+            letter-spacing: 0.5px;
+        }
+
+        /* Сетка 3х3 */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 25px;
+            margin-bottom: 20px;
+        }
+
+        /* Глянцевые кнопки-ссылки */
+        .btn-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            aspect-ratio: 1.12 / 1; /* Сохраняем форму как на макете */
+            padding: 20px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            border-radius: 28px; /* Мягкие круглые углы из нового макета */
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            background: linear-gradient(to bottom, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.25) 100%);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.06), inset 0 3px 3px rgba(255,255,255,0.6);
+            color: #334155; /* Цвет текста чуть темнее для лучшей читаемости */
+            line-height: 1.4;
+        }
+
+        .btn-link:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 10px 25px rgba(56, 189, 248, 0.35), inset 0 2px 5px rgba(255,255,255,0.8);
+            background: linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(219, 242, 255, 0.6) 100%);
+            color: #0284c7;
+        }
+
+        .btn-link:active {
+            transform: translateY(1px);
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+        }
+
+        /* Панель для выравнивания стрелки */
+        .controls-panel {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 15px;
+            padding-right: 10px;
+        }
+
+        /* НОВАЯ ФОРМА: Кнопка "Назад" в виде стрелки вправо из image_fd9927.png */
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 25px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-decoration: none;
+            background: linear-gradient(to bottom, #38bdf8 0%, #0284c7 100%);
+            color: white;
+            border: 1px solid #0284c7;
+            text-shadow: 0 -1px 1px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            
+            /* Новая геометрия стрелки с помощью clip-path, указывающая вправо */
+            clip-path: polygon(0% 20%, 70% 20%, 70% 0%, 100% 50%, 70% 100%, 70% 80%, 0% 80%);
+            padding-right: 45px; /* Смещаем текст влево, чтобы освободить носик стрелки */
+            padding-left: 20px;
+            box-shadow: 0 6px 20px rgba(2, 132, 199, 0.3);
+        }
+
+        .btn-back:hover {
+            background: linear-gradient(to bottom, #7dd3fc 0%, #0369a1 100%);
+            box-shadow: 0 8px 25px rgba(2, 132, 199, 0.5);
+            transform: translateX(3px); /* Слегка подталкивается вперед при наведении */
+        }
+
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .menu-grid { grid-template-columns: repeat(2, 1fr); gap: 15px; }
+            .header-parallelogram h1 { font-size: 1.5rem; }
+        }
+        @media (max-width: 480px) {
+            .menu-grid { grid-template-columns: 1fr; }
+            .header-parallelogram { transform: skewX(0deg); }
+            .header-parallelogram h1 { transform: skewX(0deg); font-size: 1.3rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="screen">
+        <!-- Скошенный заголовок "Коммунальная гигиена" -->
+        <div class="header-parallelogram">
+            <h1 id="page-title">Загрузка заголовка...</h1>
+        </div>
+
+        <!-- Сетка, куда JS выведет только существующие ссылки -->
+        <div class="menu-grid" id="buttons-container"></div>
+
+        <!-- Новая стрелка НАЗАД -->
+        <div class="controls-panel">
+            <a href="index.html" class="btn-back">назад</a>
+        </div>
+    </div>
+
+    <!-- Логика автоматического добавления -->
+    <script>
+        // 1. Укажите название для скошенного заголовка:
+        const pageTitleText = "Коммунальная гигиена";
+
+        // 2. Настройка кнопок. На вашем макете активны первые две, 
+        // остальные автоматически скрыты, так как их нет в коде ниже:
+        const myButtons = [
+            { name: "Сортирование\nотходов по\nклассам", url: "sorting.html" },
+            { name: "Маршруты для\nотходов разных\nклассов в мед\nучреждении", url: "routes.html" }
+            
+            // Если понадобится третья или четвертая кнопка — просто раскомментируйте или добавьте их сюда:
+            // { name: "Пример новой ссылки", url: "example.html" }
+        ];
+
+        // --- АВТОМАТИЧЕСКАЯ СБОРКА СТРАНИЦЫ ---
+        document.getElementById('page-title').innerText = pageTitleText;
+        const container = document.getElementById('buttons-container');
+
+        myButtons.forEach(button => {
+            const linkElement = document.createElement('a');
+            linkElement.href = button.url;
+            linkElement.className = 'btn-link';
+            // Превращаем маркеры переноса \n в полноценный HTML-перенос строки
+            linkElement.innerHTML = button.name.replace(/\n/g, '<br>');
+            container.appendChild(linkElement);
+        });
+    </script>
+</body>
+</html>
