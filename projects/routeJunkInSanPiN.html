@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Игра: Утилизация медицинских отходов</title>
+    <style>
+        /* === СТИЛИ FRUTIGER AERO === */
+        :root {
+            --aero-bg: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            --aero-blue: linear-gradient(180deg, #87ceeb 0%, #4682b4 49%, #316b9b 50%, #1e527d 100%);
+            --glass-bg: rgba(255, 255, 255, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.8);
+            --text-color: #0b3b5b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none; /* Запрет выделения текста при перетаскивании */
+        }
+
+       body {
+            background: var(--aero-bg);
+            background-attachment: fixed;
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center; /* Добавили центровку по вертикали */
+            overflow-x: hidden;
+        }
+
+        /* Эффект воды/пузырей на фоне (упрощенный CSS) */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 20% 30%, rgba(255,255,255,0.4) 0%, transparent 10%),
+                        radial-gradient(circle at 80% 70%, rgba(255,255,255,0.3) 0%, transparent 15%);
+            z-index: -1;
+        }
+
+        /* Панели (Стекло) */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 2px 5px rgba(255, 255, 255, 0.5);
+            padding: 20px;
+            margin: 15px;
+            width: 90%;
+            max-width: 800px;
+            text-align: center;
+        }
+
+        /* Глянцевые кнопки */
+        button {
+            background: var(--aero-blue);
+            color: white;
+            border: 1px solid #1e527d;
+            border-radius: 20px;
+            padding: 10px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: inset 0px 2px 4px rgba(255, 255, 255, 0.6), 0px 4px 6px rgba(0, 0, 0, 0.2);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+            transition: transform 0.1s, filter 0.2s;
+            margin: 5px;
+        }
+
+        button:hover {
+            filter: brightness(1.1);
+        }
+
+        button:active {
+            transform: translateY(2px);
+            box-shadow: inset 0px 2px 6px rgba(0, 0, 0, 0.4), 0px 2px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        button:disabled {
+            background: #999;
+            box-shadow: none;
+            cursor: not-allowed;
+            color: #ddd;
+        }
+
+        h1, h2 {
+            text-shadow: 0px 2px 4px rgba(255,255,255,0.8);
+            margin-bottom: 15px;
+        }
+
+        /* Скрытые экраны */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Игровой интерфейс */
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            border: 1px solid white;
+        }
+
+        .stats {
+            display: flex;
+            gap: 15px;
+            font-weight: bold;
+        }
+
+        /* Drag and Drop зоны */
+        .zone-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .drop-slot {
+            background: rgba(0, 0, 0, 0.05);
+            border: 2px dashed #4682b4;
+            border-radius: 10px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: background 0.3s;
+        }
+
+        .drop-slot.drag-over {
+            background: rgba(70, 130, 180, 0.2);
+            border-color: #1e527d;
+        }
+
+        .bank {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            min-height: 80px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            border: 1px solid white;
+        }
+
+        /* Карточки этапов */
+        .card {
+            background: linear-gradient(180deg, #ffffff 0%, #e0f2fe 100%);
+            border: 1px solid #87ceeb;
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-weight: bold;
+            color: #0b3b5b;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1), inset 0 2px 2px #fff;
+            cursor: grab;
+            touch-action: none; /* Критично для кастомного тач-драга */
+            z-index: 10;
+        }
+
+        .card:active {
+            cursor: grabbing;
+        }
+
+        /* Класс при перетаскивании */
+        .dragging {
+            position: absolute;
+            pointer-events: none; /* Чтобы элемент под курсором не блокировал drop-зону */
+            opacity: 0.9;
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        /* Модальные окна */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-menu" class="glass-panel">
+        <h1>Утилизация медицинских отходов</h1>
+        <p style="margin-bottom: 20px;">Обучающая игра: расставь этапы сбора и утилизации по порядку.</p>
+        <div>
+            <button onclick="showScreen('class-selection')">Играть</button>
+            <button onclick="showAbout()">Об игре</button>
+        </div>
+    </div>
+
+    <div id="class-selection" class="glass-panel hidden">
+        <h2>Выберите класс отходов</h2>
+        <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;">
+            <button onclick="startGame('А')">Класс А (Неопасные)</button>
+            <button onclick="startGame('Б')">Класс Б (Опасные)</button>
+            <button onclick="startGame('В')">Класс В (Чрезвычайно опасные)</button>
+            <button onclick="startGame('Г')">Класс Г (Токсикологические)</button>
+            <button onclick="startGame('Д')">Класс Д (Радиоактивные)</button>
+        </div>
+        <button style="margin-top: 20px;" onclick="showScreen('main-menu')">Назад</button>
+    </div>
+
+    <div id="game-screen" class="glass-panel hidden">
+        <div class="game-header">
+            <h2 id="current-class-title" style="margin: 0;">Класс: -</h2>
+            <div class="stats">
+                <span>Время: <span id="timer">00:00</span></span>
+                <span>Попытки: <span id="attempts">0</span></span>
+                <span>Подсказки: <span id="hints">3</span></span>
+            </div>
+            <button id="hint-btn" onclick="useHint()">Подсказка</button>
+        </div>
+
+        <h3>Правильная последовательность:</h3>
+        <div id="drop-zones" class="zone-container">
+            </div>
+
+        <h3>Банк этапов:</h3>
+        <div id="card-bank" class="bank">
+            </div>
+
+        <div style="margin-top: 20px;">
+            <button onclick="checkResult()">Проверить</button>
+            <button onclick="showScreen('class-selection')">Сдаться (Выбор класса)</button>
+        </div>
+    </div>
+
+    <div id="modal" class="modal-overlay hidden">
+        <div class="glass-panel">
+            <h2 id="modal-title">Заголовок</h2>
+            <p id="modal-text" style="margin-bottom: 20px;">Текст</p>
+            <button id="modal-btn" onclick="closeModal()">ОК</button>
+        </div>
+    </div>
+
+    <script>
+        /* === ДАННЫЕ И ЛОГИКА === */
+        
+        // Схема данных на основе классификатора (правильные последовательности)
+        const wasteConfig = {
+            'А': [
+                "Сбор в многоразовые емкости/одноразовые пакеты",
+                "Перемещение в межкорпусные контейнеры",
+                "Транспортировка автотранспортом",
+                "Утилизация на полигоне ТБО или сжигание"
+            ],
+            'Б': [
+                "Сбор с обязательной дезинфекцией",
+                "Герметизация и маркировка",
+                "Сбор в контейнеры класса Б",
+                "Термическое обеззараживание / захоронение"
+            ],
+            'В': [
+                "Сбор с обязательной дезинфекцией",
+                "Герметизация в изолированном помещении",
+                "Сбор в контейнеры класса В",
+                "Вывоз централизованно (спецавтотранспорт)",
+                "Утилизация"
+            ],
+            'Г': [
+                "Сбор в закрытые герметичные емкости/твердую упаковку",
+                "Временное хранение во вспомогательных помещениях",
+                "Транспортировка автотранспортом спецпредприятий",
+                "Спецполигон токсичных промышленных отходов"
+            ],
+            'Д': [
+                "Первичная упаковка в спецконтейнеры",
+                "Дозовый контроль",
+                "Транспортировка спецавтотранспортом",
+                "Спецполигоны / Дезактивация сточных вод"
+            ]
+        };
+
+        // Состояние игры
+        let currentClass = null;
+        let correctSequence = [];
+        let timerInterval = null;
+        let secondsPassed = 0;
+        let attemptsCount = 0;
+        let hintsLeft = 3;
+
+        // Элементы DOM
+        const screens = {
+            'main-menu': document.getElementById('main-menu'),
+            'class-selection': document.getElementById('class-selection'),
+            'game-screen': document.getElementById('game-screen')
+        };
+        const dropZonesContainer = document.getElementById('drop-zones');
+        const cardBank = document.getElementById('card-bank');
+        const modal = document.getElementById('modal');
+
+        // Утилита: показать нужный экран
+        function showScreen(screenId) {
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            screens[screenId].classList.remove('hidden');
+            clearInterval(timerInterval);
+        }
+
+        // Инфо-модалка
+        function showAbout() {
+            showModal(
+                "Об игре", 
+                "Размещайте этапы сбора и утилизации в правильном порядке. \n Игру разработали студенты Пирогов Денис Викторович гр 2154, Печёнкина Диана Денисовна гр 2154, Савельева Арина Андреевна гр 2154", 
+                "Понятно", 
+                closeModal
+            );
+        }
+
+        // Показ кастомного модального окна
+        function showModal(title, text, btnText, action) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-text').innerText = text;
+            const btn = document.getElementById('modal-btn');
+            btn.innerText = btnText;
+            btn.onclick = action;
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            modal.classList.add('hidden');
+        }
+
+        // Перемешивание массива (Алгоритм Фишера-Йетса)
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex !== 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        // Форматирование времени
+        function formatTime(sec) {
+            const m = Math.floor(sec / 60).toString().padStart(2, '0');
+            const s = (sec % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        // Инициализация игры
+        function startGame(wasteClass) {
+            currentClass = wasteClass;
+            correctSequence = wasteConfig[wasteClass];
+            
+            // Сброс статистики
+            secondsPassed = 0;
+            attemptsCount = 0;
+            hintsLeft = 3;
+            document.getElementById('attempts').innerText = attemptsCount;
+            document.getElementById('hints').innerText = hintsLeft;
+            document.getElementById('timer').innerText = "00:00";
+            document.getElementById('current-class-title').innerText = `Класс: ${wasteClass}`;
+            document.getElementById('hint-btn').disabled = false;
+
+            // Очистка полей
+            dropZonesContainer.innerHTML = '';
+            cardBank.innerHTML = '';
+
+            // Создание слотов и перемешанных карточек
+            let shuffledCards = shuffle([...correctSequence]);
+            
+            correctSequence.forEach((step, index) => {
+                // Создаем слот
+                const slot = document.createElement('div');
+                slot.className = 'drop-slot';
+                slot.dataset.index = index;
+                dropZonesContainer.appendChild(slot);
+
+                // Создаем карточку в банке
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerText = shuffledCards[index];
+                card.dataset.value = shuffledCards[index];
+                
+                // Навешиваем слушатели для кроссплатформенного Drag-and-Drop
+                setupDragEvents(card);
+                cardBank.appendChild(card);
+            });
+
+            showScreen('game-screen');
+
+            // Запуск таймера
+            timerInterval = setInterval(() => {
+                secondsPassed++;
+                document.getElementById('timer').innerText = formatTime(secondsPassed);
+            }, 1000);
+        }
+
+        /* === КРОССПЛАТФОРМЕННЫЙ DRAG AND DROP НА POINTER EVENTS === */
+        
+        let draggedElement = null;
+        let startX = 0, startY = 0;
+        let initialLeft = 0, initialTop = 0;
+        let placeholder = null;
+
+        function setupDragEvents(card) {
+            card.addEventListener('pointerdown', onPointerDown);
+        }
+
+        function onPointerDown(e) {
+            // Игнорируем мультитач и правый клик
+            if (!e.isPrimary || e.button !== 0) return;
+
+            draggedElement = e.target;
+            
+            // Запоминаем исходное положение для возврата
+            const rect = draggedElement.getBoundingClientRect();
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            // Создаем заглушку, чтобы сетка не "прыгала"
+            placeholder = document.createElement('div');
+            placeholder.style.width = `${rect.width}px`;
+            placeholder.style.height = `${rect.height}px`;
+            draggedElement.parentNode.insertBefore(placeholder, draggedElement);
+
+            // Стилизуем элемент для свободного перемещения
+            draggedElement.style.width = `${rect.width}px`;
+            draggedElement.style.left = `${rect.left}px`;
+            draggedElement.style.top = `${rect.top}px`;
+            draggedElement.classList.add('dragging');
+            document.body.appendChild(draggedElement); // Выносим в body
+
+            document.addEventListener('pointermove', onPointerMove);
+            document.addEventListener('pointerup', onPointerUp);
+            
+            // Захват указателя для стабильной работы за пределами окна
+            draggedElement.setPointerCapture(e.pointerId);
+        }
+
+        function onPointerMove(e) {
+            if (!draggedElement) return;
+
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            
+            // Двигаем элемент
+            const rect = placeholder.getBoundingClientRect();
+            draggedElement.style.left = `${rect.left + dx}px`;
+            draggedElement.style.top = `${rect.top + dy}px`;
+
+            // Подсвечиваем drop-зону под курсором
+            document.querySelectorAll('.drop-slot').forEach(slot => slot.classList.remove('drag-over'));
+            
+            // Ищем элемент под курсором (т.к. у dragging pointer-events: none)
+            const target = document.elementFromPoint(e.clientX, e.clientY);
+            if (target && target.closest('.drop-slot')) {
+                target.closest('.drop-slot').classList.add('drag-over');
+            } else if (target && target.closest('.bank')) {
+                // Можно подсвечивать банк, если нужно
+            }
+        }
+
+        function onPointerUp(e) {
+            if (!draggedElement) return;
+
+            document.removeEventListener('pointermove', onPointerMove);
+            document.removeEventListener('pointerup', onPointerUp);
+            draggedElement.releasePointerCapture(e.pointerId);
+
+            const target = document.elementFromPoint(e.clientX, e.clientY);
+            let dropSlot = target ? target.closest('.drop-slot') : null;
+            let bankZone = target ? target.closest('.bank') : null;
+
+            // Убираем подсветку
+            document.querySelectorAll('.drop-slot').forEach(slot => slot.classList.remove('drag-over'));
+
+            // Очищаем стили drag
+            draggedElement.classList.remove('dragging');
+            draggedElement.style.position = '';
+            draggedElement.style.left = '';
+            draggedElement.style.top = '';
+            draggedElement.style.width = '';
+
+            // Логика сброса
+            if (dropSlot) {
+                // Если в слоте уже есть карточка, возвращаем её в банк
+                if (dropSlot.children.length > 0) {
+                    const existingCard = dropSlot.children[0];
+                    cardBank.appendChild(existingCard);
+                }
+                dropSlot.appendChild(draggedElement);
+            } else if (bankZone) {
+                cardBank.appendChild(draggedElement);
+            } else {
+                // Если бросили мимо, возвращаем на место заглушки
+                placeholder.parentNode.insertBefore(draggedElement, placeholder);
+            }
+
+            if (placeholder && placeholder.parentNode) {
+                placeholder.parentNode.removeChild(placeholder);
+            }
+
+            draggedElement = null;
+            placeholder = null;
+        }
+
+        /* === ИГРОВАЯ ЛОГИКА === */
+
+        function checkResult() {
+            attemptsCount++;
+            document.getElementById('attempts').innerText = attemptsCount;
+
+            const slots = document.querySelectorAll('.drop-slot');
+            let isCorrect = true;
+            let isComplete = true;
+
+            slots.forEach((slot, index) => {
+                if (slot.children.length === 0) {
+                    isComplete = false;
+                    isCorrect = false;
+                    return;
+                }
+                const cardValue = slot.children[0].dataset.value;
+                if (cardValue !== correctSequence[index]) {
+                    isCorrect = false;
+                }
+            });
+
+            if (!isComplete) {
+                showModal("Внимание", "Расставьте все карточки по слотам перед проверкой!", "Понятно", closeModal);
+                return;
+            }
+
+            if (isCorrect) {
+                clearInterval(timerInterval);
+                showModal(
+                    "Вы справились!", 
+                    `Отлично! Цепочка для Класса ${currentClass} выстроена верно.\nВремя: ${formatTime(secondsPassed)}\nПопыток: ${attemptsCount}`, 
+                    "В главное меню", 
+                    () => { closeModal(); showScreen('main-menu'); }
+                );
+            } else {
+                showModal("Попробуйте еще раз", "Где-то допущена ошибка. Переставьте карточки и проверьте снова.", "Продолжить", closeModal);
+            }
+        }
+
+        function useHint() {
+            if (hintsLeft <= 0) return;
+
+            const slots = Array.from(document.querySelectorAll('.drop-slot'));
+            const allCards = Array.from(document.querySelectorAll('.card'));
+
+            // Ищем первый слот, где либо пусто, либо стоит неправильная карточка
+            for (let i = 0; i < correctSequence.length; i++) {
+                const targetValue = correctSequence[i];
+                const currentSlot = slots[i];
+                
+                const currentCardInSlot = currentSlot.children.length > 0 ? currentSlot.children[0] : null;
+
+                if (!currentCardInSlot || currentCardInSlot.dataset.value !== targetValue) {
+                    // Найти нужную карточку во всем документе
+                    const correctCard = allCards.find(c => c.dataset.value === targetValue);
+                    
+                    // Если в слоте была неправильная карточка, отправляем её в банк
+                    if (currentCardInSlot) {
+                        cardBank.appendChild(currentCardInSlot);
+                    }
+                    
+                    // Ставим правильную
+                    currentSlot.appendChild(correctCard);
+                    
+                    // Списываем подсказку
+                    hintsLeft--;
+                    document.getElementById('hints').innerText = hintsLeft;
+                    
+                    if (hintsLeft === 0) {
+                        document.getElementById('hint-btn').disabled = true;
+                    }
+
+                    // Визуально подсветим, что сработала подсказка
+                    correctCard.style.transition = "transform 0.3s, box-shadow 0.3s";
+                    correctCard.style.transform = "scale(1.1)";
+                    correctCard.style.boxShadow = "0 0 15px #4682b4";
+                    setTimeout(() => {
+                        correctCard.style.transform = "";
+                        correctCard.style.boxShadow = "";
+                    }, 500);
+
+                    break; // Только одна подсказка за клик
+                }
+            }
+        }
+    </script>
+</body>
+</html>
