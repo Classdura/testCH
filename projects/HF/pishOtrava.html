@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Медицинское расследование</title>
+    <style>
+        :root { --bg: #f4f7f6; --panel: #ffffff; --accent: #2c3e50; --border: #dcdde1; }
+        body, html { margin: 0; height: 100%; font-family: sans-serif; background: var(--bg); }
+        .wrapper { display: grid; grid-template-columns: 300px 1fr 300px; height: 100vh; gap: 10px; padding: 10px; box-sizing: border-box; }
+        .panel { background: var(--panel); border: 1px solid var(--border); padding: 15px; border-radius: 8px; }
+        
+        /* Patient Panel */
+        #patient-svg { width: 100%; height: auto; }
+        .hidden { display: none; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 5px; margin-bottom: 15px; }
+        .tab-btn { padding: 8px 15px; cursor: pointer; border: 1px solid var(--border); background: #eee; }
+        .tab-btn.active { background: var(--accent); color: #fff; }
+
+        /* Medical Record */
+        .record-area { height: 70%; overflow-y: auto; border-bottom: 2px solid var(--border); }
+        .verdict-zone { margin-top: 10px; }
+		.symptom {
+    opacity: 0;
+    transition: opacity 0.4s ease, filter 0.4s ease;
+    pointer-events: none;
+}
+.symptom.visible {
+    opacity: 1 !important;
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.5));
+}
+:root {
+    --glass-bg: rgba(255, 255, 255, 0.3);
+    --glass-border: rgba(255, 255, 255, 0.5);
+    --accent-blue: #00a8ff;
+    --accent-green: #7cfc00;
+    --text-color: #ffffff;
+}
+
+body, html {
+    margin: 0;
+    height: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: radial-gradient(circle at 50% 50%, #1e3c72 0%, #2a5298 50%, #00d2ff 100%);
+    color: var(--text-color);
+    overflow: hidden;
+}
+
+.wrapper {
+    display: grid;
+    grid-template-columns: 300px 1fr 300px;
+    height: 100vh;
+    gap: 15px;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+h3 { text-shadow: 0 2px 4px rgba(0,0,0,0.3); letter-spacing: 1px; }
+
+/* Кнопки в стиле Frutiger Aero */
+button {
+    background: linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, rgba(0,0,0,0.1) 100%);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 15px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    margin-bottom: 8px;
+}
+
+button:hover {
+    background: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(0, 168, 255, 0.4) 100%);
+    transform: scale(1.05);
+    box-shadow: 0 0 15px var(--accent-blue);
+}
+
+.tab-btn { background: rgba(0, 168, 255, 0.2); }
+.tab-btn.active { background: var(--accent-blue); box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); }
+
+/* SVG манекен и симптомы */
+#patient-svg { filter: drop-shadow(0 0 10px rgba(255,255,255,0.2)); }
+.symptom { transition: opacity 0.5s ease; }
+.symptom.visible { 
+    opacity: 1 !important; 
+    filter: drop-shadow(0 0 8px var(--accent-green)); 
+}
+
+/* Медкарта и прокрутка */
+.record-area {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    padding: 10px;
+    font-size: 0.9em;
+    border: 1px solid rgba(255,255,255,0.1);
+    flex-grow: 1;         
+    min-height: 200px;   
+    max-height: 500px;  
+    overflow-y: auto;     
+    margin-bottom: 10px;
+}
+
+/* Выпадающие списки */
+select {
+    width: 100%;
+    padding: 8px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.9);
+    border: none;
+    margin-bottom: 10px;
+    font-family: inherit;
+    color: #333;
+}
+
+/* Скроллбар */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 10px; }
+#layer-skin-jaundice, #layer-skin-flush, #layer-skin-pinkish, #layer-skin-rash {
+    mix-blend-mode: multiply;
+    opacity: 0; 
+}
+@keyframes vibrate {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(2px, 0); }
+}
+textarea.medical-card {
+  height: 200px; 
+  resize: none;   
+  overflow-y: auto; 
+}
+.menu-screen {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 40px;
+    background: radial-gradient(circle at 50% 50%, #1e3c72 0%, #2a5298 100%);
+}
+.menu-screen h1 { font-size: 3em; margin-bottom: 20px; }
+.menu-screen p { max-width: 600px; margin-bottom: 30px; font-size: 1.2em; opacity: 0.9; }
+    </style>
+</head>
+<body>
+<div id="main-menu" class="menu-screen">
+    <h1>Расследование пищевых отравлений</h1>
+    <p>Веб-тренажер для визуальной диагностики клинических синдромов. Проект представляет собой интерактивную базу данных на 16 видов отравлений и инфекций с геймифицированным движком. Ключевая фича — динамическая послойная визуализация симптомов (SVG-манекен) на основе диагностического выбора пользователя в реальном времени.</p>
+    <button onclick="startGame()">Играть</button>
+    <button onclick="alert('Автор: студент Пирогов Денис Викторович гр. 2154')">Автор</button>
+</div>
+
+<!-- ИСПРАВЛЕНО: Теперь весь игровой интерфейс находится внутри этого контейнера -->
+<div class="wrapper" id="game-wrapper" style="display: none;">
+    <aside class="panel">
+        <h3>Пациент</h3>
+        <svg id="patient-svg" viewBox="0 0 200 400">
+            <path d="M100 50c-20 0-35 15-35 35s15 35 35 35 35-15 35-35-15-35-35-35z" fill="#f0d4c4" />
+            <path d="M65 120h70v150h-70z" fill="#f0d4c4" />
+            
+            <g id="symptom-layers">
+                <path id="layer-eyes-ptosis" class="symptom" d="M85 75h10v5h-10z" fill="#555" />
+                <circle id="layer-eyes-mydriasis" class="symptom" cx="95" cy="80" r="3" fill="#000" />
+                <path id="layer-skin-cyanosis" class="symptom" d="M85 95q15 5 30 0" stroke="#00d2ff" stroke-width="4" fill="none" />
+                <path id="layer-skin-flush" class="symptom" d="M70 55h60v50h-60z" fill="#ff4757" />
+                <path id="layer-skin-pinkish" class="symptom" d="M70 55h60v50h-60z" fill="#ff69b4" />
+                <path id="layer-mouth-leadline" class="symptom" d="M90 95h20" stroke="#2f3542" stroke-width="3" />
+                <path id="layer-throat-necrosis" class="symptom" d="M95 90l5 5m-10 0l5-5" stroke="#7f8c8d" stroke-width="3" />
+                <path id="layer-skin-jaundice" class="symptom" d="M65 120h70v150h-70z" fill="#f1c40f" />
+                <path id="layer-skin-petechiae" class="symptom" d="M80 140l5 5m-10 10l5-5m20-5l5 5" stroke="#c0392b" stroke-width="3" />
+                <path id="layer-skin-rash" class="symptom" d="M70 130h50v80h-50z" fill="#ff6347" />
+                <ellipse id="layer-abdomen-bloated" class="symptom" cx="100" cy="200" rx="20" ry="15" stroke="#e67e22" stroke-width="4" fill="none" />
+                <path id="layer-chest-dyspnea" class="symptom" d="M80 130h40M80 145h40" stroke="#3498db" stroke-width="2" />
+                <path id="layer-neuro-ataxia" class="symptom" d="M60 170l-10 10m90 0l10 10" stroke="#9b59b6" stroke-width="3" />
+                <path id="layer-bones-deformity" class="symptom" d="M100 120v140" stroke="#5d4037" stroke-width="6" stroke-linecap="round" />
+            </g>
+        </svg>
+    </aside>
+
+    <main class="panel">
+        <div class="tabs">
+            <button class="tab-btn active">Опрос</button>
+            <button class="tab-btn">Осмотр</button>
+            <button class="tab-btn">Лаборатория</button>
+        </div>
+        <h3>Инструменты</h3>
+        <div id="content-area"></div>
+    </main>
+
+    <aside class="panel">
+        <h3>Медкарта</h3>
+        <div class="record-area"></div>
+        <div class="verdict-zone">
+            <select id="diag-select"><option value="">Выберите диагноз</option></select>
+            <select id="prod-select"><option value="">Выберите продукт</option></select>
+            <button id="check-btn" onclick="checkVerdict()">Проверь версию</button>
+        </div>
+    </aside>
+</div>
+
+<script>
+function startGame() {
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('game-wrapper').style.display = 'grid';
+}
+
+function showMainMenu() {
+    document.getElementById('main-menu').style.display = 'flex';
+    document.getElementById('game-wrapper').style.display = 'none';
+    location.reload(); 
+}
+
+const recordArea = document.querySelector('.record-area');
+const contentArea = document.getElementById('content-area');
+const tabs = document.querySelectorAll('.tab-btn');
+
+const examMap = {
+    'eyes': ['layer-eyes-ptosis', 'layer-eyes-mydriasis'],
+    'face': ['layer-skin-cyanosis', 'layer-skin-flush', 'layer-skin-pinkish'],
+    'mouth': ['layer-mouth-leadline', 'layer-throat-necrosis'],
+    'body': ['layer-skin-jaundice', 'layer-skin-petechiae', 'layer-skin-rash'],
+    'abdomen': ['layer-abdomen-bloated'],
+    'breath': ['layer-chest-dyspnea'],
+    'neuro': ['layer-neuro-ataxia', 'layer-bones-deformity']
+};
+
+const allDiseases = [ {
+    "disease_name": "Ботулизм",
+    "incubation_period": "от 2–4 часов до 2–5 суток",
+    "anamnesis": [
+      { "question": "Каков характер заболеваемости?", "answer": "Спорадические случаи или вспышки в одной семье." },
+      { "question": "Какие продукты вы употребляли в пищу накануне?", "answer": "Домашние консервы (грибы, овощи), вяленая/копченая рыба, колбасы." }
+    ],
+    "physical_exam": [
+      { "id": "exam_neuro", "button_text": "Осмотр нервной системы", "result_text": "Нейровегетативный, офтальмический, бульбарный синдромы. Нарушение речи.", "layer_id": "layer-neuro-ataxia" },
+      { "id": "exam_eyes", "button_text": "Осмотр глаз", "result_text": "Диплопия (двоение), мидриаз (расширение зрачков), птоз (опущение век).", "layer_id": "layer-eyes-ptosis" },
+      { "id": "exam_mouth", "button_text": "Осмотр ротовой полости", "result_text": "Выраженная сухость во рту, нарушение глотания.", "layer_id": "layer-mouth-leadline" },
+      { "id": "exam_abdomen", "button_text": "Осмотр живота и ЖКТ", "result_text": "Парез кишечника, запор (за счет пареза ЖКТ), редко в самом начале был жидкий стул.", "layer_id": "layer-abdomen-bloated" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев и поиск токсина", "result_text": "Бакпосев отрицательный. Обнаружен ботулотоксин в крови/еде." },
+      { "button_text": "Биохимия крови", "result_text": "Без специфических изменений." },
+      { "button_text": "Характер кала", "result_text": "Запор, признаки пареза ЖКТ." }
+    ],
+    "correct_answer": { "product": "Домашние консервы (грибы, овощи), вяленая/копченая рыба, колбасы", "diagnosis": "Ботулизм" }
+  },
+  {
+    "disease_name": "Сальмонеллез",
+    "incubation_period": "от 6 часов до 2–3 суток",
+    "anamnesis": [
+      { "question": "Каков характер заболеваемости?", "answer": "Групповые вспышки, нарушение сангигиены на пищеблоке." },
+      { "question": "Какие продукты вы употребляли в пищу накануне?", "answer": "Яйца, мясо птицы, молочные продукты, мясные изделия." }
+    ],
+    "physical_exam": [
+      { "id": "exam_face", "button_text": "Общий осмотр и температура", "result_text": "Интоксикационный синдром. Лихорадка до 39°C, озноб.", "layer_id": "layer-skin-cyanosis" },
+      { "id": "exam_abdomen", "button_text": "Осмотр живота", "result_text": "Гастроэнтеритический синдром, схваткообразные боли в животе, рвота.", "layer_id": "layer-abdomen-bloated" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев", "result_text": "Положительный (выделение Salmonella)." },
+      { "button_text": "Биохимия крови", "result_text": "Электролитные нарушения, повышение мочевины при дегидратации." },
+      { "button_text": "Характер кала", "result_text": "Жидкий, обильный, зловонный, зеленоватого цвета («болотная тина»)." }
+    ],
+    "correct_answer": { "product": "Яйца, мясо птицы, молочные продукты, мясные изделия", "diagnosis": "Сальмонеллез" }
+  },
+  {
+    "disease_name": "Стафилококковый токсикоз",
+    "incubation_period": "Короткий: 1–6 часов",
+    "anamnesis": [
+      { "question": "Каков характер заболеваемости?", "answer": "Вспышки среди потребителей одного продукта, кондитерских изделий." },
+      { "question": "Какие продукты вы употребляли в пищу накануне?", "answer": "Кремы, торты, пирожные, молоко, запеканки (обсеменение от кондитера с панарицием/ангиной)." }
+    ],
+    "physical_exam": [
+      { "id": "exam_face", "button_text": "Общий осмотр", "result_text": "Интоксикация, резкая слабость. Температура чаще нормальная или субфебрильная.", "layer_id": "layer-skin-flush" },
+      { "id": "exam_abdomen", "button_text": "Осмотр живота", "result_text": "Острый гастрит, бурная повторная рвота, боли в эпигастрии.", "layer_id": "layer-abdomen-bloated" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев", "result_text": "Отрицательный. Обнаружен стафилококковый энтеротоксин в продукте." },
+      { "button_text": "Биохимия крови", "result_text": "Без грубых изменений (возможен легкий сдвиг электролитов)." },
+      { "button_text": "Характер кала", "result_text": "Нормальный или однократный жидкий без крови." }
+    ],
+    "correct_answer": { "product": "Кремы, торты, пирожные, молоко, запеканки", "diagnosis": "Стафилококковый токсикоз" }
+  },
+  {
+    "disease_name": "Листериоз",
+    "incubation_period": "от 1–2 недель до 2 месяцев",
+    "anamnesis": [
+      { "question": "Каков характер заболеваемости и группа риска?", "answer": "Спорадический, чаще страдают беременные, новорожденные и лица с иммунодефицитом." },
+      { "question": "Какие продукты вы употребляли в пищу?", "answer": "Мягкие сыры, непастеризованное молоко, готовые салаты, мясные деликатесы." }
+    ],
+    "physical_exam": [
+      { "id": "exam_body", "button_text": "Общий осмотр", "result_text": "Септический синдром. Высокая лихорадка, увеличение лимфоузлов.", "layer_id": "layer-skin-rash" },
+      { "id": "exam_neuro", "button_text": "Неврологический осмотр", "result_text": "Менингоэнцефалитический синдром. Сильная головная боль, ригидность мышц затылка.", "layer_id": "layer-neuro-ataxia" },
+      { "id": "exam_mouth", "button_text": "Осмотр ротоглотки", "result_text": "Ангинозный синдром.", "layer_id": "layer-throat-necrosis" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев", "result_text": "Положительный (выделение Listeria monocytogenes из крови/ликвора)." },
+      { "button_text": "Биохимия крови", "result_text": "Повышение СРБ, лейкоцитоз. При гепатите — рост АЛТ/АСТ." },
+      { "button_text": "Характер кала", "result_text": "Чаще без изменений, иногда умеренная диарея вначале." }
+    ],
+    "correct_answer": { "product": "Мягкие сыры, непастеризованное молоко, готовые салаты, мясные деликатесы", "diagnosis": "Листериоз" }
+  },
+  {
+    "disease_name": "Нитритная интоксикация",
+    "incubation_period": "от 30 минут до 2–3 часов",
+    "anamnesis": [
+      { "question": "Каков характер заболеваемости?", "answer": "Случайное употребление технологических солей или овощей с переизбытком удобрений." },
+      { "question": "Какие продукты вы употребляли в пищу?", "answer": "Продукты с избытком нитратов/нитритов (ранние арбузы, зелень, колбасы при нарушении рецептуры)." }
+    ],
+    "physical_exam": [
+      { "id": "exam_face", "button_text": "Осмотр кожи и слизистых", "result_text": "Гипоксический, гемический синдромы. Выраженный цианоз (посинение губ, ногтей).", "layer_id": "layer-skin-cyanosis" },
+      { "id": "exam_breath", "button_text": "Осмотр дыхательной и сердечной систем", "result_text": "Одышка, тахикардия.", "layer_id": "layer-chest-dyspnea" },
+      { "id": "exam_neuro", "button_text": "Неврологический осмотр", "result_text": "Головокружение, головная боль из-за метгемоглобинемии.", "layer_id": "layer-neuro-ataxia" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев", "result_text": "Отрицательный." },
+      { "button_text": "Биохимия крови", "result_text": "Метгемоглобинемия, выраженное снижение насыщения крови кислородом." },
+      { "button_text": "Характер кала", "result_text": "Без изменений." }
+    ],
+    "correct_answer": { "product": "Продукты с избытком нитратов/нитритов (ранние арбузы, зелень, колбасы)", "diagnosis": "Нитритная интоксикация" }
+  },
+  {
+    "disease_name": "Отравление ртутью (Минамата)",
+    "incubation_period": "Месяцы/годы (хроническое)",
+    "anamnesis": [
+      { "question": "Каков характер заболеваемости?", "answer": "Хроническое или острое употребление загрязненных морепродуктов." },
+      { "question": "Какие продукты составляли ваш рацион?", "answer": "Рыба и морепродукты из загрязненных промышленных водоемов (метилртуть)." }
+    ],
+    "physical_exam": [
+      { "id": "exam_neuro", "button_text": "Неврологический осмотр", "result_text": "Неврологический синдром (энцефалопатия). Атаксия (нарушение координации), онемение конечностей, тремор.", "layer_id": "layer-neuro-ataxia" },
+      { "id": "exam_eyes", "button_text": "Осмотр органов чувств", "result_text": "Ухудшение слуха и зрения.", "layer_id": "layer-eyes-ptosis" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев", "result_text": "Отрицательный." },
+      { "button_text": "Биохимия крови и мочи", "result_text": "Повышение уровня ртути в крови и моче." },
+      { "button_text": "Характер кала", "result_text": "Без специфических изменений." }
+    ],
+    "correct_answer": { "product": "Рыба и морепродукты из загрязненных промышленных водоемов", "diagnosis": "Отравление ртутью (Минамата)" }
+  },
+  {
+    "disease_name": "Отравление свинцом (Сатурнизм)",
+    "incubation_period": "Хроническое (недели/месяцы)",
+    "anamnesis": [
+      { "question": "Каков ваш профессиональный анамнез и бытовые условия?", "answer": "Профессиональный контакт со свинцом или использование глиняной посуды с кустарной глазурью." },
+      { "question": "Каковы возможные источники попадания токсина?", "answer": "Вода из свинцовых труб, продукты, хранившиеся в таре со свинцовым припоем." }
+    ],
+    "physical_exam": [
+      { "id": "exam_mouth", "button_text": "Осмотр ротовой полости", "result_text": "Свинцовая кайма на деснах (серая полоса).", "layer_id": "layer-mouth-leadline" },
+      { "id": "exam_abdomen", "button_text": "Осмотр живота", "result_text": "Токсическая колика: схваткообразные боли в животе, упорные запоры.", "layer_id": "layer-abdomen-bloated" },
+      { "id": "exam_neuro", "button_text": "Неврологический осмотр", "result_text": "Энцефалопатия, парезы.", "layer_id": "layer-neuro-ataxia" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев", "result_text": "Отрицательный." },
+      { "button_text": "Анализ крови", "result_text": "Анемический синдром, базофильная зернистость эритроцитов, высокий уровень свинца в крови." },
+      { "button_text": "Характер кала", "result_text": "Склонность к упорным запорам." }
+    ],
+    "correct_answer": { "product": "Вода из свинцовых труб, продукты из тары со свинцовым припоем", "diagnosis": "Отравление свинцом (Сатурнизм)" }
+  },
+  {
+    "disease_name": "Отравление кадмием (Итай-Итай)",
+    "incubation_period": "Хроническое (годы)",
+    "anamnesis": [
+      { "question": "Где вы проживали или откуда поставлялись продукты?", "answer": "Употребление продуктов из регионов с промышленным загрязнением почв и вод." },
+      { "question": "Какие продукты составляли основу рациона?", "answer": "Рис, зерновые культуры и вода, загрязненные кадмием." }
+    ],
+    "physical_exam": [
+      { "id": "exam_neuro", "button_text": "Осмотр опорно-двигательного аппарата", "result_text": "Остеомаляционный синдром. Сильнейшие боли в костях и суставах, частые переломы, деформация скелета.", "layer_id": "layer-bones-deformity" },
+      { "id": "exam_abdomen", "button_text": "Оценка мочевыделительной системы", "result_text": "Почечный синдром, нарушение функции почек.", "layer_id": "layer-abdomen-bloated" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев", "result_text": "Отрицательный." },
+      { "button_text": "Биохимия крови и мочи", "result_text": "Дисфункция почек (рост креатинина), гипокальциемия, обнаружение кадмия в моче." },
+      { "button_text": "Характер кала", "result_text": "Без специфических изменений." }
+    ],
+    "correct_answer": { "product": "Рис, зерновые культуры и вода, загрязненные кадмием", "diagnosis": "Отравление кадмием (Итай-Итай)" }
+  },
+  {
+    "disease_name": "Отравление мышьяком",
+    "incubation_period": "от 20–30 минут до 2 часов",
+    "anamnesis": [
+      { "question": "Каковы обстоятельства отравления?", "answer": "Случайное или преднамеренное употребление ядохимикатов, загрязненная вода." },
+      { "question": "Какие продукты или источники могли быть загрязнены?", "answer": "Загрязненная грунтовая вода, виноград/фрукты, обработанные пестицидами с мышьяком." }
+    ],
+    "physical_exam": [
+      { "id": "exam_mouth", "button_text": "Осмотр ротоглотки", "result_text": "Жжение в горле.", "layer_id": "layer-mouth-leadline" },
+      { "id": "exam_abdomen", "button_text": "Осмотр живота", "result_text": "Гастроэнтеральный («холероподобный») синдром. Неукротимая рвота, сильные боли в животе.", "layer_id": "layer-abdomen-bloated" },
+      { "id": "exam_neuro", "button_text": "Неврологический осмотр", "result_text": "Паралитический синдром, судороги.", "layer_id": "layer-neuro-ataxia" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев", "result_text": "Отрицательный." },
+      { "button_text": "Биохимия крови", "result_text": "Токсическая нефро- и гепатопатия (выраженный рост креатинина, билирубина)." },
+      { "button_text": "Характер кала", "result_text": "Обильный, жидкий, напоминает рисовый отвар, иногда с примесью крови." }
+    ],
+    "correct_answer": { "product": "Загрязненная грунтовая вода, виноград или фрукты с пестицидами", "diagnosis": "Отравление мышьяком" }
+  },
+  {
+    "disease_name": "Отравление бледной поганкой",
+    "incubation_period": "Длинный: 6–24 часа (типично — 12 часов)",
+    "anamnesis": [
+      { "question": "Ели ли вы дикорастущие грибы?", "answer": "Да, имел место сбор дикорастущих грибов неспециалистами." },
+      { "question": "Какой гриб мог послужить причиной?", "answer": "Бледная поганка (ее часто путают с шампиньонами или сыроежками)." }
+    ],
+    "physical_exam": [
+      { "id": "exam_abdomen", "button_text": "Осмотр живота", "result_text": "Гепатонефротоксический синдром. После периода мнимого благополучия — неукротимая рвота, сильные боли в животе.", "layer_id": "layer-abdomen-bloated" },
+      { "id": "exam_body", "button_text": "Осмотр кожных покровов и органов", "result_text": "Развитие желтухи, признаки нарастающей печеночной и почечной недостаточности.", "layer_id": "layer-skin-jaundice" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев", "result_text": "Отрицательный." },
+      { "button_text": "Биохимия крови", "result_text": "Критический взлет АЛТ, АСТ, падение ПТИ (протромбинового индекса), рост билирубина и креатинина." },
+      { "button_text": "Характер кала", "result_text": "Жидкий, водянистый, частый, затем становится дегтеобразным или с кровью." }
+    ],
+    "correct_answer": { "product": "Бледная поганка (под видом шампиньонов/сыроежек)", "diagnosis": "Отравление бледной поганкой" }
+  },
+  {
+    "disease_name": "Скомбротоксикоз",
+    "incubation_period": "Быстрый: от нескольких минут до 1 часа",
+    "anamnesis": [
+      { "question": "Каковы обстоятельства употребления рыбы?", "answer": "Употребление неправильно хранившейся рыбы." },
+      { "question": "Каку именно рыбу вы ели?", "answer": "Рыба семейства скумбриевых/тунцовых (тунец, макрель, скумбрия), где накопился гистамин." }
+    ],
+    "physical_exam": [
+      { "id": "exam_face", "button_text": "Осмотр кожи лица и шеи", "result_text": "Аллергоподобный (гистаминовый) синдром. Выраженное покраснение лица и шеи, крапивница, зуд кожи.", "layer_id": "layer-skin-flush" },
+      { "id": "exam_mouth", "button_text": "Осмотр ротовой полости", "result_text": "Ощущение жжения во рту.", "layer_id": "layer-mouth-leadline" },
+      { "id": "exam_neuro", "button_text": "Общий статус системы", "result_text": "Сильная головная боль, тахикардия.", "layer_id": "layer-neuro-ataxia" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев", "result_text": "Отрицательный." },
+      { "button_text": "Биохимия крови", "result_text": "Повышенный уровень гистамина (редко тестируют рутинно)." },
+      { "button_text": "Характер кала", "result_text": "Жидкий, кратковременный." }
+    ],
+    "correct_answer": { "product": "Рыба семейства скумбриевых/тунцовых (тунец, макрель, скумбрия) с гистамином", "diagnosis": "Скомбротоксикоз" }
+  },
+  {
+    "disease_name": "Алиментарно-токсическая алейкия",
+    "incubation_period": "2–3 недели (при накоплении токсина)",
+    "anamnesis": [
+      { "question": "Какие продукты из зерна вы употребляли?", "answer": "Употребление продуктов из перезимовавшего в поле зерна." },
+      { "question": "Из какого зерна были изготовлены продукты?", "answer": "Изделия из зерна (просо, гречиха, рожь), пораженного грибами Fusarium (микотоксин Т-2)." }
+    ],
+    "physical_exam": [
+      { "id": "exam_mouth", "button_text": "Осмотр ротоглотки", "result_text": "Септический синдром, некротическая ангина.", "layer_id": "layer-throat-necrosis" },
+      { "id": "exam_body", "button_text": "Осмотр кожных покровов", "result_text": "Геморрагический синдром: петехии (мелкие кровоизлияния).", "layer_id": "layer-skin-petechiae" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев", "result_text": "Отрицательный." },
+      { "button_text": "Анализ крови", "result_text": "Миелотоксический синдром: выраженная лейкопения (алейкия), агранулоцитоз, тромбоцитопения." },
+      { "button_text": "Характер кала", "result_text": "Нормальный или с примесью крови (при развитии кишечных геморрагий)." }
+    ],
+    "correct_answer": { "product": "Изделия из перезимовавшего в поле зерна (просо, гречиха, рожь) с микотоксином Т-2", "diagnosis": "Алиментарно-токсическая алейкия" }
+  },
+  {
+    "disease_name": "Отравление антибиотиками",
+    "incubation_period": "от нескольких дней до недель",
+    "anamnesis": [
+      { "question": "Каков анамнез лечения или диеты?", "answer": "Избыточное лечение антибиотиками или употребление продуктов животноводства с остатками препаратов." },
+      { "question": "Какие продукты животного происхождения вы употребляли?", "answer": "Мясо, молоко при несоблюдении сроков выдержки животных после лечения." }
+    ],
+    "physical_exam": [
+      { "id": "exam_body", "button_text": "Осмотр кожи", "result_text": "Аллергический синдром, кожная сыпь.", "layer_id": "layer-skin-rash" },
+      { "id": "exam_abdomen", "button_text": "Осмотр живота", "result_text": "Дисбиотический синдром, диспепсия.", "layer_id": "layer-abdomen-bloated" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев кала", "result_text": "Сдвиг пейзажа (угнетение нормальной микрофлоры, рост условно-патогенных микроорганизмов)." },
+      { "button_text": "Анализ крови", "result_text": "Возможна эозинофилия, маркеры аллергии." },
+      { "button_text": "Характер кала", "result_text": "Разжиженный, неоформленный, иногда с зеленью или пенистый." }
+    ],
+    "correct_answer": { "product": "Мясо или молоко с остатками антибиотиков", "diagnosis": "Отравление антибиотиками" }
+  },
+  {
+    "disease_name": "Интоксикация синильной кислотой",
+    "incubation_period": "от several минут до 1–2 часов",
+    "anamnesis": [
+      { "question": "Каковы обстоятельства отравления?", "answer": "Поедание большого количества косточковых плодов или технологические аварии." },
+      { "question": "Что конкретно из растительной пищи вы употребляли?", "answer": "Горький миндаль, косточки абрикосов, персиков, вишни (содержат гликозид амигдалин)." }
+    ],
+    "physical_exam": [
+      { "id": "exam_breath", "button_text": "Оценка дыхания и запаха", "result_text": "Тканевая гипоксия. Отчетливый запах горького миндаля изо рта, одышка.", "layer_id": "layer-chest-dyspnea" },
+      { "id": "exam_face", "button_text": "Осмотр кожи", "result_text": "Ярко-розовая окраска кожных покровов.", "layer_id": "layer-skin-pinkish" },
+      { "id": "exam_neuro", "button_text": "Неврологический осмотр", "result_text": "Судороги, паралич дыхательного центра.", "layer_id": "layer-neuro-ataxia" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев", "result_text": "Отрицательный." },
+      { "button_text": "Анализ газов крови", "result_text": "Высокое насыщение кислородом венозной крови (ткани заблокированы и не усваивают O2)." },
+      { "button_text": "Характер кала", "result_text": "Без изменений." }
+    ],
+    "correct_answer": { "product": "Горький миндаль, косточки абрикосов, персиков, вишни", "diagnosis": "Интоксикация синильной кислотой" }
+  },
+  {
+    "disease_name": "Отравление сырой фасолью",
+    "incubation_period": "от 1 до 3 часов",
+    "anamnesis": [
+      { "question": "Каким образом обрабатывался продукт?", "answer": "Употребление фасоли без достаточной термической обработки." },
+      { "question": "Какой именно продукт послужил причиной?", "answer": "Сырые или недоваренные бобы фасоли (токсин — фазин/фитогемагглютинин)." }
+    ],
+    "physical_exam": [
+      { "id": "exam_abdomen", "button_text": "Осмотр живота", "result_text": "Острый гастроэнтерит. Тяжелая рвота, тошнота, схваткообразные боли в животе через несколько часов после еды.", "layer_id": "layer-abdomen-bloated" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев", "result_text": "Отрицательный." },
+      { "button_text": "Биохимия крови", "result_text": "Обычно без грубых изменений." },
+      { "button_text": "Характер кала", "result_text": "Жидкий, водянистый." }
+    ],
+    "correct_answer": { "product": "Сырые или недоваренные бобы фасоли", "diagnosis": "Отравление сырой фасолью" }
+  },
+  {
+    "disease_name": "Микотоксикозы (общие)",
+    "incubation_period": "Хроническое (недели/месяцы)",
+    "anamnesis": [
+      { "question": "Каковы были условия хранения ваших продуктов?", "answer": "Употребление заплесневелых продуктов, плохие условия хранения зерна/орехов." },
+      { "question": "Какие продукты вы часто употребляли?", "answer": "Арахис, сухофрукты, зерно, пораженные аспергиллами (афлатоксины) и другими плесневыми грибами." }
+    ],
+    "physical_exam": [
+      { "id": "exam_neuro", "button_text": "Общий осмотр", "result_text": "Иммуносупрессивный синдром. При хроническом течении — вялость, прогрессирующее снижение веса.", "layer_id": "layer-neuro-ataxia" },
+      { "id": "exam_body", "button_text": "Осмотр и пальпация печени", "result_text": "Гепатотоксический синдром, признаки цирроза печени. Афлатоксины — сильные канцерогены.", "layer_id": "layer-skin-jaundice" }
+    ],
+    "laboratory": [
+      { "button_text": "Бакпосев", "result_text": "Отрицательный." },
+      { "button_text": "Биохимия крови", "result_text": "Снижение уровня альбумина, выраженный рост АЛТ, АСТ, щелочной фосфатазы." },
+      { "button_text": "Характер кала", "result_text": "Нормальный или нестабильный." }
+    ],
+    "correct_answer": { "product": "Арахис, сухофрукты, зерно, пораженные аспергиллами (афлатоксины)", "diagnosis": "Микотоксикозы (общие)" }
+  }
+];
+
+const currentGame = allDiseases[Math.floor(Math.random() * allDiseases.length)];
+
+const diagSelect = document.getElementById('diag-select');
+const prodSelect = document.getElementById('prod-select');
+
+const addedDiags = new Set();
+const addedProds = new Set();
+
+allDiseases.forEach(d => {
+    if(!addedDiags.has(d.disease_name)){
+        diagSelect.innerHTML += `<option value="${d.disease_name}">${d.disease_name}</option>`;
+        addedDiags.add(d.disease_name);
+    }
+    if(!addedProds.has(d.correct_answer.product)){
+        prodSelect.innerHTML += `<option value="${d.correct_answer.product}">${d.correct_answer.product}</option>`;
+        addedProds.add(d.correct_answer.product);
+    }
+});
+
+console.log("Текущий правильный диагноз:", currentGame.disease_name); 
+
+function renderButtons(category) {
+    contentArea.innerHTML = ''; 
+
+    if (category === 'Осмотр') {
+        const diagButtons = [
+            { name: 'Осмотр глаз', type: 'eyes' },
+            { name: 'Осмотр кожи лица', type: 'face' },
+            { name: 'Осмотр ротовой полости', type: 'mouth' },
+            { name: 'Осмотр кожи тела', type: 'body' },
+            { name: 'Осмотр живота', type: 'abdomen' },
+            { name: 'Оценка дыхания', type: 'breath' },
+            { name: 'Неврологические тесты', type: 'neuro' }
+        ];
+
+        diagButtons.forEach(b => {
+            const btn = document.createElement('button');
+            btn.textContent = b.name;
+            btn.onclick = () => handleDiagnosticClick(b.type, btn);
+            contentArea.appendChild(btn);
+        });
+    } else {
+        const map = { 'Опрос': 'anamnesis', 'Лаборатория': 'laboratory' };
+        const key = map[category];
+        
+        if (currentGame[key]) {
+            currentGame[key].forEach(item => {
+                const btn = document.createElement('button');
+                btn.textContent = item.question || item.button_text; 
+                btn.onclick = () => {
+                    const entry = document.createElement('p');
+                    entry.textContent = `${category}: ${item.question || item.button_text} — ${item.answer || item.result_text}`;
+                    recordArea.appendChild(entry);
+					recordArea.scrollTop = recordArea.scrollHeight;
+                    btn.disabled = true;
+                };
+                contentArea.appendChild(btn);
+            });
+        }
+    }
+}
+
+function handleDiagnosticClick(type, btn) {
+    const possibleLayers = examMap[type];
+    
+    const foundData = currentGame.physical_exam.find(item => 
+        item.id === `exam_${type}` || possibleLayers.includes(item.layer_id)
+    );
+
+    const entry = document.createElement('p');
+    if (foundData) {
+        let actualLayerId = foundData.layer_id;
+        if (!document.getElementById(actualLayerId)) {
+            actualLayerId = possibleLayers[0];
+        }
+        
+        const layer = document.getElementById(actualLayerId);
+        if (layer) layer.classList.add('visible');
+        
+        entry.textContent = `Осмотр: ${foundData.button_text} — ${foundData.result_text}`;
+    } else {
+        entry.textContent = `Осмотр (${btn.textContent}): Патологий не обнаружено. Всё в пределах нормы.`;
+    }
+    recordArea.appendChild(entry);
+	recordArea.scrollTop = recordArea.scrollHeight;
+    btn.disabled = true;
+}
+
+function checkVerdict() {
+    const userDiag = document.getElementById('diag-select').value;
+    const userProd = document.getElementById('prod-select').value;
+    
+    if (!userDiag || !userProd) {
+        alert("Пожалуйста, выберите и диагноз, и продукт!");
+        return;
+    }
+
+    if (userDiag === currentGame.disease_name && userProd === currentGame.correct_answer.product) {
+        if(confirm(`Расследование успешно завершено! Вы верно определили: ${currentGame.disease_name}. Вернуться в главное меню?`)) {
+            showMainMenu();
+        }
+    } else {
+        alert("Ошибка в расследовании. Перепроверьте улики и симптомы.");
+    }
+}
+
+tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        renderButtons(tab.textContent);
+    });
+});
+
+renderButtons('Опрос');
+</script>
+</html>
