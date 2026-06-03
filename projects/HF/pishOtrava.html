@@ -40,17 +40,16 @@
 
 body, html {
     margin: 0;
-    height: 100%;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: radial-gradient(circle at 50% 50%, #1e3c72 0%, #2a5298 50%, #00d2ff 100%);
     color: var(--text-color);
-    overflow: hidden;
+    overflow: auto; /* Разрешаем появление ползунка, если контент не влезает */
 }
 
 .wrapper {
     display: grid;
     grid-template-columns: 300px 1fr 300px;
-    height: 100vh;
+    min-height: 100vh; /* Занимает весь экран, но может растягиваться вниз */
     gap: 15px;
     padding: 20px;
     box-sizing: border-box;
@@ -137,6 +136,17 @@ select {
     0%, 100% { transform: translate(0, 0); }
     50% { transform: translate(2px, 0); }
 }
+		@media (max-width: 950px) {
+    .wrapper {
+        grid-template-columns: 1fr; /* Переключаем в одну колонку */
+        height: auto;
+    }
+    #patient-svg {
+        max-width: 300px; /* Чтобы манекен не растянулся на весь экран */
+        margin: 0 auto;
+    }
+		}
+		
 textarea.medical-card {
   height: 200px; 
   resize: none;   
