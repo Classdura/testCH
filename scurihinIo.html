@@ -100,7 +100,7 @@ section {
             margin-bottom: 10px; overflow-y: auto; padding: 10px;
         }
         .basket-item {
-            display: grid; grid-template-columns: 1fr 70px 30px 30px;
+            display: grid; grid-template-columns: 1fr 70px 20px 35px 35px;
             align-items: center; gap: 5px; background: #fff;
             padding: 8px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 5px;
         }
@@ -289,7 +289,15 @@ button, .product-card {
 		
     </section>
 </main>
-
+<div id="cooking-modal" style="display:none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; align-items:center; justify-content:center;">
+    <div style="background:var(--card-bg); padding:20px; border-radius:12px; max-width:400px; width:90%; max-height: 80vh; display: flex; flex-direction: column;">
+        <h3 id="cooking-modal-title" style="margin-top:0;">Способ приготовления</h3>
+        <p style="font-size:0.8rem; color:#666; margin-top:-10px;">Выберите метод, чтобы учесть потери нутриентов по Скурихину.</p>
+        <div id="cooking-methods-list" style="display:flex; flex-direction:column; gap:8px; overflow-y: auto; padding-right: 5px;">
+            </div>
+        <button onclick="closeCookingModal()" style="margin-top:15px; width:100%; padding:10px; background:#e74c3c; color:white; border:none; border-radius:5px; cursor:pointer;">Отмена / Закрыть</button>
+    </div>
+</div>
 <script>
     // Начальная база
     let products = [
@@ -1749,8 +1757,105 @@ button, .product-card {
 	
 
     let basket = [];
+// --- БАЗА ПОТЕРЬ ПРИ ТЕРМООБРАБОТКЕ (Скурихин) ---
+    // Ключи словаря - корни слов для поиска. Значения потерь в %.
+    const cookingDict = {
+        "морковь": {
+            "Варка очищенная": { cal: 15, prot: 10, fat: 0, carb: 18, vitA: 5, vitB1: 30, vitB2: 15, vitPP: 25, vitC: 30, ca: 29, p: 15, mg: 12, na: 23, k: 27, fe: 24, water: -2 },
+            "Пассерование": { cal: 8, prot: 2, fat: 10, carb: 3, vitA: 5, vitB1: 15, vitB2: 12, vitPP: 18, vitC: 65, ca: 3, p: 2, mg: 2, na: 3, k: 6, fe: 2, water: 49 },
+            "Припускание (пюре)": { cal: 3, prot: 1, fat: 6, carb: 2, vitA: 5, vitB1: 20, vitB2: 15, vitPP: 15, vitC: 90, ca: 2, p: 3, mg: 4, na: 5, k: 6, fe: 5, water: 24 }
+        },
+        "говядина": {
+            "Варка куском": { cal: 21, prot: 10, fat: 25, carb: 100, vitB1: 55, vitB2: 43, vitPP: 40, vitC: 100, ca: 23, p: 31, mg: 29, na: 53, k: 55, fe: 21, water: 54 },
+            "Тушение": { cal: 5, prot: 5, fat: 5, carb: 5, vitB1: 30, vitB2: 10, vitPP: 5, vitC: 70, ca: 3, p: 6, mg: 6, na: 7, k: 8, fe: 4, water: 33 },
+            "Жарка порционным куском": { cal: 17, prot: 10, fat: 23, carb: 0, vitB1: 32, vitB2: 16, vitPP: 15, vitC: 0, ca: 16, p: 17, mg: 22, na: 34, k: 34, fe: 11, water: 52 }
+        },
+        "капуста белокочанная": {
+            "Варка": { cal: 29, prot: 10, fat: 25, carb: 7, vitB1: 33, vitB2: 29, vitPP: 50, vitC: 29, ca: 57, p: 31, mg: 31, na: 55, k: 69, fe: 10, water: 7 },
+            "Тушение": { cal: 12, prot: 11, fat: 6, carb: 40, vitB1: 37, vitB2: 28, vitPP: 24, vitC: 68, ca: 15, p: 10, mg: 10, na: 46, k: 10, fe: 9, water: 30 }
+        },
+        "картофель": {
+            "Варка очищенный": { cal: 6, prot: 4, fat: 2, carb: 4, vitB1: 15, vitB2: 20, vitPP: 30, vitC: 6, ca: 15, p: 10, mg: 15, na: 10, k: 31, fe: 15, water: 2 },
+            "Жарка из сырого": { cal: 8, prot: 5, fat: 10, carb: 6, vitB1: 20, vitB2: 13, vitPP: 5, vitC: 8, ca: 15, p: 25, mg: 20, na: 5, k: 20, fe: 25, water: 46 },
+            "Картофельное пюре": { cal: 9, prot: 4, fat: 4, carb: 7, vitB1: 15, vitB2: 15, vitPP: 20, vitC: 9, ca: 10, p: 15, mg: 15, na: 15, k: 20, fe: 17, water: 2 }
+        }
+    };
 
-// Вспомогательная функция для наполнения меню чекбоксами (главами)
+    // Глобальная переменная для хранения ID редактируемого в данный момент продукта
+    let currentEditBasketId = null;
+
+    function findCookingMethods(productName) {
+        const nameLower = productName.toLowerCase();
+        for (let key in cookingDict) {
+            if (nameLower.includes(key.toLowerCase())) {
+                return cookingDict[key];
+            }
+        }
+        return null;
+    }
+
+    function openCookingModal(bId) {
+        const item = basket.find(x => x.bId === bId);
+        if (!item) return;
+
+        currentEditBasketId = bId;
+        const methods = findCookingMethods(item.name);
+        const listDiv = document.getElementById('cooking-methods-list');
+        listDiv.innerHTML = '';
+
+        document.getElementById('cooking-modal-title').innerText = `Готовим: ${item.name}`;
+
+        // Кнопка "Сбросить метод" (Сырой продукт)
+        listDiv.innerHTML += `
+            <button onclick="applyCookingMethod(null)" style="padding:10px; background:#f0f2f5; color:#333; border:1px solid #ccc; border-radius:5px; cursor:pointer; text-align:left; font-weight:bold;">
+                🍎 Оставить сырым (Без термообработки)
+            </button>
+        `;
+
+        if (methods) {
+            for (let methodName in methods) {
+                // Если этот метод уже выбран, подсвечиваем его
+                const isActive = item.cookingMethod && item.cookingMethod.name === methodName;
+                const bg = isActive ? 'var(--accent)' : '#fff';
+                const color = isActive ? '#fff' : 'var(--primary)';
+                const border = isActive ? 'none' : '1px solid #ccc';
+
+                listDiv.innerHTML += `
+                    <button onclick="applyCookingMethod('${methodName}')" style="padding:10px; background:${bg}; color:${color}; border:${border}; border-radius:5px; cursor:pointer; text-align:left;">
+                        🍳 ${methodName}
+                    </button>
+                `;
+            }
+        } else {
+            listDiv.innerHTML += `<p style="font-size:0.9rem; color:#e67e22;">К сожалению, для этого продукта пока нет данных по потерям. Оставьте его сырым.</p>`;
+        }
+
+        document.getElementById('cooking-modal').style.display = 'flex';
+    }
+
+    function closeCookingModal() {
+        document.getElementById('cooking-modal').style.display = 'none';
+        currentEditBasketId = null;
+    }
+
+    // Применяем выбранный метод и пересчитываем
+    window.applyCookingMethod = function(methodName) {
+        const item = basket.find(x => x.bId === currentEditBasketId);
+        if (item) {
+            if (methodName === null) {
+                item.cookingMethod = null;
+            } else {
+                const methods = findCookingMethods(item.name);
+                item.cookingMethod = {
+                    name: methodName,
+                    losses: methods[methodName]
+                };
+            }
+            updateUI();
+        }
+        closeCookingModal();
+    };
+	
 function renderChapterChecks() {
     const container = document.getElementById('chapter-checks');
     const categories = [...new Set(products.map(p => p.category))];
@@ -1923,11 +2028,24 @@ function updateUI() {
     };
 
     // 2. Суммируем всё, что лежит в корзине
+    // 2. Суммируем всё, что лежит в корзине (с учетом термообработки)
     basket.forEach(item => {
         const r = item.weight / 100;
+        const losses = item.cookingMethod ? item.cookingMethod.losses : null;
+
         for (let key in totals) {
             if (item[key] !== undefined) {
-                totals[key] += item[key] * r;
+                let currentVal = item[key] * r;
+                
+                // Если выбран метод готовки и в нём есть коэффициент для данного нутриента
+                if (losses && losses[key] !== undefined) {
+                    // losses[key] - это процент ПОТЕРЬ. 
+                    // Если потери 20%, мы умножаем на (1 - 0.20) = 0.8
+                    // Если значение отрицательное (набрал воду -60%), умножаем на (1 - (-0.6)) = 1.6
+                    currentVal = currentVal * (1 - (losses[key] / 100));
+                }
+                
+                totals[key] += currentVal;
             }
         }
     });
@@ -1997,10 +2115,19 @@ function getBarColor(label) {
         basket.forEach(item => {
             const d = document.createElement('div');
             d.className = 'basket-item';
-            d.innerHTML = `<span>${item.name}</span>
-                           <input type="number" value="${item.weight}" oninput="changeW(${item.bId}, this.value)">
-                           <span>г</span>
-                           <button class="del-btn" onclick="removeI(${item.bId})">×</button>`;
+            
+            // Красивый вывод названия + статуса готовки
+            const methodLabel = item.cookingMethod 
+                ? `<br><small style="color:var(--accent); font-weight:bold;">(${item.cookingMethod.name})</small>` 
+                : '';
+                
+            d.innerHTML = `
+                <span style="font-size:0.85rem; line-height:1.2;">${item.name}${methodLabel}</span>
+                <input type="number" value="${item.weight}" oninput="changeW(${item.bId}, this.value)" style="width:100%; text-align:center;">
+                <span style="font-size:0.8rem; color:#666;">г</span>
+                <button class="del-btn" style="background:#f1c40f; color:#fff; border-radius:4px;" onclick="openCookingModal(${item.bId})" title="Термообработка">🍳</button>
+                <button class="del-btn" style="background:var(--danger); color:#fff; border-radius:4px;" onclick="removeI(${item.bId})" title="Удалить">×</button>
+            `;
             b.appendChild(d);
         });
     }
