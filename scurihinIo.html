@@ -1700,8 +1700,8 @@ button, .product-card {
 // --- 10.15 ПИЩЕВЫЕ КОНЦЕНТРАТЫ. ОБЕДЕННЫЕ БЛЮДА (ПРОДОЛЖЕНИЕ) ---
 { id: 1255, category: "Консервы", name: "Щи", cal: 338, prot: 8.4, fat: 15.8, carb: 47.5, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 261, p: 194, mg: 87, na: 4813, k: 1206, fe: 5.7, water: 11.0 },
 { id: 1256, category: "Консервы", name: "Каша гречневая", cal: 407, prot: 11.5, fat: 13.1, carb: 60.3, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 74, p: 280, mg: 76, na: 1956, k: 201, fe: 6.5, water: 10.0 },
-{ id: 1257, category: "Консервы", name: "Каша пшеничная (id:10.15.26)", cal: 403, prot: 11.3, fat: 10.8, carb: 63.6, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 61, p: 238, mg: 57, na: 2060, k: 204, fe: 6.2, water: 10.0 },
-{ id: 1258, category: "Консервы", name: "Каша пшенная (id:10.15.27)", cal: 423, prot: 11.0, fat: 13.6, carb: 63.6, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 51, p: 220, mg: 79, na: 2099, k: 194, fe: 6.8, water: 10.0 },
+{ id: 1257, category: "Консервы", name: "Каша пшеничная", cal: 403, prot: 11.3, fat: 10.8, carb: 63.6, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 61, p: 238, mg: 57, na: 2060, k: 204, fe: 6.2, water: 10.0 },
+{ id: 1258, category: "Консервы", name: "Каша пшенная", cal: 423, prot: 11.0, fat: 13.6, carb: 63.6, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 51, p: 220, mg: 79, na: 2099, k: 194, fe: 6.8, water: 10.0 },
 { id: 1259, category: "Консервы", name: "Каша рисовая", cal: 403, prot: 6.4, fat: 10.5, carb: 69.1, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 50, p: 95, mg: 28, na: 2192, k: 50, fe: 1.3, water: 10.0 },
 { id: 1260, category: "Консервы", name: "Каша гречневая с мясом", cal: 416, prot: 16.2, fat: 14.6, carb: 53.7, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 73, p: 313, mg: 75, na: 1878, k: 294, fe: 6.7, water: 10.0 },
 { id: 1261, category: "Консервы", name: "Каша пшеничная с мясом", cal: 410, prot: 16.0, fat: 12.7, carb: 56.7, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, ca: 61, p: 276, mg: 58, na: 1969, k: 297, fe: 6.4, water: 10.0 },
@@ -1758,39 +1758,585 @@ button, .product-card {
 
     let basket = [];
 // --- БАЗА ПОТЕРЬ ПРИ ТЕРМООБРАБОТКЕ (Скурихин) ---
-    // Ключи словаря - корни слов для поиска. Значения потерь в %.
+    // Значения потерь в %. Отрицательные = впитывание/увеличение.
     const cookingDict = {
-        "морковь": {
-            "Варка очищенная": { cal: 15, prot: 10, fat: 0, carb: 18, vitA: 5, vitB1: 30, vitB2: 15, vitPP: 25, vitC: 30, ca: 29, p: 15, mg: 12, na: 23, k: 27, fe: 24, water: -2 },
-            "Пассерование": { cal: 8, prot: 2, fat: 10, carb: 3, vitA: 5, vitB1: 15, vitB2: 12, vitPP: 18, vitC: 65, ca: 3, p: 2, mg: 2, na: 3, k: 6, fe: 2, water: 49 },
-            "Припускание (пюре)": { cal: 3, prot: 1, fat: 6, carb: 2, vitA: 5, vitB1: 20, vitB2: 15, vitPP: 15, vitC: 90, ca: 2, p: 3, mg: 4, na: 5, k: 6, fe: 5, water: 24 }
+        "манная": {
+            "Каша вязкая (варка по № 210)": { cal: 1, prot: 1, fat: 1, carb: 1, na: 1, k: 1, ca: 1, mg: 1, p: 1, fe: 1, vitA: 0, vitB1: 16, vitB2: 10, vitPP: 9, vitC: 0, water: 8 },
+            "Каша жидкая (варка по № 215)": { cal: 1, prot: 1, fat: 1, carb: 1, na: 1, k: 1, ca: 1, mg: 1, p: 1, fe: 1, vitA: 0, vitB1: 10, vitB2: 5, vitPP: 5, vitC: 0, water: 6 }
         },
-        "говядина": {
-            "Варка куском": { cal: 21, prot: 10, fat: 25, carb: 100, vitB1: 55, vitB2: 43, vitPP: 40, vitC: 100, ca: 23, p: 31, mg: 29, na: 53, k: 55, fe: 21, water: 54 },
-            "Тушение": { cal: 5, prot: 5, fat: 5, carb: 5, vitB1: 30, vitB2: 10, vitPP: 5, vitC: 70, ca: 3, p: 6, mg: 6, na: 7, k: 8, fe: 4, water: 33 },
-            "Жарка порционным куском": { cal: 17, prot: 10, fat: 23, carb: 0, vitB1: 32, vitB2: 16, vitPP: 15, vitC: 0, ca: 16, p: 17, mg: 22, na: 34, k: 34, fe: 11, water: 52 }
+        "рис": {
+            "Каша рассыпчатая без слива воды (варка по № 203)": { cal: 2, prot: 2, fat: 2, carb: 2, na: 2, k: 2, ca: 2, mg: 2, p: 2, fe: 2, vitA: 0, vitB1: 30, vitB2: 22, vitPP: 15, vitC: 0, water: 15 },
+            "Каша рассыпчатая со сливом воды (варка по № 203)": { cal: 16, prot: 4, fat: 1, carb: 7, na: 56, k: 27, ca: 77, mg: 29, p: 26, fe: 6, vitA: 0, vitB1: 43, vitB2: 34, vitPP: 22, vitC: 0, water: 68 },
+            "Каша вязкая (варка по № 210)": { cal: 1, prot: 1, fat: 1, carb: 1, na: 1, k: 1, ca: 1, mg: 1, p: 1, fe: 1, vitA: 0, vitB1: 26, vitB2: 20, vitPP: 9, vitC: 0, water: 8 }
         },
-        "капуста белокочанная": {
-            "Варка": { cal: 29, prot: 10, fat: 25, carb: 7, vitB1: 33, vitB2: 29, vitPP: 50, vitC: 29, ca: 57, p: 31, mg: 31, na: 55, k: 69, fe: 10, water: 7 },
-            "Тушение": { cal: 12, prot: 11, fat: 6, carb: 40, vitB1: 37, vitB2: 28, vitPP: 24, vitC: 68, ca: 15, p: 10, mg: 10, na: 46, k: 10, fe: 9, water: 30 }
+        "гречневая": {
+            "Каша рассыпчатая (варка по № 200)": { cal: 2, prot: 2, fat: 2, carb: 2, na: 2, k: 2, ca: 2, mg: 2, p: 2, fe: 2, vitA: 0, vitB1: 30, vitB2: 22, vitPP: 15, vitC: 0, water: 25 },
+            "Каша вязкая (варка по № 209)": { cal: 1, prot: 1, fat: 1, carb: 1, na: 1, k: 1, ca: 1, mg: 1, p: 1, fe: 1, vitA: 0, vitB1: 26, vitB2: 20, vitPP: 9, vitC: 0, water: 8 }
+        },
+        "пшено": {
+            "Каша рассыпчатая (варка по № 201)": { cal: 2, prot: 2, fat: 2, carb: 2, na: 2, k: 2, ca: 2, mg: 2, p: 2, fe: 2, vitA: 0, vitB1: 30, vitB2: 22, vitPP: 15, vitC: 0, water: 16 },
+            "Каша вязкая (варка по № 209)": { cal: 1, prot: 1, fat: 1, carb: 1, na: 1, k: 1, ca: 1, mg: 1, p: 1, fe: 1, vitA: 0, vitB1: 26, vitB2: 20, vitPP: 9, vitC: 0, water: 8 }
+        },
+        "геркулес": {
+            "Каша вязкая (варка по № 210)": { cal: 1, prot: 1, fat: 1, carb: 1, na: 1, k: 1, ca: 1, mg: 1, p: 1, fe: 1, vitA: 0, vitB1: 26, vitB2: 20, vitPP: 9, vitC: 0, water: 8 },
+            "Каша жидкая (варка по № 215)": { cal: 1, prot: 1, fat: 1, carb: 1, na: 1, k: 1, ca: 1, mg: 1, p: 1, fe: 1, vitA: 0, vitB1: 10, vitB2: 5, vitPP: 5, vitC: 0, water: 5 }
+        },
+        "перловая": {
+            "Каша рассыпчатая (варка по № 202)": { cal: 2, prot: 2, fat: 2, carb: 2, na: 2, k: 2, ca: 2, mg: 2, p: 2, fe: 2, vitA: 0, vitB1: 30, vitB2: 22, vitPP: 15, vitC: 0, water: 18 },
+            "Каша вязкая (варка по № 210)": { cal: 1, prot: 1, fat: 1, carb: 1, na: 1, k: 1, ca: 1, mg: 1, p: 1, fe: 1, vitA: 0, vitB1: 26, vitB2: 20, vitPP: 9, vitC: 0, water: 8 }
+        },
+        "овсяная": {
+            "Каша вязкая (варка по № 209)": { cal: 1, prot: 1, fat: 1, carb: 1, na: 1, k: 1, ca: 1, mg: 1, p: 1, fe: 1, vitA: 0, vitB1: 26, vitB2: 20, vitPP: 9, vitC: 0, water: 8 },
+            "Каша жидкая (варка по № 214)": { cal: 1, prot: 1, fat: 1, carb: 1, na: 1, k: 1, ca: 1, mg: 1, p: 1, fe: 1, vitA: 0, vitB1: 10, vitB2: 5, vitPP: 5, vitC: 0, water: 7 }
+        },
+        "пшеничная крупа": {
+            "Каша рассыпчатая (варка по № 201)": { cal: 2, prot: 2, fat: 2, carb: 2, na: 2, k: 2, ca: 2, mg: 2, p: 2, fe: 2, vitA: 0, vitB1: 30, vitB2: 22, vitPP: 15, vitC: 0, water: 16 },
+            "Каша вязкая (варка по № 209)": { cal: 1, prot: 1, fat: 1, carb: 1, na: 1, k: 1, ca: 1, mg: 1, p: 1, fe: 1, vitA: 0, vitB1: 26, vitB2: 20, vitPP: 9, vitC: 0, water: 9 }
+        },
+        "ячневая": {
+            "Каша рассыпчатая (варка по № 202)": { cal: 2, prot: 2, fat: 2, carb: 2, na: 2, k: 2, ca: 2, mg: 2, p: 2, fe: 2, vitA: 0, vitB1: 30, vitB2: 22, vitPP: 15, vitC: 0, water: 17 },
+            "Каша вязкая (варка по № 210)": { cal: 1, prot: 1, fat: 1, carb: 1, na: 1, k: 1, ca: 1, mg: 1, p: 1, fe: 1, vitA: 0, vitB1: 26, vitB2: 20, vitPP: 9, vitC: 0, water: 8 }
+        },
+        "макароны": {
+            "Макароны (варка по № 236)": { cal: 11, prot: 2, fat: 3, carb: 13, na: 74, k: 43, ca: 65, mg: 15, p: 22, fe: 7, vitA: 0, vitB1: 36, vitB2: 28, vitPP: 17, vitC: 0, water: 64 },
+            "Вермишель (варка по № 236)": { cal: 9, prot: 1, fat: 3, carb: 11, na: 75, k: 48, ca: 71, mg: 17, p: 18, fe: 4, vitA: 0, vitB1: 43, vitB2: 33, vitPP: 18, vitC: 0, water: 65 }
+        },
+        "яйца": {
+            "Варка всмятку (по № 244)": { cal: 0, prot: 0, fat: 0, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 1.0 },
+            "Варка в мешочек (по № 244)": { cal: 0, prot: 0, fat: 0, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 1.5 },
+            "Варка вкрутую (по № 244)": { cal: 0, prot: 0, fat: 0, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 2.0 },
+            "Яичница натуральная (жарка по № 245)": { cal: 4, prot: 0, fat: 5, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 18 },
+            "Яичница со шпиком (жарка по № 246)": { cal: 6, prot: 0, fat: 7, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 17 },
+            "Яичница с мясными продуктами (жарка по № 247)": { cal: 5, prot: 0, fat: 6, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 24 },
+            "Омлет натуральный (жарка по № 248)": { cal: 7, prot: 4, fat: 8, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 10, vitB2: 0, vitPP: 10, vitC: 0, water: 10 },
+            "Омлет со шпиком (жарка по № 249)": { cal: 5, prot: 4, fat: 6, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 10, vitB2: 0, vitPP: 10, vitC: 0, water: 10 },
+            "Омлет с луком (жарка по № 250)": { cal: 7, prot: 6, fat: 7, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 10, vitC: 0, water: 17 },
+            "Омлет с колбасой (жарка по № 251)": { cal: 4, prot: 4, fat: 4, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 10, vitB2: 0, vitPP: 0, vitC: 0, water: 13 },
+            "Омлет из яичного порошка (жарка по № 252)": { cal: 7, prot: 5, fat: 8, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 19 }
+        },
+        "молоко": {
+            "Кипячение": { cal: 7, prot: 2, fat: 2, carb: 0, na: 0, k: 0, ca: 8, mg: 10, p: 5, fe: 8, vitA: 10, vitB1: 5, vitB2: 5, vitPP: 5, vitC: 25, water: 5 }
+        },
+        "творог": {
+            "Сырники из полужирного творога (жарка по № 257)": { cal: 6, prot: 6, fat: 7, carb: 5, na: 3, k: 4, ca: 8, mg: 11, p: 6, fe: 1, vitA: 5, vitB1: 10, vitB2: 8, vitPP: 5, vitC: 50, water: 27 },
+            "Сырники из нежирного творога (варка по № 257)": { cal: 7, prot: 6, fat: 7, carb: 5, na: 3, k: 4, ca: 8, mg: 11, p: 6, fe: 1, vitA: 5, vitB1: 10, vitB2: 8, vitPP: 5, vitC: 50, water: 26 },
+            "Сырники с морковью полужирные (жарка по № 258)": { cal: 6, prot: 6, fat: 7, carb: 5, na: 3, k: 4, ca: 8, mg: 11, p: 6, fe: 1, vitA: 5, vitB1: 10, vitB2: 8, vitPP: 5, vitC: 50, water: 27 },
+            "Сырники с морковью нежирные (жарка по № 258)": { cal: 5, prot: 6, fat: 7, carb: 5, na: 3, k: 4, ca: 8, mg: 11, p: 6, fe: 1, vitA: 5, vitB1: 10, vitB2: 8, vitPP: 5, vitC: 50, water: 27 },
+            "Сырники с картофелем полужирные (жарка по № 259)": { cal: 6, prot: 6, fat: 7, carb: 5, na: 3, k: 4, ca: 8, mg: 11, p: 6, fe: 1, vitA: 5, vitB1: 10, vitB2: 8, vitPP: 5, vitC: 50, water: 23 },
+            "Сырники с картофелем нежирные (жарка по № 259)": { cal: 6, prot: 6, fat: 7, carb: 5, na: 3, k: 4, ca: 8, mg: 11, p: 6, fe: 1, vitA: 5, vitB1: 10, vitB2: 8, vitPP: 5, vitC: 50, water: 24 },
+            "Пудинг полужирный (запекание по № 260)": { cal: 4, prot: 4, fat: 4, carb: 4, na: 3, k: 4, ca: 8, mg: 11, p: 6, fe: 1, vitA: 5, vitB1: 10, vitB2: 8, vitPP: 5, vitC: 50, water: 18 },
+            "Пудинг нежирный (запекание по № 260)": { cal: 4, prot: 4, fat: 4, carb: 4, na: 3, k: 4, ca: 8, mg: 11, p: 6, fe: 1, vitA: 5, vitB1: 10, vitB2: 8, vitPP: 5, vitC: 50, water: 17 },
+            "Запеканка полужирная (запекание по № 261)": { cal: 3, prot: 4, fat: 4, carb: 4, na: 3, k: 4, ca: 8, mg: 11, p: 6, fe: 1, vitA: 5, vitB1: 10, vitB2: 8, vitPP: 5, vitC: 50, water: 26 },
+            "Запеканка нежирная (запекание по № 261)": { cal: 4, prot: 4, fat: 4, carb: 4, na: 3, k: 4, ca: 8, mg: 11, p: 6, fe: 1, vitA: 5, vitB1: 10, vitB2: 8, vitPP: 5, vitC: 50, water: 24 },
+            "Вареники ленивые полужирные (варка по № 262)": { cal: 5, prot: 7, fat: 5, carb: 4, na: 5, k: 9, ca: 18, mg: 15, p: 8, fe: 5, vitA: 5, vitB1: 15, vitB2: 15, vitPP: 10, vitC: 50, water: -10 },
+            "Вареники ленивые нежирные (варка по № 262)": { cal: 6, prot: 7, fat: 5, carb: 4, na: 9, k: 9, ca: 18, mg: 15, p: 8, fe: 5, vitA: 5, vitB1: 15, vitB2: 15, vitPP: 10, vitC: 50, water: -9 }
+        },
+        "суп молочный": {
+            "Суп с макаронными изд. в/с (варка по № 128)": { cal: 2, prot: 2, fat: 2, carb: 2, na: 0, k: 0, ca: 8, mg: 10, p: 5, fe: 8, vitA: 15, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 50, water: 2 },
+            "Суп с крупой (варка по № 129)": { cal: 2, prot: 2, fat: 2, carb: 2, na: 0, k: 0, ca: 8, mg: 10, p: 5, fe: 8, vitA: 15, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 50, water: 2 },
+            "Суп с тыквой и крупой (варка по № 130)": { cal: 2, prot: 2, fat: 2, carb: 2, na: 0, k: 0, ca: 8, mg: 10, p: 5, fe: 8, vitA: 15, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 50, water: 7 },
+            "Суп с овощами (варка по № 131)": { cal: 2, prot: 2, fat: 2, carb: 2, na: 0, k: 0, ca: 8, mg: 10, p: 5, fe: 8, vitA: 15, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 50, water: 6 },
+            "Суп из цветной капусты с молоком (варка по № 132)": { cal: 2, prot: 2, fat: 2, carb: 2, na: 0, k: 0, ca: 8, mg: 10, p: 5, fe: 8, vitA: 6, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 50, water: 1 },
+            "Суп из кабачков/тыквы и фасоли с молоком (варка по № 133)": { cal: 4, prot: 8, fat: 2, carb: 5, na: 2, k: 5, ca: 16, mg: 23, p: 11, fe: 7, vitA: 6, vitB1: 15, vitB2: 10, vitPP: 35, vitC: 75, water: 2 }
+        },
+        "рыба": {
+            "Варка рыбы (по № 264)": { cal: 8, prot: 5, fat: 6, carb: 0, na: 60, k: 61, ca: 42, mg: 18, p: 52, fe: 24, vitA: 35, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 60, water: 30 },
+            "Припускание рыбы (по № 268)": { cal: 8, prot: 3, fat: 10, carb: 0, na: 43, k: 45, ca: 33, mg: 21, p: 27, fe: 39, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 65, water: 30 },
+            "Жарка рыбы (по № 276)": { cal: 14, prot: 6, fat: 19, carb: 26, na: 32, k: 33, ca: 35, mg: 31, p: 28, fe: 32, vitA: 14, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 35 },
+            "Котлеты рыбные (жарка по № 286)": { cal: 14, prot: 5, fat: 15, carb: 22, na: 14, k: 11, ca: 8, mg: 9, p: 11, fe: 6, vitA: 20, vitB1: 20, vitB2: 10, vitPP: 10, vitC: 60, water: 25 }
+        },
+        "мероу": {
+            "Варка (по № 264)": { cal: 7, prot: 5, fat: 6, carb: 0, na: 61, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 32 },
+            "Жарка (по № 276)": { cal: 14, prot: 6, fat: 19, carb: 26, na: 33, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 39 }
+        },
+        "минтай": {
+            "Варка (по № 264)": { cal: 11, prot: 9, fat: 9, carb: 0, na: 60, k: 45, ca: 29, mg: 36, p: 30, fe: 31, vitA: 35, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 60, water: 24 },
+            "Припускание (по № 268)": { cal: 16, prot: 14, fat: 15, carb: 0, na: 56, k: 40, ca: 32, mg: 35, p: 37, fe: 23, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 65, water: 24 },
+            "Жарка (по № 276)": { cal: 26, prot: 19, fat: 32, carb: 30, na: 37, k: 40, ca: 34, mg: 34, p: 34, fe: 25, vitA: 20, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 27 }
+        },
+        "навага": {
+            "Жарка (по № 276)": { cal: 25, prot: 19, fat: 32, carb: 30, na: 37, k: 40, ca: 34, mg: 34, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 28 }
+        },
+        "налим": {
+            "Припускание (по № 268)": { cal: 15, prot: 14, fat: 15, carb: 0, na: 56, k: 40, ca: 32, mg: 35, p: 37, fe: 23, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 32 },
+            "Жарка (по № 276)": { cal: 25, prot: 19, fat: 32, carb: 30, na: 37, k: 40, ca: 34, mg: 34, p: 34, fe: 25, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 31 },
+            "Котлеты рыбные (жарка по № 286)": { cal: 15, prot: 6, fat: 29, carb: 0, na: 9, k: 0, ca: 0, mg: 0, p: 7, fe: 5, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 26 }
+        },
+        "нототения": {
+            "Варка (по № 264)": { cal: 14, prot: 14, fat: 12, carb: 0, na: 66, k: 56, ca: 57, mg: 70, p: 42, fe: 21, vitA: 35, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 85, water: 30 },
+            "Припускание (по № 268)": { cal: 13, prot: 13, fat: 12, carb: 0, na: 53, k: 35, ca: 35, mg: 37, p: 35, fe: 28, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 90, water: 28 },
+            "Жарка (по № 276)": { cal: 10, prot: 7, fat: 11, carb: 0, na: 17, k: 14, ca: 11, mg: 14, p: 11, fe: 7, vitA: 20, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 40 },
+            "Котлеты рыбные (жарка по № 286)": { cal: 10, prot: 2, fat: 11, carb: 12, na: 7, k: 5, ca: 8, mg: 7, p: 17, fe: 9, vitA: 30, vitB1: 20, vitB2: 10, vitPP: 10, vitC: 0, water: 28 }
+        },
+        "окунь": {
+            "Варка (по № 264)": { cal: 14, prot: 14, fat: 12, carb: 0, na: 66, k: 56, ca: 57, mg: 70, p: 42, fe: 21, vitA: 35, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 65, water: 27 },
+            "Припускание (по № 268)": { cal: 15, prot: 13, fat: 12, carb: 0, na: 53, k: 35, ca: 35, mg: 37, p: 35, fe: 28, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 70, water: 28 },
+            "Жарка (по № 276)": { cal: 9, prot: 7, fat: 11, carb: 0, na: 17, k: 14, ca: 11, mg: 14, p: 11, fe: 7, vitA: 20, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 36 },
+            "Котлеты рыбные (жарка по № 286)": { cal: 5, prot: 2, fat: 11, carb: 12, na: 7, k: 5, ca: 8, mg: 7, p: 17, fe: 9, vitA: 0, vitB1: 20, vitB2: 10, vitPP: 10, vitC: 60, water: 28 }
+        },
+        "палтус": {
+            "Варка (по № 264)": { cal: 13, prot: 14, fat: 12, carb: 0, na: 66, k: 56, ca: 57, mg: 70, p: 42, fe: 21, vitA: 35, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 100, water: 28 },
+            "Припускание (по № 268)": { cal: 13, prot: 13, fat: 12, carb: 0, na: 53, k: 35, ca: 35, mg: 37, p: 35, fe: 28, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 100, water: 29 },
+            "Жарка (по № 276)": { cal: 10, prot: 7, fat: 11, carb: 0, na: 17, k: 14, ca: 11, mg: 14, p: 11, fe: 7, vitA: 20, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 0, water: 34 }
+        },
+        "пристипома": {
+            "Варка (по № 264)": { cal: 11, prot: 9, fat: 9, carb: 0, na: 60, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 19 },
+            "Припускание (по № 268)": { cal: 17, prot: 14, fat: 15, carb: 0, na: 56, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 18 },
+            "Жарка (по № 276)": { cal: 24, prot: 19, fat: 32, carb: 30, na: 37, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 21 }
+        },
+        "путассу": {
+            "Варка (по № 264)": { cal: 11, prot: 9, fat: 9, carb: 0, na: 60, k: 45, ca: 29, mg: 36, p: 0, fe: 31, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 24 },
+            "Припускание (по № 268)": { cal: 18, prot: 14, fat: 15, carb: 0, na: 56, k: 40, ca: 32, mg: 35, p: 0, fe: 23, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 26 },
+            "Жарка (по № 276)": { cal: 25, prot: 19, fat: 32, carb: 30, na: 37, k: 40, ca: 34, mg: 34, p: 0, fe: 25, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 24 }
+        },
+        "рыба-сабля": {
+            "Варка (по № 264)": { cal: 6, prot: 5, fat: 6, carb: 0, na: 61, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 40, vitPP: 30, vitC: 100, water: 29 },
+            "Жарка (по № 276)": { cal: 13, prot: 6, fat: 19, carb: 26, na: 33, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 20, vitPP: 15, vitC: 0, water: 39 }
+        },
+        "салака": {
+            "Припускание (по № 268)": { cal: 7, prot: 3, fat: 10, carb: 0, na: 45, k: 33, ca: 21, mg: 27, p: 0, fe: 0, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 90, water: 34 },
+            "Жарка (по № 276)": { cal: 14, prot: 6, fat: 19, carb: 26, na: 33, k: 35, ca: 31, mg: 28, p: 0, fe: 0, vitA: 20, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 37 }
+        },
+        "сардина": {
+            "Варка (по № 264)": { cal: 12, prot: 14, fat: 12, carb: 0, na: 66, k: 56, ca: 57, mg: 70, p: 42, fe: 21, vitA: 35, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 65, water: 25 },
+            "Жарка (по № 276)": { cal: 9, prot: 7, fat: 11, carb: 0, na: 17, k: 14, ca: 11, mg: 14, p: 11, fe: 7, vitA: 20, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 35 }
+        },
+        "скумбрия": {
+            "Варка (по № 264)": { cal: 13, prot: 14, fat: 12, carb: 0, na: 66, k: 56, ca: 57, mg: 70, p: 42, fe: 21, vitA: 35, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 67, water: 28 },
+            "Припускание (по № 268)": { cal: 13, prot: 13, fat: 12, carb: 0, na: 53, k: 35, ca: 35, mg: 37, p: 35, fe: 28, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 75, water: 29 },
+            "Жарка (по № 276)": { cal: 10, prot: 7, fat: 11, carb: 0, na: 17, k: 14, ca: 11, mg: 14, p: 11, fe: 7, vitA: 20, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 38 }
+        },
+        "сом": {
+            "Варка (по № 264)": { cal: 13, prot: 14, fat: 12, carb: 0, na: 66, k: 56, ca: 57, mg: 70, p: 42, fe: 21, vitA: 35, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 67, water: 30 },
+            "Припускание (по № 268)": { cal: 13, prot: 13, fat: 12, carb: 0, na: 53, k: 35, ca: 35, mg: 37, p: 35, fe: 28, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 75, water: 32 },
+            "Жарка (по № 276)": { cal: 10, prot: 7, fat: 11, carb: 0, na: 17, k: 14, ca: 11, mg: 14, p: 11, fe: 7, vitA: 20, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 41 },
+            "Котлеты рыбные (жарка по № 286)": { cal: 9, prot: 2, fat: 11, carb: 12, na: 7, k: 5, ca: 8, mg: 7, p: 17, fe: 9, vitA: 0, vitB1: 20, vitB2: 10, vitPP: 10, vitC: 60, water: 29 }
+        },
+        "ставрида": {
+            "Припускание (по № 268)": { cal: 14, prot: 13, fat: 12, carb: 0, na: 53, k: 35, ca: 35, mg: 37, p: 35, fe: 27, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 70, water: 31 },
+            "Жарка (по № 276)": { cal: 9, prot: 7, fat: 11, carb: 0, na: 17, k: 14, ca: 11, mg: 14, p: 11, fe: 7, vitA: 20, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 36 }
+        },
+        "судак": {
+            "Варка (по № 264)": { cal: 10, prot: 9, fat: 9, carb: 0, na: 60, k: 45, ca: 29, mg: 36, p: 30, fe: 31, vitA: 35, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 55, water: 28 },
+            "Припускание (по № 268)": { cal: 17, prot: 14, fat: 15, carb: 0, na: 56, k: 40, ca: 32, mg: 35, p: 37, fe: 23, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 60, water: 27 },
+            "Жарка (по № 276)": { cal: 25, prot: 19, fat: 32, carb: 30, na: 37, k: 40, ca: 34, mg: 34, p: 34, fe: 25, vitA: 20, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 25 },
+            "Котлеты рыбные (жарка по № 286)": { cal: 15, prot: 6, fat: 29, carb: 0, na: 9, k: 0, ca: 0, mg: 0, p: 7, fe: 5, vitA: 0, vitB1: 20, vitB2: 10, vitPP: 10, vitC: 60, water: 26 }
+        },
+        "терпуг": {
+            "Жарка (по № 276)": { cal: 14, prot: 6, fat: 19, carb: 26, na: 33, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 20, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 32 }
+        },
+        "треска": {
+            "Варка (по № 264)": { cal: 10, prot: 9, fat: 9, carb: 0, na: 60, k: 45, ca: 29, mg: 36, p: 30, fe: 31, vitA: 35, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 70, water: 24 },
+            "Припускание (по № 268)": { cal: 16, prot: 14, fat: 15, carb: 0, na: 56, k: 40, ca: 32, mg: 35, p: 37, fe: 23, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 75, water: 26 },
+            "Жарка (по № 276)": { cal: 26, prot: 19, fat: 32, carb: 30, na: 37, k: 40, ca: 34, mg: 34, p: 34, fe: 25, vitA: 20, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 27 },
+            "Котлеты рыбные (жарка по № 286)": { cal: 15, prot: 6, fat: 29, carb: 0, na: 9, k: 0, ca: 0, mg: 0, p: 7, fe: 5, vitA: 0, vitB1: 20, vitB2: 10, vitPP: 10, vitC: 60, water: 26 }
+        },
+        "хек": {
+            "Варка (по № 264)": { cal: 12, prot: 9, fat: 9, carb: 0, na: 60, k: 45, ca: 29, mg: 36, p: 30, fe: 31, vitA: 35, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 55, water: 24 },
+            "Припускание (по № 268)": { cal: 16, prot: 14, fat: 15, carb: 0, na: 56, k: 40, ca: 32, mg: 35, p: 37, fe: 23, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 60, water: 26 },
+            "Жарка (по № 276)": { cal: 25, prot: 19, fat: 32, carb: 30, na: 37, k: 40, ca: 34, mg: 34, p: 34, fe: 25, vitA: 20, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 24 },
+            "Котлеты рыбные (жарка по № 286)": { cal: 15, prot: 6, fat: 29, carb: 0, na: 9, k: 0, ca: 0, mg: 0, p: 7, fe: 5, vitA: 0, vitB1: 20, vitB2: 10, vitPP: 10, vitC: 60, water: 26 }
+        },
+        "щука": {
+            "Варка (по № 264)": { cal: 10, prot: 9, fat: 9, carb: 0, na: 60, k: 45, ca: 29, mg: 36, p: 30, fe: 31, vitA: 0, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 50, water: 29 },
+            "Припускание (по № 268)": { cal: 16, prot: 14, fat: 15, carb: 0, na: 56, k: 40, ca: 32, mg: 35, p: 37, fe: 23, vitA: 0, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 70, water: 27 },
+            "Жарка (по № 276)": { cal: 24, prot: 19, fat: 32, carb: 30, na: 37, k: 40, ca: 34, mg: 34, p: 34, fe: 25, vitA: 0, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 25 },
+            "Котлеты рыбные (жарка по № 286)": { cal: 15, prot: 6, fat: 29, carb: 0, na: 9, k: 0, ca: 0, mg: 0, p: 7, fe: 5, vitA: 0, vitB1: 20, vitB2: 10, vitPP: 10, vitC: 60, water: 26 }
+        },
+        "горбуша": {
+            "Варка (по № 264)": { cal: 14, prot: 14, fat: 12, carb: 0, na: 66, k: 56, ca: 57, mg: 70, p: 42, fe: 21, vitA: 35, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 100, water: 28 },
+            "Припускание (по № 268)": { cal: 14, prot: 13, fat: 12, carb: 0, na: 53, k: 35, ca: 35, mg: 37, p: 35, fe: 28, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 100, water: 29 }
+        },
+        "жерех": {
+            "Припускание (по № 268)": { cal: 7, prot: 3, fat: 10, carb: 0, na: 45, k: 33, ca: 21, mg: 27, p: 39, fe: 20, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 75, water: 29 },
+            "Котлеты рыбные (жарка по № 286)": { cal: 14, prot: 5, fat: 15, carb: 22, na: 14, k: 11, ca: 8, mg: 9, p: 11, fe: 6, vitA: 20, vitB1: 20, vitB2: 10, vitPP: 10, vitC: 60, water: 25 }
+        },
+        "зубан": {
+            "Варка (по № 264)": { cal: 14, prot: 14, fat: 12, carb: 0, na: 66, k: 56, ca: 57, mg: 70, p: 42, fe: 21, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 23 },
+            "Припускание (по № 268)": { cal: 16, prot: 13, fat: 20, carb: 0, na: 53, k: 35, ca: 35, mg: 37, p: 35, fe: 28, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 27 },
+            "Жарка (по № 276)": { cal: 9, prot: 7, fat: 11, carb: 0, na: 17, k: 14, ca: 11, mg: 14, p: 11, fe: 7, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 37 }
+        },
+        "зубатка": {
+            "Варка (по № 264)": { cal: 12, prot: 14, fat: 12, carb: 0, na: 66, k: 56, ca: 57, mg: 70, p: 42, fe: 31, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 23 },
+            "Жарка (по № 276)": { cal: 10, prot: 7, fat: 11, carb: 0, na: 17, k: 14, ca: 11, mg: 14, p: 11, fe: 7, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 36 }
+        },
+        "камбала": {
+            "Варка (по № 264)": { cal: 7, prot: 5, fat: 6, carb: 0, na: 61, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 70, water: 25 },
+            "Припускание (по № 268)": { cal: 9, prot: 3, fat: 10, carb: 0, na: 45, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 75, water: 29 },
+            "Жарка (по № 276)": { cal: 14, prot: 6, fat: 19, carb: 26, na: 33, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 32 }
+        },
+        "карась": {
+            "Варка (по № 264)": { cal: 9, prot: 9, fat: 9, carb: 0, na: 60, k: 45, ca: 29, mg: 0, p: 30, fe: 31, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 28 },
+            "Припускание (по № 268)": { cal: 15, prot: 14, fat: 15, carb: 0, na: 56, k: 40, ca: 32, mg: 0, p: 37, fe: 32, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 30 },
+            "Жарка (по № 276)": { cal: 26, prot: 19, fat: 32, carb: 30, na: 37, k: 40, ca: 34, mg: 0, p: 34, fe: 25, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 26 }
+        },
+        "карп": {
+            "Варка (по № 264)": { cal: 6, prot: 5, fat: 6, carb: 0, na: 61, k: 42, ca: 18, mg: 52, p: 24, fe: 20, vitA: 35, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 60, water: 30 },
+            "Припускание (по № 268)": { cal: 8, prot: 3, fat: 10, carb: 0, na: 45, k: 33, ca: 21, mg: 27, p: 39, fe: 20, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 65, water: 30 },
+            "Жарка (по № 276)": { cal: 14, prot: 6, fat: 19, carb: 26, na: 33, k: 35, ca: 31, mg: 28, p: 32, fe: 14, vitA: 14, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 35 }
+        },
+        "ледяная": {
+            "Варка (по № 264)": { cal: 10, prot: 9, fat: 9, carb: 0, na: 60, k: 45, ca: 29, mg: 36, p: 30, fe: 31, vitA: 0, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 67, water: 24 },
+            "Припускание (по № 268)": { cal: 18, prot: 14, fat: 15, carb: 0, na: 56, k: 40, ca: 32, mg: 35, p: 37, fe: 32, vitA: 0, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 75, water: 24 },
+            "Жарка (по № 276)": { cal: 26, prot: 19, fat: 32, carb: 30, na: 37, k: 40, ca: 34, mg: 0, p: 34, fe: 25, vitA: 0, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 28 }
+        },
+        "лещ": {
+            "Варка (по № 264)": { cal: 6, prot: 5, fat: 6, carb: 0, na: 61, k: 42, ca: 18, mg: 52, p: 24, fe: 20, vitA: 35, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 0, water: 30 },
+            "Припускание (по № 268)": { cal: 9, prot: 3, fat: 10, carb: 0, na: 45, k: 33, ca: 21, mg: 27, p: 39, fe: 20, vitA: 26, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 0, water: 31 },
+            "Жарка (по № 276)": { cal: 15, prot: 6, fat: 19, carb: 26, na: 33, k: 35, ca: 31, mg: 28, p: 32, fe: 14, vitA: 20, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 0, water: 31 },
+            "Котлеты рыбные (жарка по № 286)": { cal: 14, prot: 5, fat: 15, carb: 22, na: 21, k: 11, ca: 8, mg: 9, p: 11, fe: 5, vitA: 20, vitB1: 20, vitB2: 10, vitPP: 10, vitC: 0, water: 24 }
+        },
+        "макрель": {
+            "Варка (по № 264)": { cal: 6, prot: 5, fat: 6, carb: 0, na: 61, k: 42, ca: 18, mg: 52, p: 24, fe: 20, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 20 },
+            "Припускание (по № 268)": { cal: 7, prot: 3, fat: 10, carb: 0, na: 45, k: 33, ca: 21, mg: 27, p: 39, fe: 20, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 23 },
+            "Жарка (по № 276)": { cal: 13, prot: 6, fat: 19, carb: 26, na: 33, k: 35, ca: 31, mg: 28, p: 32, fe: 14, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 34 }
+        },
+        "макрурус": {
+            "Варка (по № 264)": { cal: 12, prot: 9, fat: 9, carb: 0, na: 60, k: 45, ca: 29, mg: 36, p: 0, fe: 0, vitA: 0, vitB1: 45, vitB2: 40, vitPP: 30, vitC: 65, water: 27 },
+            "Припускание (по № 268)": { cal: 19, prot: 14, fat: 15, carb: 0, na: 56, k: 40, ca: 32, mg: 35, p: 0, fe: 0, vitA: 0, vitB1: 33, vitB2: 30, vitPP: 22, vitC: 70, water: 28 },
+            "Жарка (по № 276)": { cal: 26, prot: 19, fat: 32, carb: 30, na: 37, k: 40, ca: 34, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 22, vitB2: 20, vitPP: 15, vitC: 35, water: 30 }
+        },
+        "борщ": {
+            "Борщ (варка по № 69)": { cal: 4, prot: 6, fat: 5, carb: 33, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 15, vitB2: 10, vitPP: 10, vitC: 45, water: 2 },
+            "Борщ с картофелем (варка по № 71)": { cal: 3, prot: 6, fat: 5, carb: 21, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 12, vitB2: 15, vitPP: 13, vitC: 50, water: 2 },
+            "Борщ с капустой и картофелем (варка по № 72)": { cal: 3, prot: 6, fat: 5, carb: 32, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 12, vitB2: 15, vitPP: 13, vitC: 50, water: 2 },
+            "Борщ сибирский (варка по № 73)": { cal: 3, prot: 6, fat: 5, carb: 23, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 12, vitB2: 15, vitPP: 13, vitC: 50, water: 2 },
+            "Борщ с фасолью (варка по № 74)": { cal: 4, prot: 6, fat: 5, carb: 24, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 12, vitB2: 15, vitPP: 13, vitC: 50, water: 2 },
+            "Борщ летний (варка по № 75)": { cal: 2, prot: 5, fat: 3, carb: 17, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 45, water: 2 }
+        },
+        "свекольник": {
+            "Свекольник (варка по № 81)": { cal: 2, prot: 5, fat: 3, carb: 20, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 45, water: 2 }
+        },
+        "щи": {
+            "Щи из свежей капусты (варка по № 82)": { cal: 4, prot: 8, fat: 4, carb: 25, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 10, vitB2: 15, vitPP: 10, vitC: 40, water: 2 },
+            "Щи из свежей капусты с картофелем (варка по № 83)": { cal: 4, prot: 9, fat: 5, carb: 18, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 10, vitB2: 12, vitPP: 10, vitC: 30, water: 2 },
+            "Щи из квашеной капусты (варка по № 86)": { cal: 3, prot: 5, fat: 3, carb: 20, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 40, water: 2 },
+            "Щи суточные (варка по № 87)": { cal: 3, prot: 5, fat: 3, carb: 20, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 40, water: 2 },
+            "Щи из квашеной капусты с картофелем (варка по № 89)": { cal: 4, prot: 9, fat: 5, carb: 14, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 10, vitB2: 12, vitPP: 10, vitC: 30, water: 2 },
+            "Щи по-уральски (варка по № 90)": { cal: 3, prot: 5, fat: 3, carb: 7, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 40, water: 2 }
+        },
+        "рассольник": {
+            "Рассольник (варка по № 91)": { cal: 3, prot: 8, fat: 5, carb: 3, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 55, water: 2 },
+            "Рассольник домашний (варка по № 92)": { cal: 3, prot: 8, fat: 5, carb: 6, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 12, vitB2: 12, vitPP: 12, vitC: 55, water: 2 },
+            "Рассольник ленинградский (варка по № 93)": { cal: 3, prot: 8, fat: 5, carb: 3, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 12, vitB2: 12, vitPP: 12, vitC: 55, water: 2 }
+        },
+        "суп": {
+            "Суп картофельный (варка по № 95)": { cal: 2, prot: 7, fat: 5, carb: 3, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 50, water: 2 },
+            "Суп картофельный с крупой (варка по № 97)": { cal: 2, prot: 6, fat: 5, carb: 2, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 10, vitB2: 13, vitPP: 13, vitC: 50, water: 2 },
+            "Суп полевой (варка по № 98)": { cal: 4, prot: 6, fat: 5, carb: 3, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 10, vitB2: 13, vitPP: 13, vitC: 50, water: 2 },
+            "Суп картофельный с бобовыми (варка по № 99)": { cal: 3, prot: 6, fat: 5, carb: 3, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 10, vitB2: 13, vitPP: 13, vitC: 50, water: 2 },
+            "Суп картофельный с макаронными изд. (варка по № 101)": { cal: 2, prot: 6, fat: 5, carb: 3, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 10, vitB2: 13, vitPP: 13, vitC: 50, water: 2 },
+            "Суп картофельный с грибами (варка по № 102)": { cal: 12, prot: 7, fat: 5, carb: 20, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 50, water: 1 },
+            "Суп крестьянский (варка по № 109)": { cal: 4, prot: 6, fat: 6, carb: 7, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 10, vitB2: 12, vitPP: 10, vitC: 50, water: 2 },
+            "Суп из овощей (варка по № 111)": { cal: 4, prot: 6, fat: 6, carb: 6, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 15, vitB1: 10, vitB2: 12, vitPP: 10, vitC: 50, water: 2 },
+            "Суп с макаронными изд. (варка по № 113)": { cal: 2, prot: 5, fat: 4, carb: 2, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 50, water: 2 },
+            "Суп-лапша грибная (варка по № 115)": { cal: 6, prot: 5, fat: 4, carb: 11, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 50, water: 2 },
+            "Суп с крупой (варка по № 116)": { cal: 2, prot: 5, fat: 3, carb: 3, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 50, water: 2 },
+            "Суп с бобовыми (варка по № 121)": { cal: 4, prot: 11, fat: 5, carb: 2, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 20, vitB2: 20, vitPP: 15, vitC: 50, water: 2 },
+            "Суп-пюре из картофеля (варка по № 134)": { cal: 3, prot: 6, fat: 5, carb: 3, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 20, vitB2: 15, vitPP: 15, vitC: 60, water: 2 },
+            "Суп-пюре из моркови (варка по № 135)": { cal: 4, prot: 5, fat: 5, carb: 4, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 25, vitB2: 20, vitPP: 20, vitC: 90, water: 2 },
+            "Суп-пюре из разных овощей (варка по № 136)": { cal: 3, prot: 6, fat: 5, carb: 4, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 10, vitB1: 20, vitB2: 15, vitPP: 15, vitC: 60, water: 2 }
         },
         "картофель": {
-            "Варка очищенный": { cal: 6, prot: 4, fat: 2, carb: 4, vitB1: 15, vitB2: 20, vitPP: 30, vitC: 6, ca: 15, p: 10, mg: 15, na: 10, k: 31, fe: 15, water: 2 },
-            "Жарка из сырого": { cal: 8, prot: 5, fat: 10, carb: 6, vitB1: 20, vitB2: 13, vitPP: 5, vitC: 8, ca: 15, p: 25, mg: 20, na: 5, k: 20, fe: 25, water: 46 },
-            "Картофельное пюре": { cal: 9, prot: 4, fat: 4, carb: 7, vitB1: 15, vitB2: 15, vitPP: 20, vitC: 9, ca: 10, p: 15, mg: 15, na: 15, k: 20, fe: 17, water: 2 }
+            "Картофель отварной молодой (варка по № 378)": { cal: 7, prot: 4, fat: 2, carb: 6, na: 75, k: 25, ca: 15, mg: 20, p: 10, fe: 13, vitA: 0, vitB1: 20, vitB2: 20, vitPP: 30, vitC: 50, water: 6 },
+            "Картофель отварной в воде (варка по № 378)": { cal: 6, prot: 4, fat: 2, carb: 4, na: 70, k: 15, ca: 10, mg: 15, p: 10, fe: 15, vitA: 0, vitB1: 15, vitB2: 15, vitPP: 20, vitC: 30, water: 2 },
+            "Картофель на пару (варка на пару по № 378)": { cal: 5, prot: 4, fat: 2, carb: 4, na: 15, k: 10, ca: 5, mg: 5, p: 8, fe: 8, vitA: 0, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 30, water: 2 },
+            "Картофель в кожуре (варка в кожуре по № 378)": { cal: 4, prot: 3, fat: 2, carb: 4, na: 80, k: 6, ca: 3, mg: 3, p: 3, fe: 3, vitA: 0, vitB1: 8, vitB2: 8, vitPP: 8, vitC: 15, water: 3 },
+            "Картофель жареный из вареного (жарка по № 381)": { cal: 10, prot: 4, fat: 13, carb: 5, na: 22, k: 20, ca: 20, mg: 20, p: 13, fe: 25, vitA: 0, vitB1: 12, vitB2: 6, vitPP: 6, vitC: 28, water: 28 },
+            "Картофель жареный из вареного в кожуре (жарка по № 381)": { cal: 10, prot: 4, fat: 14, carb: 4, na: 10, k: 10, ca: 10, mg: 15, p: 10, fe: 20, vitA: 0, vitB1: 12, vitB2: 7, vitPP: 5, vitC: 29, water: 26 },
+            "Картофель жареный во фритюре (жарка во фритюре по № 384)": { cal: 8, prot: 6, fat: 10, carb: 10, na: 10, k: 35, ca: 25, mg: 35, p: 25, fe: 40, vitA: 0, vitB1: 30, vitB2: 15, vitPP: 10, vitC: 55, water: 70 },
+            "Картофель жареный из сырого (жарка по № 383)": { cal: 8, prot: 5, fat: 10, carb: 6, na: 25, k: 20, ca: 15, mg: 20, p: 15, fe: 25, vitA: 0, vitB1: 20, vitB2: 13, vitPP: 5, vitC: 50, water: 46 },
+            "Рулет, запеканка картофельные (варка, запекание по № 187)": { cal: 7, prot: 3, fat: 6, carb: 6, na: 10, k: 15, ca: 10, mg: 10, p: 10, fe: 28, vitA: 0, vitB1: 20, vitB2: 18, vitPP: 20, vitC: 80, water: 25 },
+            "Котлеты картофельные (варка, жарка по № 175)": { cal: 10, prot: 4, fat: 15, carb: 7, na: 15, k: 15, ca: 20, mg: 15, p: 15, fe: 35, vitA: 0, vitB1: 25, vitB2: 20, vitPP: 25, vitC: 85, water: 21 },
+            "Картофельное пюре (варка по № 155)": { cal: 9, prot: 4, fat: 4, carb: 7, na: 20, k: 15, ca: 10, mg: 15, p: 15, fe: 17, vitA: 0, vitB1: 15, vitB2: 15, vitPP: 20, vitC: 80, water: 2 },
+            "Зразы картофельные (варка, жарка по № 177)": { cal: 13, prot: 6, fat: 15, carb: 7, na: 20, k: 13, ca: 15, mg: 15, p: 10, fe: 25, vitA: 5, vitB1: 20, vitB2: 20, vitPP: 25, vitC: 85, water: 30 }
+        },
+        "морковь": {
+            "Варка очищенная": { cal: 15, prot: 10, fat: 0, carb: 10, na: 27, k: 29, ca: 12, mg: 18, p: 15, fe: 24, vitA: 5, vitB1: 30, vitB2: 15, vitPP: 25, vitC: 30, water: -2 },
+            "Варка в кожуре": { cal: 13, prot: 8, fat: 0, carb: 7, na: 22, k: 17, ca: 10, mg: 15, p: 10, fe: 21, vitA: 0, vitB1: 20, vitB2: 10, vitPP: 20, vitC: 25, water: -1 },
+            "Пассерование (по табл. 19)": { cal: 8, prot: 2, fat: 10, carb: 0, na: 6, k: 3, ca: 2, mg: 3, p: 2, fe: 2, vitA: 5, vitB1: 15, vitB2: 12, vitPP: 18, vitC: 65, water: 49 },
+            "Пюре, припускание (по № 156)": { cal: 3, prot: 1, fat: 6, carb: 1, na: 6, k: 4, ca: 2, mg: 4, p: 5, fe: 3, vitA: 5, vitB1: 20, vitB2: 15, vitPP: 15, vitC: 90, water: 24 },
+            "Припускание в воде (по № 162)": { cal: 4, prot: 1, fat: 8, carb: 0, na: 6, k: 4, ca: 2, mg: 4, p: 5, fe: 3, vitA: 5, vitB1: 15, vitB2: 10, vitPP: 15, vitC: 50, water: 26 },
+            "Припускание в молочном соусе (по № 162)": { cal: 2, prot: 2, fat: 2, carb: 1, na: 13, k: 5, ca: 10, mg: 13, p: 4, fe: 8, vitA: 5, vitB1: 20, vitB2: 12, vitPP: 15, vitC: 50, water: 24 },
+            "Котлеты морковные (жарка по № 178)": { cal: 17, prot: 3, fat: 30, carb: 3, na: 6, k: 4, ca: 3, mg: 3, p: 2, fe: 0, vitA: 10, vitB1: 30, vitB2: 30, vitPP: 25, vitC: 100, water: 47 },
+            "Запеканка морковная (запекание по № 190)": { cal: 4, prot: 1, fat: 8, carb: 0, na: 6, k: 4, ca: 2, mg: 4, p: 5, fe: 3, vitA: 5, vitB1: 20, vitB2: 12, vitPP: 15, vitC: 60, water: 38 },
+            "Пюре морковное, припускание (по № 391)": { cal: 4, prot: 1, fat: 6, carb: 1, na: 6, k: 4, ca: 2, mg: 4, p: 5, fe: 3, vitA: 5, vitB1: 20, vitB2: 15, vitPP: 15, vitC: 90, water: 31 }
+        },
+        "репа": {
+            "Пассерование (по табл. 19)": { cal: 9, prot: 2, fat: 10, carb: 0, na: 6, k: 3, ca: 2, mg: 3, p: 2, fe: 2, vitA: 7, vitB1: 10, vitB2: 10, vitPP: 10, vitC: 70, water: 40 },
+            "Припускание в воде (по № 162)": { cal: 6, prot: 1, fat: 8, carb: 0, na: 6, k: 4, ca: 2, mg: 4, p: 5, fe: 3, vitA: 5, vitB1: 15, vitB2: 10, vitPP: 10, vitC: 40, water: 25 },
+            "Припускание в молочном соусе (по № 162)": { cal: 2, prot: 1, fat: 7, carb: 0, na: 13, k: 5, ca: 10, mg: 13, p: 4, fe: 8, vitA: 4, vitB1: 16, vitB2: 10, vitPP: 11, vitC: 42, water: 24 },
+            "Припускание в воде (по № 386)": { cal: 4, prot: 1, fat: 8, carb: 0, na: 6, k: 4, ca: 2, mg: 4, p: 5, fe: 3, vitA: 5, vitB1: 15, vitB2: 10, vitPP: 10, vitC: 40, water: 26 }
+        },
+        "брюква": {
+            "Пассерование (по табл. 19)": { cal: 9, prot: 2, fat: 10, carb: 0, na: 6, k: 3, ca: 2, mg: 3, p: 2, fe: 2, vitA: 8, vitB1: 10, vitB2: 10, vitPP: 5, vitC: 70, water: 41 },
+            "Припускание в воде (по № 162)": { cal: 5, prot: 1, fat: 8, carb: 0, na: 6, k: 4, ca: 2, mg: 4, p: 5, fe: 3, vitA: 5, vitB1: 10, vitB2: 10, vitPP: 5, vitC: 40, water: 26 },
+            "Припускание в молочном соусе (по № 162)": { cal: 5, prot: 1, fat: 7, carb: 0, na: 13, k: 5, ca: 10, mg: 13, p: 4, fe: 8, vitA: 4, vitB1: 12, vitB2: 10, vitPP: 7, vitC: 42, water: 24 },
+            "Припускание в воде (по № 386)": { cal: 3, prot: 1, fat: 8, carb: 0, na: 6, k: 4, ca: 2, mg: 4, p: 5, fe: 3, vitA: 5, vitB1: 10, vitB2: 10, vitPP: 5, vitC: 40, water: 27 }
+        },
+        "сельдерей": {
+            "Пассерование (по табл. 19)": { cal: 8, prot: 2, fat: 10, carb: 0, na: 6, k: 3, ca: 2, mg: 3, p: 2, fe: 2, vitA: 10, vitB1: 15, vitB2: 10, vitPP: 10, vitC: 80, water: 55 }
+        },
+        "петрушка": {
+            "Пассерование (по табл. 19)": { cal: 8, prot: 2, fat: 10, carb: 0, na: 6, k: 3, ca: 2, mg: 3, p: 2, fe: 2, vitA: 10, vitB1: 10, vitB2: 5, vitPP: 5, vitC: 50, water: 57 }
+        },
+        "лук": {
+            "Пассерование (по табл. 19)": { cal: 9, prot: 2, fat: 10, carb: 0, na: 6, k: 3, ca: 2, mg: 3, p: 2, fe: 2, vitA: 10, vitB1: 30, vitB2: 25, vitPP: 25, vitC: 50, water: 43 },
+            "Жарка кольцами во фритюре (по табл. 19)": { cal: 10, prot: 3, fat: 10, carb: 7, na: 29, k: 34, ca: 28, mg: 26, p: 20, fe: 24, vitA: 0, vitB1: 50, vitB2: 50, vitPP: 50, vitC: 70, water: 82 }
+        },
+        "капуста белокочанная": {
+            "Варка (по № 158)": { cal: 29, prot: 29, fat: 10, carb: 7, na: 77, k: 57, ca: 31, mg: 27, p: 31, fe: 10, vitA: 0, vitB1: 26, vitB2: 33, vitPP: 29, vitC: 50, water: 7 },
+            "Припускание (по № 162)": { cal: 14, prot: 7, fat: 9, carb: 5, na: 8, k: 9, ca: 4, mg: 3, p: 7, fe: 6, vitA: 0, vitB1: 22, vitB2: 10, vitPP: 13, vitC: 33, water: 28 },
+            "Тушение (по № 166)": { cal: 12, prot: 17, fat: 11, carb: 40, na: 6, k: 15, ca: 5, mg: 10, p: 10, fe: 9, vitA: 24, vitB1: 37, vitB2: 28, vitPP: 24, vitC: 68, water: 30 },
+            "Фарш капустный (по № 575)": { cal: 20, prot: 15, fat: 17, carb: 5, na: 5, k: 22, ca: 10, mg: 12, p: 11, fe: 7, vitA: 0, vitB1: 42, vitB2: 35, vitPP: 27, vitC: 70, water: 35 },
+            "Запеканка капустная (по № 189)": { cal: 11, prot: 14, fat: 5, carb: 10, na: 36, k: 20, ca: 7, mg: 6, p: 15, fe: 20, vitA: 0, vitB1: 26, vitB2: 26, vitPP: 22, vitC: 55, water: 29 }
+        },
+        "капуста квашеная": {
+            "Тушение (по № 166)": { cal: 17, prot: 17, fat: 11, carb: 59, na: 10, k: 15, ca: 5, mg: 10, p: 10, fe: 10, vitA: 24, vitB1: 27, vitB2: 23, vitPP: 24, vitC: 88, water: 18 }
+        },
+        "капуста цветная": {
+            "Варка (по № 158)": { cal: 24, prot: 36, fat: 10, carb: 8, na: 71, k: 53, ca: 26, mg: 27, p: 27, fe: 21, vitA: 10, vitB1: 23, vitB2: 16, vitPP: 22, vitC: 48, water: 9 },
+            "Запекание под соусом (по № 198)": { cal: 9, prot: 14, fat: 5, carb: 10, na: 36, k: 20, ca: 7, mg: 6, p: 15, fe: 20, vitA: 15, vitB1: 26, vitB2: 20, vitPP: 22, vitC: 55, water: 29 }
+        },
+        "кабачки": {
+            "Припускание (по № 162)": { cal: 11, prot: 9, fat: 8, carb: 0, na: 9, k: 10, ca: 5, mg: 5, p: 8, fe: 8, vitA: 10, vitB1: 20, vitB2: 7, vitPP: 12, vitC: 34, water: 25 },
+            "Жарка (по № 182)": { cal: 10, prot: 6, fat: 8, carb: 12, na: 8, k: 10, ca: 6, mg: 7, p: 12, fe: 12, vitA: 22, vitB1: 28, vitB2: 10, vitPP: 18, vitC: 52, water: 41 },
+            "Фарширование овощами, запекание (по № 196)": { cal: 15, prot: 7, fat: 13, carb: 28, na: 14, k: 14, ca: 5, mg: 6, p: 16, fe: 17, vitA: 15, vitB1: 32, vitB2: 24, vitPP: 17, vitC: 60, water: 35 }
+        },
+        "тыква": {
+            "Припускание (по № 162)": { cal: 11, prot: 5, fat: 8, carb: 43, na: 12, k: 8, ca: 4, mg: 4, p: 9, fe: 9, vitA: 10, vitB1: 25, vitB2: 10, vitPP: 19, vitC: 33, water: 34 },
+            "Жарка (по № 182)": { cal: 14, prot: 5, fat: 8, carb: 25, na: 17, k: 11, ca: 7, mg: 10, p: 11, fe: 10, vitA: 30, vitB1: 33, vitB2: 10, vitPP: 20, vitC: 55, water: 27 }
+        },
+        "свекла": {
+            "Варка в кожуре (по № 156)": { cal: 6, prot: 3, fat: 0, carb: 3, na: 16, k: 7, ca: 5, mg: 7, p: 7, fe: 4, vitA: 0, vitB1: 8, vitB2: 5, vitPP: 8, vitC: 30, water: 23 }
+        },
+        "голубцы": {
+            "Голубцы овощные (запекание по № 194)": { cal: 15, prot: 18, fat: 15, carb: 16, na: 20, k: 15, ca: 10, mg: 11, p: 12, fe: 18, vitA: 13, vitB1: 30, vitB2: 27, vitPP: 28, vitC: 57, water: 33 },
+            "Перец фаршированный овощами и рисом (тушение по № 195)": { cal: 15, prot: 16, fat: 12, carb: 21, na: 18, k: 22, ca: 7, mg: 10, p: 12, fe: 11, vitA: 20, vitB1: 40, vitB2: 23, vitPP: 19, vitC: 47, water: 28 }
+        },
+        "говядина": {
+            "Варка (по № 294)": { cal: 21, prot: 10, fat: 25, carb: 100, na: 55, k: 59, ca: 23, mg: 29, p: 31, fe: 21, vitA: 0, vitB1: 55, vitB2: 43, vitPP: 40, vitC: 100, water: 54 },
+            "Тушение (по № 302)": { cal: 5, prot: 5, fat: 5, carb: 0, na: 8, k: 9, ca: 3, mg: 6, p: 6, fe: 4, vitA: 0, vitB1: 30, vitB2: 10, vitPP: 5, vitC: 70, water: 33 },
+            "Гуляш (тушение по № 308)": { cal: 2, prot: 5, fat: 5, carb: 0, na: 8, k: 6, ca: 6, mg: 6, p: 6, fe: 4, vitA: 0, vitB1: 22, vitB2: 10, vitPP: 5, vitC: 70, water: 36 },
+            "Тушение (по № 309)": { cal: 3, prot: 5, fat: 5, carb: 0, na: 8, k: 6, ca: 6, mg: 6, p: 6, fe: 4, vitA: 0, vitB1: 25, vitB2: 10, vitPP: 5, vitC: 70, water: 57 },
+            "Жарка крупным куском (по № 318)": { cal: 16, prot: 9, fat: 27, carb: 0, na: 32, k: 46, ca: 16, mg: 17, p: 18, fe: 10, vitA: 0, vitB1: 42, vitB2: 18, vitPP: 19, vitC: 0, water: 47 },
+            "Жарка порционным куском (бифштекс № 319, лангет № 320, антрекот № 321)": { cal: 17, prot: 10, fat: 23, carb: 0, na: 34, k: 46, ca: 16, mg: 22, p: 17, fe: 11, vitA: 0, vitB1: 32, vitB2: 16, vitPP: 15, vitC: 0, water: 52 },
+            "Бефстроганов (жарка по № 323)": { cal: 5, prot: 5, fat: 5, carb: 5, na: 8, k: 6, ca: 6, mg: 6, p: 6, fe: 4, vitA: 0, vitB1: 16, vitB2: 8, vitPP: 5, vitC: 70, water: 51 },
+            "Поджарка (жарка по № 324)": { cal: 5, prot: 5, fat: 5, carb: 5, na: 8, k: 6, ca: 6, mg: 6, p: 6, fe: 4, vitA: 0, vitB1: 16, vitB2: 8, vitPP: 5, vitC: 70, water: 60 },
+            "Ромштекс (жарка в панировке по № 328)": { cal: 16, prot: 8, fat: 21, carb: 15, na: 30, k: 39, ca: 13, mg: 15, p: 13, fe: 8, vitA: 0, vitB1: 24, vitB2: 12, vitPP: 12, vitC: 0, water: 52 },
+            "Бифштекс рубленый (жарка по № 349)": { cal: 26, prot: 10, fat: 30, carb: 0, na: 38, k: 48, ca: 18, mg: 21, p: 20, fe: 10, vitA: 0, vitB1: 25, vitB2: 18, vitPP: 15, vitC: 0, water: 41 },
+            "Шницель рубленый (жарка по № 352)": { cal: 18, prot: 9, fat: 21, carb: 15, na: 34, k: 41, ca: 15, mg: 16, p: 18, fe: 9, vitA: 0, vitB1: 21, vitB2: 13, vitPP: 11, vitC: 0, water: 45 },
+            "Котлеты говяжьи (жарка по № 353)": { cal: 13, prot: 8, fat: 15, carb: 15, na: 26, k: 29, ca: 11, mg: 12, p: 12, fe: 5, vitA: 0, vitB1: 15, vitB2: 8, vitPP: 7, vitC: 0, water: 31 },
+            "Биточки на пару (по № 356)": { cal: 7, prot: 5, fat: 8, carb: 5, na: 17, k: 25, ca: 1, mg: 3, p: 4, fe: 2, vitA: 0, vitB1: 8, vitB2: 3, vitPP: 4, vitC: 0, water: 23 }
+        },
+        "свинина": {
+            "Варка (по № 294)": { cal: 31, prot: 8, fat: 35, carb: 100, na: 35, k: 35, ca: 20, mg: 24, p: 26, fe: 19, vitA: 0, vitB1: 40, vitB2: 28, vitPP: 15, vitC: 100, water: 58 },
+            "Тушение (по № 302)": { cal: 6, prot: 5, fat: 5, carb: 0, na: 8, k: 6, ca: 6, mg: 6, p: 6, fe: 4, vitA: 0, vitB1: 25, vitB2: 10, vitPP: 5, vitC: 70, water: 31 },
+            "Тушение (по № 309)": { cal: 5, prot: 5, fat: 5, carb: 0, na: 8, k: 6, ca: 6, mg: 6, p: 6, fe: 4, vitA: 0, vitB1: 20, vitB2: 10, vitPP: 5, vitC: 70, water: 65 },
+            "Жарка крупным куском (по № 318)": { cal: 39, prot: 10, fat: 45, carb: 0, na: 30, k: 30, ca: 15, mg: 20, p: 26, fe: 9, vitA: 0, vitB1: 42, vitB2: 18, vitPP: 15, vitC: 0, water: 38 },
+            "Поджарка (жарка по № 324)": { cal: 5, prot: 5, fat: 5, carb: 0, na: 8, k: 6, ca: 6, mg: 6, p: 6, fe: 4, vitA: 0, vitB1: 16, vitB2: 7, vitPP: 5, vitC: 70, water: 68 },
+            "Эскалоп (жарка по № 326)": { cal: 44, prot: 11, fat: 49, carb: 0, na: 33, k: 35, ca: 12, mg: 19, p: 19, fe: 8, vitA: 0, vitB1: 27, vitB2: 14, vitPP: 14, vitC: 0, water: 35 },
+            "Шницель панированный (жарка по № 330)": { cal: 23, prot: 8, fat: 27, carb: 15, na: 28, k: 28, ca: 10, mg: 12, p: 13, fe: 6, vitA: 0, vitB1: 23, vitB2: 13, vitPP: 12, vitC: 0, water: 50 },
+            "Шницель рубленый (жарка по № 352)": { cal: 20, prot: 9, fat: 21, carb: 15, na: 34, k: 41, ca: 15, mg: 16, p: 18, fe: 9, vitA: 0, vitB1: 18, vitB2: 13, vitPP: 11, vitC: 0, water: 50 },
+            "Котлеты свиные (жарка по № 353)": { cal: 24, prot: 5, fat: 28, carb: 15, na: 15, k: 22, ca: 7, mg: 12, p: 11, fe: 5, vitA: 0, vitB1: 11, vitB2: 8, vitPP: 7, vitC: 0, water: 28 }
+        },
+        "баранина": {
+            "Варка (по № 294)": { cal: 22, prot: 13, fat: 25, carb: 100, na: 35, k: 35, ca: 20, mg: 24, p: 26, fe: 19, vitA: 0, vitB1: 40, vitB2: 28, vitPP: 15, vitC: 100, water: 51 },
+            "Тушение (по № 302)": { cal: 5, prot: 5, fat: 5, carb: 0, na: 8, k: 6, ca: 6, mg: 6, p: 6, fe: 4, vitA: 0, vitB1: 25, vitB2: 10, vitPP: 5, vitC: 70, water: 32 },
+            "Жарка крупным куском (по № 318)": { cal: 28, prot: 12, fat: 30, carb: 0, na: 30, k: 30, ca: 15, mg: 20, p: 26, fe: 9, vitA: 0, vitB1: 40, vitB2: 18, vitPP: 15, vitC: 0, water: 49 },
+            "Шашлык (жарка по № 325)": { cal: 26, prot: 11, fat: 30, carb: 0, na: 33, k: 35, ca: 12, mg: 19, p: 19, fe: 8, vitA: 0, vitB1: 27, vitB2: 14, vitPP: 14, vitC: 0, water: 70 },
+            "Котлеты натуральные порционные (жарка по № 327)": { cal: 28, prot: 10, fat: 33, carb: 0, na: 33, k: 35, ca: 12, mg: 19, p: 19, fe: 8, vitA: 0, vitB1: 27, vitB2: 14, vitPP: 14, vitC: 0, water: 55 },
+            "Котлеты панированные (жарка по № 329)": { cal: 17, prot: 8, fat: 20, carb: 15, na: 28, k: 28, ca: 10, mg: 12, p: 13, fe: 6, vitA: 0, vitB1: 23, vitB2: 13, vitPP: 12, vitC: 0, water: 52 },
+            "Шницель панированный (жарка по № 330)": { cal: 18, prot: 8, fat: 22, carb: 15, na: 28, k: 28, ca: 10, mg: 12, p: 13, fe: 6, vitA: 0, vitB1: 23, vitB2: 13, vitPP: 12, vitC: 0, water: 54 },
+            "Шницель рубленый (жарка по № 352)": { cal: 19, prot: 9, fat: 24, carb: 15, na: 34, k: 41, ca: 15, mg: 16, p: 18, fe: 9, vitA: 0, vitB1: 18, vitB2: 13, vitPP: 11, vitC: 0, water: 45 },
+            "Котлеты бара Ret (жарка по № 353)": { cal: 21, prot: 5, fat: 28, carb: 15, na: 15, k: 22, ca: 7, mg: 12, p: 11, fe: 5, vitA: 0, vitB1: 11, vitB2: 8, vitPP: 7, vitC: 0, water: 29 }
+        },
+        "субпродукты": {
+            "Сердце (тушение по № 313)": { cal: 11, prot: 9, fat: 15, carb: 10, na: 31, k: 31, ca: 11, mg: 15, p: 27, fe: 20, vitA: 25, vitB1: 48, vitB2: 40, vitPP: 37, vitC: 75, water: 27 },
+            "Почки (тушение по № 313)": { cal: 19, prot: 18, fat: 27, carb: 10, na: 57, k: 59, ca: 17, mg: 21, p: 46, fe: 28, vitA: 25, vitB1: 60, vitB2: 50, vitPP: 58, vitC: 85, water: 36 },
+            "Почки (жарка по № 335)": { cal: 22, prot: 18, fat: 27, carb: 0, na: 57, k: 59, ca: 17, mg: 21, p: 46, fe: 28, vitA: 25, vitB1: 60, vitB2: 50, vitPP: 58, vitC: 85, water: 43 },
+            "Печень (тушение по № 315)": { cal: 7, prot: 3, fat: 11, carb: 0, na: 8, k: 6, ca: 1, mg: 2, p: 4, fe: 2, vitA: 10, vitB1: 18, vitB2: 10, vitPP: 8, vitC: 47, water: 25 },
+            "Печень (жарка по № 331)": { cal: 26, prot: 12, fat: 41, carb: 10, na: 34, k: 34, ca: 18, mg: 20, p: 0, fe: 27, vitA: 18, vitB1: 26, vitB2: 16, vitPP: 10, vitC: 70, water: 48 }
+        },
+        "куры": {
+            "Варка": { cal: 23, prot: 11, fat: 34, carb: 0, na: 87, k: 41, ca: -10, mg: 28, p: 33, fe: 29, vitA: 63, vitB1: 60, vitB2: 39, vitPP: 44, vitC: 50, water: 33 },
+            "Жарка": { cal: 30, prot: 15, fat: 42, carb: 0, na: 51, k: 16, ca: 3, mg: 13, p: 9, fe: 28, vitA: 67, vitB1: 40, vitB2: 39, vitPP: 36, vitC: 50, water: 42 },
+            "Рагу (тушение)": { cal: 7, prot: 7, fat: 7, carb: 0, na: 10, k: 5, ca: -18, mg: 5, p: 10, fe: 5, vitA: 26, vitB1: 16, vitB2: 9, vitPP: 8, vitC: 50, water: 25 },
+            "Котлеты (жарка)": { cal: 20, prot: 4, fat: 35, carb: 15, na: 6, k: 2, ca: 18, mg: 6, p: 39, fe: 5, vitA: 12, vitB1: 11, vitB2: 3, vitPP: 6, vitC: 0, water: 32 },
+            "Филе (жарка)": { cal: 25, prot: 8, fat: 59, carb: 0, na: 24, k: 13, ca: 32, mg: 22, p: 23, fe: 13, vitA: 0, vitB1: 32, vitB2: 16, vitPP: 16, vitC: 0, water: 43 },
+            "Окорочка (жарка)": { cal: 41, prot: 7, fat: 62, carb: 0, na: 58, k: 22, ca: 6, mg: 22, p: 21, fe: 22, vitA: 39, vitB1: 40, vitB2: 32, vitPP: 26, vitC: 0, water: 40 }
+        },
+        "цыплята": {
+            "Варка": { cal: 16, prot: 9, fat: 31, carb: 0, na: 89, k: 40, ca: -26, mg: 26, p: 42, fe: 20, vitA: 37, vitB1: 45, vitB2: 29, vitPP: 36, vitC: 0, water: 34 },
+            "Жарка": { cal: 26, prot: 9, fat: 40, carb: 0, na: 50, k: 14, ca: -20, mg: 12, p: 24, fe: 25, vitA: 16, vitB1: 22, vitB2: 20, vitPP: 18, vitC: 0, water: 43 },
+            "Рагу (тушение)": { cal: 6, prot: 8, fat: 5, carb: 0, na: 10, k: 6, ca: -40, mg: 13, p: 9, fe: 5, vitA: 0, vitB1: 13, vitB2: 5, vitPP: 5, vitC: 0, water: 24 },
+            "Филе (жарка)": { cal: 29, prot: 4, fat: 70, carb: 0, na: 41, k: 10, ca: 10, mg: 16, p: 25, fe: 5, vitA: 0, vitB1: 35, vitB2: 16, vitPP: 20, vitC: 0, water: 42 },
+            "Окорочка (жарка)": { cal: 37, prot: 3, fat: 50, carb: 0, na: 61, k: 9, ca: -10, mg: 17, p: 13, fe: 6, vitA: 19, vitB1: 23, vitB2: 17, vitPP: 22, vitC: 0, water: 42 }
+        },
+        "утята": {
+            "Варка": { cal: 23, prot: 12, fat: 35, carb: 0, na: 88, k: 37, ca: -10, mg: 22, p: 30, fe: 30, vitA: 43, vitB1: 51, vitB2: 28, vitPP: 44, vitC: 0, water: 30 },
+            "Жарка": { cal: 29, prot: 9, fat: 48, carb: 0, na: 61, k: 15, ca: -4, mg: 16, p: 33, fe: 25, vitA: 30, vitB1: 20, vitB2: 23, vitPP: 30, vitC: 0, water: 40 },
+            "Рагу (тушение)": { cal: 5, prot: 8, fat: 10, carb: 0, na: 10, k: 7, ca: -23, mg: 11, p: 10, fe: 5, vitA: 24, vitB1: 21, vitB2: 10, vitPP: 5, vitC: 0, water: 24 },
+            "Окорочка (жарка)": { cal: 48, prot: 5, fat: 56, carb: 0, na: 61, k: 10, ca: 2, mg: 22, p: 27, fe: 20, vitA: 59, vitB1: 32, vitB2: 36, vitPP: 27, vitC: 0, water: 38 },
+            "Котлеты (жарка)": { cal: 25, prot: 3, fat: 34, carb: 18, na: 0, k: 0, ca: 14, mg: 13, p: 20, fe: 5, vitA: 30, vitB1: 13, vitB2: 11, vitPP: 15, vitC: 0, water: 30 }
+        },
+        "индейка": {
+            "Варка": { cal: 23, prot: 11, fat: 34, carb: 0, na: 87, k: 41, ca: -20, mg: 28, p: 33, fe: 29, vitA: 0, vitB1: 61, vitB2: 39, vitPP: 44, vitC: 0, water: 29 },
+            "Жарка": { cal: 32, prot: 15, fat: 42, carb: 0, na: 51, k: 17, ca: 0, mg: 13, p: 9, fe: 28, vitA: 0, vitB1: 40, vitB2: 39, vitPP: 36, vitC: 0, water: 40 },
+            "Рагу (тушение)": { cal: 8, prot: 7, fat: 7, carb: 0, na: 10, k: 9, ca: -20, mg: 9, p: 10, fe: 5, vitA: 13, vitB1: 17, vitB2: 9, vitPP: 8, vitC: 0, water: 27 },
+            "Котлеты (жарка)": { cal: 21, prot: 4, fat: 35, carb: 15, na: 6, k: 2, ca: 15, mg: 6, p: 30, fe: 5, vitA: 0, vitB1: 11, vitB2: 3, vitPP: 6, vitC: 0, water: 32 }
+        },
+        "кролик": {
+            "Варка": { cal: 22, prot: 10, fat: 30, carb: 0, na: 91, k: 47, ca: -18, mg: 36, p: 28, fe: 21, vitA: 43, vitB1: 44, vitB2: 39, vitPP: 43, vitC: 50, water: 30 },
+            "Жарка": { cal: 27, prot: 10, fat: 35, carb: 0, na: 41, k: 8, ca: -12, mg: 13, p: 16, fe: 5, vitA: 31, vitB1: 33, vitB2: 27, vitPP: 24, vitC: 50, water: 35 },
+            "Рагу (тушение)": { cal: 2, prot: 6, fat: 8, carb: 0, na: 10, k: 2, ca: -30, mg: 0, p: 3, fe: 5, vitA: 0, vitB1: 21, vitB2: 5, vitPP: 8, vitC: 50, water: 24 },
+            "Котлеты (жарка)": { cal: 20, prot: 3, fat: 35, carb: 25, na: 7, k: 6, ca: 2, mg: 5, p: 25, fe: 5, vitA: 0, vitB1: 18, vitB2: 2, vitPP: 2, vitC: 50, water: 28 }
+        },
+        "кисель": {
+            "Клюквенный (варка по № 474)": { cal: 2, prot: 35, fat: 0, carb: -2, na: 32, k: 20, ca: 28, mg: 50, p: 41, fe: 45, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 20, vitC: 40, water: 0 },
+            "Из черной смородины (варка по № 474)": { cal: 2, prot: 30, fat: 0, carb: -2, na: 2, k: 18, ca: 24, mg: 29, p: 34, fe: 47, vitA: 100, vitB1: 0, vitB2: 0, vitPP: 20, vitC: 40, water: 0 },
+            "Из красной смородины (варка по № 474)": { cal: 4, prot: 30, fat: 0, carb: -2, na: 2, k: 18, ca: 24, mg: 29, p: 34, fe: 47, vitA: 100, vitB1: 0, vitB2: 0, vitPP: 20, vitC: 40, water: 0 },
+            "Из крыжовника/земляники/малины (варка по № 474)": { cal: 3, prot: 30, fat: 0, carb: -2, na: 2, k: 18, ca: 24, mg: 29, p: 34, fe: 47, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 20, vitC: 33, water: 0 },
+            "Из вишни/сливы/алычи (варка по № 474)": { cal: 4, prot: 35, fat: 0, carb: -2, na: 3, k: 20, ca: 28, mg: 50, p: 41, fe: 45, vitA: 100, vitB1: 0, vitB2: 0, vitPP: 20, vitC: 40, water: 0 },
+            "Из яблок (варка по № 475)": { cal: 4, prot: 15, fat: 0, carb: -3, na: 11, k: 16, ca: 30, mg: 20, p: 30, fe: 14, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 20, vitC: 40, water: 0 },
+            "Из апельсинов/ревеня/сухофруктов (варка № 478-481)": { cal: 0, prot: 15, fat: 0, carb: -4, na: 11, k: 16, ca: 30, mg: 20, p: 30, fe: 14, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 20, vitC: 39, water: 0 },
+            "Из шиповника (варка по № 483)": { cal: 0, prot: 15, fat: 0, carb: -4, na: 11, k: 16, ca: 15, mg: 30, p: 30, fe: 14, vitA: 100, vitB1: 0, vitB2: 0, vitPP: 20, vitC: 39, water: 0 },
+            "Из вишневого сока (варка по № 484)": { cal: 0, prot: 0, fat: 0, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 0, vitC: 0, water: 0 }
+        },
+        "компот": {
+            "Из свежих фруктов (варка по № 493)": { cal: 0, prot: 0, fat: 0, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 75, vitB1: 0, vitB2: 0, vitPP: 20, vitC: 60, water: 0 },
+            "Апельсиновый (варка по № 496)": { cal: 0, prot: 0, fat: 0, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 20, vitC: 60, water: 0 },
+            "Из сухофруктов (яблоки, курага, чернослив, урюк, изюм по № 499)": { cal: 0, prot: 0, fat: 0, carb: 0, na: 0, k: 0, ca: 0, mg: 0, p: 0, fe: 0, vitA: 50, vitB1: 0, vitB2: 0, vitPP: 20, vitC: 0, water: 0 }
+        },
+        "желе": {
+            "Из ягод (варка по № 507)": { cal: 2, prot: 0, fat: 0, carb: 3, na: 14, k: 25, ca: 4, mg: 29, p: 22, fe: 5, vitA: 100, vitB1: 0, vitB2: 0, vitPP: 20, vitC: 55, water: 0 }
+        },
+        "мусс": {
+            "Клюквенный (варка по № 514)": { cal: 4, prot: 0, fat: 0, carb: 5, na: 5, k: 17, ca: 4, mg: 7, p: 19, fe: 10, vitA: 0, vitB1: 0, vitB2: 0, vitPP: 20, vitC: 60, water: 0 }
+        },
+        "шиповник": {
+            "Напиток из плодов шиповника (варка по № 541)": { cal: 5, prot: 50, fat: 0, carb: 3, na: 20, k: 36, ca: 37, mg: 19, p: 35, fe: 16, vitA: 100, vitB1: 0, vitB2: 0, vitPP: 20, vitC: 50, water: 0 }
+        },
+        "выпечка": {
+            "Пирожки печеные с мясным фаршем (запекание по № 557)": { cal: 7, prot: 5, fat: 6, carb: 9, na: 22, k: 15, ca: 12, mg: 22, p: 18, fe: 30, vitA: 14, vitB1: 0, vitB2: 0, vitPP: 8, vitC: 0, water: 43 },
+            "Пирожки жареные с капустным фаршем (жарка по № 558)": { cal: 12, prot: 7, fat: 18, carb: 17, na: 14, k: 7, ca: 10, mg: 8, p: 8, fe: 23, vitA: 18, vitB1: 0, vitB2: 0, vitPP: 6, vitC: 80, water: 36 },
+            "Кулебяка с рыбным фаршем и кашей (запекание по № 567)": { cal: 7, prot: 10, fat: 10, carb: 5, na: 13, k: 4, ca: 0, mg: 9, p: 0, fe: 27, vitA: 24, vitB1: 0, vitB2: 0, vitPP: 16, vitC: 0, water: 24 }
         }
     };
 
-    // Глобальная переменная для хранения ID редактируемого в данный момент продукта
     let currentEditBasketId = null;
 
+    // Умный поиск методов термообработки по корням и синонимам
     function findCookingMethods(productName) {
-        const nameLower = productName.toLowerCase();
+        if (!productName || typeof productName !== 'string') return null;
+        
+        const normalized = productName.toLowerCase().replace(/ё/g, 'e').replace(/[«»"]/g, '').trim();
+
+        // 1. Рыба по видам (высокий приоритет для исключения коллизий)
+        if (normalized.includes('хек')) return cookingDict['хек'];
+        if (normalized.includes('мероу') || normalized.includes('мерроу')) return cookingDict['мероу'];
+        if (normalized.includes('минтай')) return cookingDict['минтай'];
+        if (normalized.includes('наваг')) return cookingDict['навага'];
+        if (normalized.includes('налим')) return cookingDict['налим'];
+        if (normalized.includes('нототени')) return cookingDict['нототения'];
+        if (normalized.includes('окунь')) return cookingDict['окунь'];
+        if (normalized.includes('палтус')) return cookingDict['палтус'];
+        if (normalized.includes('пристипом')) return cookingDict['пристипома'];
+        if (normalized.includes('путассу')) return cookingDict['путассу'];
+        if (normalized.includes('сабл') || normalized.includes('рыба-сабля')) return cookingDict['рыба-сабля'];
+        if (normalized.includes('салак')) return cookingDict['салака'];
+        if (normalized.includes('сардин')) return cookingDict['сардина'];
+        if (normalized.includes('скумбр')) return cookingDict['скумбрия'];
+        if (normalized.includes('сом') && !normalized.includes('сомов')) return cookingDict['сом'];
+        if (normalized.includes('ставрид')) return cookingDict['ставрида'];
+        if (normalized.includes('судак')) return cookingDict['судак'];
+        if (normalized.includes('терпуг')) return cookingDict['терпуг'];
+        if (normalized.includes('треск')) return cookingDict['треска'];
+        if (normalized.includes('щук')) return cookingDict['щука'];
+        if (normalized.includes('горбуш')) return cookingDict['горбуша'];
+        if (normalized.includes('жерех')) return cookingDict['жерех'];
+        if (normalized.includes('зубан')) return cookingDict['зубан'];
+        if (normalized.includes('зубатк')) return cookingDict['зубатка'];
+        if (normalized.includes('камбал')) return cookingDict['камбала'];
+        if (normalized.includes('карась')) return cookingDict['карась'];
+        if (normalized.includes('карп')) return cookingDict['карп'];
+        if (normalized.includes('ледян')) return cookingDict['ледяная'];
+        if (normalized.includes('лещ')) return cookingDict['лещ'];
+        if (normalized.includes('макрел')) return cookingDict['макрель'];
+        if (normalized.includes('макрурус')) return cookingDict['макрурус'];
+        if (normalized.includes('рыб') || normalized.includes('сазан') || normalized.includes('сельдь')) return cookingDict['рыба'];
+
+        // 2. Мясо, субпродукты, птица и дичь
+        if (normalized.includes('печень') || normalized.includes('почки') || normalized.includes('сердце')) return cookingDict['субпродукты'];
+        if (normalized.includes('цыплен') || normalized.includes('цыплят') || normalized.includes('бройлер')) return cookingDict['цыплята'];
+        if (normalized.includes('кур') || normalized.includes('куриц') || normalized.includes('курин')) return cookingDict['куры'];
+        if (normalized.includes('утят') || normalized.includes('утка') || normalized.includes('утиный')) return cookingDict['утята'];
+        if (normalized.includes('индейк') || normalized.includes('индюш')) return cookingDict['индейка'];
+        if (normalized.includes('кролик')) return cookingDict['кролик'];
+        if (normalized.includes('говяж') || normalized.includes('говядин') || normalized.includes('телятин') || normalized.includes('буйвол') || normalized.includes('як') || normalized.includes('вырезка') || normalized.includes('бифштекс') || normalized.includes('лангет') || normalized.includes('антрекот') || (normalized.includes('язык') && !normalized.includes('морской язык'))) return cookingDict['говядина'];
+        if (normalized.includes('свинин') || normalized.includes('свин') || normalized.includes('поросят') || normalized.includes('эскалоп')) return cookingDict['свинина'];
+        if (normalized.includes('баранин') || normalized.includes('баран') || normalized.includes('ягнятин')) return cookingDict['баранина'];
+
+        // 3. Десерты, напитки и выпечка
+        if (normalized.includes('пирожн') || normalized.includes('торт') || normalized.includes('печень')) return null;
+        if (normalized.includes('кисель')) return cookingDict['кисель'];
+        if (normalized.includes('компот')) return cookingDict['компот'];
+        if (/(^|\s)желе(\s|$)/.test(normalized) && !normalized.includes('в желе')) return cookingDict['желе'];
+        if (normalized.includes('мусс')) return cookingDict['мусс'];
+        if (normalized.includes('шиповник')) return cookingDict['шиповник'];
+        if (normalized.includes('пирожок') || normalized.includes('пирожк') || normalized.includes('кулебяк') || normalized.includes('тесто')) return cookingDict['выпечка'];
+
+        // 4. Готовые супы и сложные блюда
+        if (normalized.includes('суп') && normalized.includes('молочн')) return cookingDict['суп молочный'];
+        if (normalized.includes('голубц') || (normalized.includes('перец') && normalized.includes('фарширован'))) return cookingDict['голубцы'];
+        if (normalized.includes('борщ')) return cookingDict['борщ'];
+        if (normalized.includes('свекольн')) return cookingDict['свекольник'];
+        if (normalized.includes('рассольн')) return cookingDict['рассольник'];
+        if (/(^|\s)щи(\s|$)/.test(normalized) || normalized.includes('щей')) return cookingDict['щи'];
+        if (normalized.includes('суп') || normalized.includes('капустняк') || normalized.includes('харчо')) return cookingDict['суп'];
+
+        // 5. Молочные продукты и творог
+        if (normalized.includes('творог') || normalized.includes('сырник') || normalized.includes('пудинг') || normalized.includes('запеканк') || normalized.includes('вареник')) return cookingDict['творог'];
+        if (normalized.includes('молоко') && !normalized.includes('сух') && !normalized.includes('сгущ')) return cookingDict['молоко'];
+
+        // 6. Яйца и яйцепродукты
+        if (normalized.includes('яйц') || normalized.includes('яичниц') || normalized.includes('омлет') || normalized.includes('меланж') || normalized.includes('яичный порошок')) return cookingDict['яйца'];
+
+        // 7. Крупы и макароны
+        if (normalized.includes('манн')) return cookingDict['манная'];
+        if (normalized.includes('рисова') || normalized.includes('рисовы') || /(^|\s)рис(\s|$)/.test(normalized)) return cookingDict['рис'];
+        if (normalized.includes('греч')) return cookingDict['гречневая'];
+        if (normalized.includes('пшен') && !normalized.includes('пшенич')) return cookingDict['пшено'];
+        if (normalized.includes('геркулес')) return cookingDict['геркулес'];
+        if (normalized.includes('перлов')) return cookingDict['перловая'];
+        if (normalized.includes('овсян')) return cookingDict['овсяная'];
+        if (normalized.includes('пшеничн')) return cookingDict['пшеничная крупа'];
+        if (normalized.includes('ячнев') || normalized.includes('ячмен')) return cookingDict['ячневая'];
+        if (normalized.includes('макарон') || normalized.includes('вермишель') || normalized.includes('лапш')) return cookingDict['макароны'];
+
+        // 8. Овощи и корнеплоды
+        if (normalized.includes('цветн') && normalized.includes('капуст')) return cookingDict['капуста цветная'];
+        if (normalized.includes('квашен') && normalized.includes('капуст')) return cookingDict['капуста квашеная'];
+        if (normalized.includes('капуст')) return cookingDict['капуста белокочанная'];
+        if (normalized.includes('кабач')) return cookingDict['кабачки'];
+        if (normalized.includes('тыкв')) return cookingDict['тыква'];
+        if (normalized.includes('свекл')) return cookingDict['свекла'];
+        if (normalized.includes('картоф')) return cookingDict['картофель'];
+        if (normalized.includes('морков')) return cookingDict['морковь'];
+        if (normalized.includes('реп') && !normalized.includes('репчат')) return cookingDict['репа'];
+        if (normalized.includes('брюкв')) return cookingDict['брюква'];
+        if (normalized.includes('сельдере')) return cookingDict['сельдерей'];
+        if (normalized.includes('петрушк')) return cookingDict['петрушка'];
+        if (normalized.includes('лук')) return cookingDict['лук'];
+
+        // 9. Резервный проход
         for (let key in cookingDict) {
-            if (nameLower.includes(key.toLowerCase())) {
+            const keyNorm = key.toLowerCase().replace(/ё/g, 'e');
+            if (normalized.includes(keyNorm)) {
                 return cookingDict[key];
             }
         }
+
         return null;
     }
 
