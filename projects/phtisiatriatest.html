@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Медицинский симулятор: Фтизиатрия и Педиатрия</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Кастомные стили для скроллбаров и спец. элементов */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        
+        /* Стили для интерактивной линейки (Игра 3) */
+        .ruler-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            background-color: #ffe0b2; /* Цвет кожи */
+            overflow: hidden;
+            border-radius: 0.5rem;
+            cursor: crosshair;
+        }
+        .papule {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 0, 0, 0.4);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+        .ruler {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 300px;
+            height: 60px;
+            background-color: rgba(255, 255, 255, 0.6);
+            border: 1px solid #333;
+            cursor: grab;
+            display: flex;
+            align-items: flex-start;
+            backdrop-filter: blur(2px);
+            z-index: 10;
+        }
+        .ruler:active { cursor: grabbing; }
+        .ruler-tick {
+            width: 10px; /* 1мм = 10px для наглядности */
+            height: 15px;
+            border-right: 1px solid #333;
+            box-sizing: border-box;
+            position: relative;
+        }
+        .ruler-tick.cm {
+            height: 25px;
+            border-right: 2px solid #000;
+        }
+        .ruler-tick.cm::after {
+            content: attr(data-cm);
+            position: absolute;
+            bottom: -20px;
+            right: -4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* Плейсхолдеры для изображений */
+        .img-placeholder {
+            background-color: #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            font-weight: 500;
+            text-align: center;
+            border: 2px dashed #9ca3af;
+        }
+
+        /* Стили для схематичного рентгена (Игра 4) */
+        .xray-lung {
+            position: absolute;
+            width: 120px;
+            height: 280px;
+            background: radial-gradient(circle at center, #4b5563 0%, #111827 80%);
+            opacity: 0.85;
+            border-top-left-radius: 60px;
+            border-top-right-radius: 60px;
+            z-index: 10;
+        }
+        .xray-lung.left { left: 20px; border-bottom-left-radius: 40px; border-bottom-right-radius: 20px; }
+        .xray-lung.right { right: 20px; border-bottom-right-radius: 40px; border-bottom-left-radius: 20px; }
+        .xray-mediastinum {
+            position: absolute;
+            left: 50%;
+            top: 20px;
+            width: 50px;
+            height: 260px;
+            background-color: rgba(209, 213, 219, 0.2);
+            transform: translateX(-50%);
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(255,255,255,0.1);
+            z-index: 15;
+            transition: transform 0.3s;
+        }
+        .xray-pathology {
+            position: absolute;
+            pointer-events: none;
+            z-index: 20;
+        }
+        .path-infiltrate { width: 55px; height: 55px; background-color: rgba(229, 231, 235, 0.65); filter: blur(6px); border-radius: 50%; }
+        .path-cavity { width: 35px; height: 35px; border: 3px solid rgba(255, 255, 255, 0.8); filter: blur(1px); border-radius: 50%; background-color: transparent; }
+        .path-nodes { width: 45px; height: 65px; background-color: rgba(229, 231, 235, 0.7); filter: blur(5px); border-radius: 50%; }
+        .path-pleural { width: 120px; height: 110px; background-color: rgba(229, 231, 235, 0.85); filter: blur(3px); bottom: 20px; }
+        .path-pleural.left { left: 20px; border-top-right-radius: 90%; }
+        .path-pleural.right { right: 20px; border-top-left-radius: 90%; }
+        .path-dissemination { width: 120px; height: 280px; background-image: radial-gradient(rgba(229, 231, 235, 0.6) 2px, transparent 3px); background-size: 12px 12px; opacity: 0.7; }
+        .path-shift-left { transform: translateX(-80%); }
+        .path-shift-right { transform: translateX(-20%); }
+
+        /* Схематичный пациент (Игра 1) */
+        .patient-avatar-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 1rem; }
+        .patient-head { width: 80px; height: 90px; border-radius: 50% 50% 40% 40%; background-color: #ffedd5; position: relative; margin: 0 auto; border: 3px solid #cbd5e1; box-shadow: inset -5px -5px 10px rgba(0,0,0,0.05); transition: all 0.5s; z-index: 2; }
+        .patient-eyes { display: flex; justify-content: space-between; padding: 30px 15px 0; }
+        .eye { width: 10px; height: 10px; background: #333; border-radius: 50%; transition: 0.3s; }
+        .patient-mouth { width: 20px; height: 5px; background: #333; border-radius: 10px; margin: 15px auto 0; transition: 0.3s; }
+        .patient-body { width: 120px; height: 80px; background-color: #93c5fd; border-radius: 40px 40px 10px 10px; margin: -10px auto 0; position: relative; z-index: 1; border: 3px solid #cbd5e1; }
+        
+        /* Визуальные симптомы схематичного пациента */
+        .sym-pale .patient-head { background-color: #f8fafc; }
+        .sym-pale .eye { height: 5px; margin-top: 5px; opacity: 0.7; }
+        .sym-fever .patient-head { background-color: #fca5a5; }
+        .sym-fever .patient-mouth { height: 15px; width: 15px; border-radius: 50%; }
+        .sym-rash .patient-head::after, .sym-rash .patient-body::after { content: ''; position: absolute; top:0; left:0; right:0; bottom:0; background-image: radial-gradient(circle, #ef4444 2px, transparent 2.5px); background-size: 12px 12px; opacity: 0.4; border-radius: inherit; }
+        .sym-sweat .patient-head::before { content: ''; position: absolute; top: 15px; right: 10px; width: 8px; height: 12px; background: #60a5fa; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; transform: rotate(25deg); opacity: 0.8; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-blue-600 text-white shadow-md p-4 flex justify-between items-center z-10">
+        <h1 class="text-xl font-bold"><i class="fas fa-user-md mr-2"></i> МедСимулятор ПРО</h1>
+        <button id="homeBtn" class="hidden bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded transition" onclick="showScreen('menuScreen')">
+            <i class="fas fa-home"></i> В меню
+        </button>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-auto relative p-4 md:p-8">
+        
+        <!-- ==================== MAIN MENU ==================== -->
+        <div id="menuScreen" class="screen max-w-4xl mx-auto">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">Добро пожаловать, доктор!</h2>
+                <p class="text-gray-600">Выберите симуляцию для тренировки навыков.</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Card 1 -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer flex flex-col items-center text-center" onclick="initGame1()">
+                    <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-2xl mb-4">
+                        <i class="fas fa-comments-medical"></i>
+                    </div>
+                    <h3 class="text-lg font-bold mb-2">1. Расспрос и осмотр</h3>
+                    <p class="text-sm text-gray-500">Сбор анамнеза, диалог с пациентом и визуальный осмотр.</p>
+                </div>
+                
+                <!-- Card 2 -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer flex flex-col items-center text-center" onclick="initGame2()">
+                    <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-2xl mb-4">
+                        <i class="fas fa-pills"></i>
+                    </div>
+                    <h3 class="text-lg font-bold mb-2">2. Подбор терапии и дозы</h3>
+                    <p class="text-sm text-gray-500">Выбор противотуберкулезного препарата и расчет дозировки (мг/кг).</p>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer flex flex-col items-center text-center" onclick="initGame3()">
+                    <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-2xl mb-4">
+                        <i class="fas fa-ruler"></i>
+                    </div>
+                    <h3 class="text-lg font-bold mb-2">3. Оценка пробы Манту</h3>
+                    <p class="text-sm text-gray-500">Измерение папулы интерактивной линейкой и вынесение вердикта.</p>
+                </div>
+
+                <!-- Card 4 -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition cursor-pointer flex flex-col items-center text-center" onclick="initGame4()">
+                    <div class="w-16 h-16 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-2xl mb-4">
+                        <i class="fas fa-x-ray"></i>
+                    </div>
+                    <h3 class="text-lg font-bold mb-2">4. Анализ рентгенограммы</h3>
+                    <p class="text-sm text-gray-500">Поиск патологий на снимке и дифференциальная диагностика.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== GAME 1: РАССРОС И ОСМОТР ==================== -->
+        <div id="game1Screen" class="screen hidden max-w-5xl mx-auto h-full flex flex-col">
+            <h2 class="text-2xl font-bold mb-4 border-b pb-2">Расспрос и осмотр пациента</h2>
+            <div class="flex flex-col md:flex-row gap-4 flex-1 overflow-hidden">
+                <!-- Визуал пациента -->
+                <div class="w-full md:w-1/3 flex flex-col gap-4">
+                    <div class="bg-white p-2 rounded shadow-sm flex-1 flex flex-col">
+                        <p id="g1-patient-info" class="font-bold text-center mb-2">Загрузка пациента...</p>
+                        
+                        <!-- Схематичный пациент -->
+                        <div class="patient-avatar-container bg-gray-50 rounded border">
+                            <div id="g1-schematic-patient" class="">
+                                <div class="patient-head">
+                                    <div class="patient-eyes"><div class="eye"></div><div class="eye"></div></div>
+                                    <div class="patient-mouth"></div>
+                                </div>
+                                <div class="patient-body"></div>
+                            </div>
+                        </div>
+
+                        <div id="g1-inspection-results" class="mt-4 p-3 bg-blue-50 text-sm border-l-4 border-blue-500 hidden">
+                            <!-- Сюда выводится результат визуального осмотра -->
+                        </div>
+                    </div>
+                </div>
+                <!-- Чат и выбор реплик -->
+                <div class="w-full md:w-2/3 bg-white rounded shadow-sm border flex flex-col">
+                    <div id="g1-chat-history" class="flex-1 p-4 overflow-y-auto bg-gray-50 space-y-3">
+                        <!-- Сообщения -->
+                    </div>
+                    <div class="p-4 bg-gray-100 border-t">
+                        <h4 class="font-bold text-sm mb-2 text-gray-600">Выберите действие/вопрос:</h4>
+                        <div id="g1-options" class="flex flex-wrap gap-2">
+                            <!-- Кнопки генерируются JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== GAME 2: ПОДБОР ПРЕПАРАТА ==================== -->
+        <div id="game2Screen" class="screen hidden max-w-3xl mx-auto bg-white p-6 rounded-xl shadow-sm border">
+            <h2 class="text-2xl font-bold mb-4 border-b pb-2">Подбор терапии и расчет дозы</h2>
+            <div class="mb-6 p-4 bg-indigo-50 rounded border-l-4 border-indigo-500">
+                <h3 class="font-bold mb-2">Клиническая ситуация:</h3>
+                <p id="g2-scenario-text" class="text-lg">Загрузка сценария...</p>
+            </div>
+            
+            <div class="space-y-6">
+                <div>
+                    <label class="block font-bold mb-2">1. Выберите препарат:</label>
+                    <select id="g2-drug-select" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500">
+                        <option value="">-- Выберите --</option>
+                        <option value="isoniazid">Изониазид (H)</option>
+                        <option value="rifampicin">Рифампицин (R)</option>
+                        <option value="pyrazinamide">Пиразинамид (Z)</option>
+                        <option value="ethambutol">Этамбутол (E)</option>
+                        <option value="kanamycin">Канамицин (Km) - 2 ряд</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-bold mb-2">2. Рассчитайте суточную дозу (мг):</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="g2-dose-input" placeholder="Например: 300" class="flex-1 p-2 border rounded focus:ring-2 focus:ring-blue-500">
+                        <span class="font-bold text-gray-500">мг/сут</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">Подсказка: формула расчета = вес × рекомендованная доза мг/кг.</p>
+                </div>
+                <button onclick="checkGame2()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded transition">
+                    Назначить терапию
+                </button>
+            </div>
+            <div id="g2-result" class="mt-6 p-4 rounded hidden font-bold text-center"></div>
+        </div>
+
+        <!-- ==================== GAME 3: ОЦЕНКА МАНТУ ==================== -->
+        <div id="game3Screen" class="screen hidden max-w-4xl mx-auto flex flex-col items-center">
+            <div class="bg-white p-6 rounded-xl shadow-sm border w-full">
+                <h2 class="text-2xl font-bold mb-4 border-b pb-2">Оценка пробы Манту</h2>
+                <p class="mb-4 text-gray-600">Пациент: Ребенок, 5 лет. БЦЖ в роддоме. Рубчик 5 мм. <br>Задача: измерьте размер папулы с помощью прозрачной линейки (перетащите её мышью/пальцем на предплечье) поперек оси руки и сделайте заключение.</p>
+                
+                <!-- Интерактивная зона -->
+                <div class="ruler-container mb-6" id="g3-arm-area">
+                    <!-- Папула (размер генерируется случайно) -->
+                    <div id="g3-papule" class="papule"></div>
+                    
+                    <!-- Линейка -->
+                    <div id="g3-ruler" class="ruler shadow-lg">
+                        <!-- Риски линейки сгенерируются в JS -->
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 p-4 rounded border">
+                    <div>
+                        <label class="block font-bold mb-2">Измеренный размер (поперечный), мм:</label>
+                        <input type="number" id="g3-size-input" class="w-full p-2 border rounded" placeholder="Например: 12">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-2">Заключение по пробе:</label>
+                        <select id="g3-verdict-select" class="w-full p-2 border rounded">
+                            <option value="">-- Выберите --</option>
+                            <option value="negative">Отрицательная (0-1 мм)</option>
+                            <option value="doubtful">Сомнительная (2-4 мм или гиперемия)</option>
+                            <option value="positive">Положительная (5-16 мм)</option>
+                            <option value="hyperergic">Гиперергическая (17 мм и более)</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="checkGame3()" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded transition">
+                    Оценить результат
+                </button>
+                <div id="g3-result" class="mt-4 p-4 rounded hidden font-bold text-center"></div>
+            </div>
+        </div>
+
+        <!-- ==================== GAME 4: РЕНТГЕНОГРАММА ==================== -->
+        <div id="game4Screen" class="screen hidden max-w-6xl mx-auto">
+            <div class="bg-white p-6 rounded-xl shadow-sm border w-full flex flex-col md:flex-row gap-6">
+                <!-- Область снимка -->
+                <div class="w-full md:w-1/2 flex flex-col">
+                    <h2 class="text-2xl font-bold mb-4 border-b pb-2">Расшифровка рентгенограммы</h2>
+                    <p id="g4-case-desc" class="text-sm text-gray-700 mb-2 font-medium">Загрузка...</p>
+                    <div id="g4-xray-container" class="relative flex-1 bg-black rounded flex items-center justify-center overflow-hidden min-h-[400px]">
+                        <!-- Схематичный рентген будет генерироваться здесь -->
+                    </div>
+                </div>
+                
+                <!-- Панель анализа -->
+                <div class="w-full md:w-1/2 flex flex-col gap-4">
+                    <div class="bg-gray-50 p-4 rounded border">
+                        <h3 class="font-bold mb-3">1. Отметьте обнаруженные синдромы/признаки:</h3>
+                        <div class="space-y-2" id="g4-signs">
+                            <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" value="infiltrate" class="w-5 h-5 text-blue-600"><span class="text-gray-700">Синдром затемнения (инфильтрация)</span></label>
+                            <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" value="cavity" class="w-5 h-5 text-blue-600"><span class="text-gray-700">Кольцевидная тень (полость распада)</span></label>
+                            <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" value="nodes" class="w-5 h-5 text-blue-600"><span class="text-gray-700">Увеличение внутригрудных лимфоузлов</span></label>
+                            <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" value="pleural" class="w-5 h-5 text-blue-600"><span class="text-gray-700">Плевральный выпот</span></label>
+                            <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" value="dissemination" class="w-5 h-5 text-blue-600"><span class="text-gray-700">Синдром диссеминации (очаги)</span></label>
+                            <label class="flex items-center space-x-2 cursor-pointer"><input type="checkbox" value="shift" class="w-5 h-5 text-blue-600"><span class="text-gray-700">Смещение средостения</span></label>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-blue-50 p-4 rounded border border-blue-200">
+                        <h3 class="font-bold mb-3">2. Дифференциальный диагноз:</h3>
+                        <select id="g4-diagnosis" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500">
+                            <option value="">-- Выберите основное заключение --</option>
+                            <option value="pneumonia">Внебольничная пневмония</option>
+                            <option value="tb_infiltrative">Инфильтративный туберкулез</option>
+                            <option value="tb_focal">Очаговый туберкулез</option>
+                            <option value="cancer">Периферический рак легкого</option>
+                            <option value="tb_vglu">Туберкулез внутригрудных лимфатических узлов</option>
+                            <option value="pleurisy">Экссудативный плеврит</option>
+                            <option value="tb_disseminated">Диссеминированный туберкулез</option>
+                            <option value="norm">Норма (Без патологий)</option>
+                        </select>
+                    </div>
+
+                    <button onclick="checkGame4()" class="mt-auto bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 px-4 rounded transition shadow">
+                        Подтвердить заключение
+                    </button>
+                    <div id="g4-result" class="p-4 rounded hidden font-bold text-center"></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- Управление экранами ---
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+            document.getElementById(screenId).classList.remove('hidden');
+            
+            const homeBtn = document.getElementById('homeBtn');
+            if (screenId === 'menuScreen') {
+                homeBtn.classList.add('hidden');
+            } else {
+                homeBtn.classList.remove('hidden');
+            }
+        }
+
+        // ==================== ИГРА 1: РАССРОС ====================
+        const g1Cases = [
+            {
+                patient: "Мальчик, 7 лет", visual: "sym-pale",
+                startText: "Мать жалуется на длительный кашель у ребенка.",
+                nodes: {
+                    start: { options: [{ text: "Здравствуйте. Расскажите, пожалуйста, что вас беспокоит? Как давно появились эти симптомы?", next: "c" }, { text: "Давайте сразу перейдем к осмотру. Пожалуйста, разденьте ребенка до пояса.", next: "i", type: 'action' }] },
+                    c: { reply: "Кашляет 3 недели, температура 37.3. Полгода назад дед болел открытой формой ТБ. В садике Манту была 'большая', но в тубдиспансер не пошли.", options: [{ text: "Я вас понял. Теперь позвольте мне осмотреть ребенка и послушать легкие.", next: "i", type: 'action' }, { text: "Я собрал достаточно данных, готов поставить диагноз.", next: "diag" }] },
+                    i: { actionResult: "Бледен. Микрополиадения (увеличены шейные, подмышечные узлы). Рубчик БЦЖ 4 мм. Дыхание жесткое, хрипов нет.", reply: "Раздела ребенка, смотрите.", options: [{ text: "Хотелось бы уточнить еще пару деталей из истории вашей болезни.", next: "c" }, { text: "Осмотр завершен. Я готов поставить диагноз.", next: "diag" }] },
+                    diag: { reply: "Слушаю вас, доктор. Что с моим сыном?", options: [
+                        { text: "Туберкулез внутригрудных лимфатических узлов", isDiagnosis: true, isCorrect: true },
+                        { text: "Острый бронхит", isDiagnosis: true, isCorrect: false },
+                        { text: "Бронхиальная астма", isDiagnosis: true, isCorrect: false }
+                    ]}
+                }
+            },
+            {
+                patient: "Мужчина, 45 лет", visual: "sym-pale",
+                startText: "Вызов врача на дом из-за появления крови в мокроте.",
+                nodes: {
+                    start: { options: [{ text: "Добрый день. На что жалуетесь? Что заставило вас вызвать врача сегодня?", next: "c" }, { text: "Разрешите мне провести физикальный осмотр и послушать вас.", next: "i", type: 'action' }] },
+                    c: { reply: "Курил 20 лет, доктор. Последний месяц сильно похудел, кашель стал надсадным, а сегодня утром выплюнул сгусток крови.", options: [{ text: "Пожалуйста, снимите рубашку, мне нужно провести перкуссию и аускультацию легких.", next: "i", type: 'action' }, { text: "Мне всё ясно. Перейдем к предварительному диагнозу.", next: "diag" }] },
+                    i: { actionResult: "Пациент истощен. Грудная клетка бочкообразная. Справа в верхних отделах выслушиваются влажные хрипы.", reply: "Да, конечно, слушайте.", options: [{ text: "У меня есть дополнительные вопросы по вашему самочувствию.", next: "c" }, { text: "Осмотр окончен. Перейдем к заключению.", next: "diag" }] },
+                    diag: { reply: "Что скажете, доктор? Это серьезно?", options: [
+                        { text: "Хронический бронхит курильщика", isDiagnosis: true, isCorrect: false },
+                        { text: "Подозрение на центральный рак легкого или туберкулез", isDiagnosis: true, isCorrect: true },
+                        { text: "Тромбоэмболия легочной артерии (ТЭЛА)", isDiagnosis: true, isCorrect: false }
+                    ]}
+                }
+            },
+            {
+                patient: "Девочка, 3 года", visual: "",
+                startText: "Направлена педиатром после плановой пробы Манту.",
+                nodes: {
+                    start: { options: [{ text: "Здравствуйте. С чем связано ваше направление в наш диспансер?", next: "c" }, { text: "Давайте я для начала осмотрю девочку.", next: "i", type: 'action' }] },
+                    c: { reply: "Ребенка ничего не беспокоит, бегает, играет. Но педиатр сказал, что Манту стала 12 мм, а год назад была отрицательная.", options: [{ text: "Понятно. Теперь давайте посмотрим на саму папулу и проведем общий осмотр.", next: "i", type: 'action' }, { text: "Ситуация ясна, я готов вынести заключение.", next: "diag" }] },
+                    i: { actionResult: "Жалоб нет. Состояние удовлетворительное. Лимфоузлы не увеличены. На предплечье папула 12 мм.", reply: "Показываем ручку.", options: [{ text: "Вернемся к беседе об анамнезе.", next: "c" }, { text: "Осмотр завершен, готов поставить диагноз.", next: "diag" }] },
+                    diag: { reply: "Ну что там, доктор? Нам нужно лечиться?", options: [
+                        { text: "Поствакцинальная аллергия (нормальная реакция)", isDiagnosis: true, isCorrect: false },
+                        { text: "Локальный туберкулез легких", isDiagnosis: true, isCorrect: false },
+                        { text: "Вираж туберкулиновой пробы (первичное инфицирование)", isDiagnosis: true, isCorrect: true }
+                    ]}
+                }
+            },
+            {
+                patient: "Подросток, 15 лет", visual: "sym-sweat",
+                startText: "Обратился в поликлинику с жалобами на слабость.",
+                nodes: {
+                    start: { options: [{ text: "Приветствую. Рассказывай, что тебя беспокоит в последнее время?", next: "c" }, { text: "Давай я тебя послушаю и осмотрю. Раздевайся до пояса.", next: "i", type: 'action' }] },
+                    c: { reply: "Быстро устаю, по ночам почему-то сильно потею, температура 37.1 держится уже пару недель. Кашля почти нет.", options: [{ text: "Хорошо. Теперь встань прямо, я проведу физикальный осмотр.", next: "i", type: 'action' }, { text: "Я услышал достаточно, чтобы предположить диагноз.", next: "diag" }] },
+                    i: { actionResult: "Кожа влажная на ощупь. Над легкими перкуторный звук не изменен, хрипов нет. Заметно снижена масса тела.", reply: "Слушайте, доктор.", options: [{ text: "Есть еще несколько вопросов о твоем самочувствии.", next: "c" }, { text: "Можем переходить к предварительному диагнозу.", next: "diag" }] },
+                    diag: { reply: "Что со мной? Это из-за экзаменов?", options: [
+                        { text: "Вегетососудистая дистония (ВСД)", isDiagnosis: true, isCorrect: false },
+                        { text: "Подозрение на туберкулезную интоксикацию / ТБ легких", isDiagnosis: true, isCorrect: true },
+                        { text: "Острая респираторная вирусная инфекция (ОРВИ)", isDiagnosis: true, isCorrect: false }
+                    ]}
+                }
+            },
+            {
+                patient: "Женщина, 30 лет", visual: "sym-fever",
+                startText: "Острое начало заболевания, вызов на дом.",
+                nodes: {
+                    start: { options: [{ text: "Здравствуйте. Как давно вы заболели и с чего всё началось?", next: "c" }, { text: "Позвольте мне вас осмотреть и измерить температуру.", next: "i", type: 'action' }] },
+                    c: { reply: "Заболела вчера. Резко поднялась температура до 39, бил сильный озноб, появилась острая боль в правом боку при дыхании, сухой кашель.", options: [{ text: "Опишите боль подробнее... А теперь позвольте послушать ваши легкие.", next: "i", type: 'action' }, { text: "Клиническая картина довольно типична. Я готов поставить диагноз.", next: "diag" }] },
+                    i: { actionResult: "Выраженная лихорадка. Справа в нижних отделах - притупление перкуторного звука. Аускультативно там же выслушивается крепитация.", reply: "Ой, очень больно глубоко дышать.", options: [{ text: "Давайте уточним детали вашего анамнеза.", next: "c" }, { text: "Осмотр завершен. Диагноз мне ясен.", next: "diag" }] },
+                    diag: { reply: "Доктор, что у меня? Простуда?", options: [
+                        { text: "Крупозная (внебольничная) пневмония", isDiagnosis: true, isCorrect: true },
+                        { text: "Инфильтративный туберкулез легких", isDiagnosis: true, isCorrect: false },
+                        { text: "Острый бронхит", isDiagnosis: true, isCorrect: false }
+                    ]}
+                }
+            },
+            {
+                patient: "Мальчик, 5 лет", visual: "sym-rash",
+                startText: "Частые ОРВИ, направлен иммунологом.",
+                nodes: {
+                    start: { options: [{ text: "Здравствуйте. Расскажите, почему иммунолог направил вас ко мне?", next: "c" }, { text: "Давайте проведем полный осмотр ребенка, раздевайте его.", next: "i", type: 'action' }] },
+                    c: { reply: "Он часто болеет простудами. В последнее время стал очень капризным, снизился аппетит. По вечерам часто температура 37.2.", options: [{ text: "Ясно. Теперь мне нужно внимательно осмотреть кожу, лимфоузлы и послушать легкие.", next: "i", type: 'action' }, { text: "Анамнез собран. Я готов выставить предварительный диагноз.", next: "diag" }] },
+                    i: { actionResult: "Параспецифические реакции: фликтена на конъюнктиве, узловатая эритема на голенях. Увеличены все группы периферических лимфоузлов (полиадения).", reply: "Смотрите, доктор, у него еще какие-то пятна на ножках.", options: [{ text: "Вернемся к вопросам о частоте его заболеваний.", next: "c" }, { text: "Осмотр окончен, картина проясняется.", next: "diag" }] },
+                    diag: { reply: "Что это за пятна и температура, доктор?", options: [
+                        { text: "Первичный иммунодефицит", isDiagnosis: true, isCorrect: false },
+                        { text: "Хроническая туберкулезная интоксикация / ТБ ВГЛУ", isDiagnosis: true, isCorrect: true },
+                        { text: "Аллергический дерматит на фоне ОРВИ", isDiagnosis: true, isCorrect: false }
+                    ]}
+                }
+            },
+            {
+                patient: "Мужчина, 60 лет", visual: "sym-pale",
+                startText: "Пришел на прием за рецептом от кашля.",
+                nodes: {
+                    start: { options: [{ text: "Добрый день. Опишите характер вашего кашля. Как давно он вас беспокоит?", next: "c" }, { text: "Раздевайтесь до пояса, я проведу перкуссию и аускультацию.", next: "i", type: 'action' }] },
+                    c: { reply: "Кашляю уже лет 10 по утрам, отходит мокрота. Курю по пачке в день. Последнее время стала появляться сильная одышка при ходьбе, задыхаюсь.", options: [{ text: "Одышка — это тревожный симптом. Позвольте вас послушать.", next: "i", type: 'action' }, { text: "С учетом вашего стажа курения, диагноз очевиден.", next: "diag" }] },
+                    i: { actionResult: "Грудная клетка бочкообразная (эмфизематозная). Дыхание резко ослаблено, выслушиваются рассеянные сухие свистящие хрипы.", reply: "Дышу, как скажете.", options: [{ text: "Уточните, какие препараты вы уже принимали?", next: "c" }, { text: "Осмотр завершен. Готов поставить диагноз.", next: "diag" }] },
+                    diag: { reply: "Так выпишете мне сироп от кашля?", options: [
+                        { text: "Хроническая обструктивная болезнь легких (ХОБЛ)", isDiagnosis: true, isCorrect: true },
+                        { text: "Бронхиальная астма, атопическая форма", isDiagnosis: true, isCorrect: false },
+                        { text: "Очаговый туберкулез легких", isDiagnosis: true, isCorrect: false }
+                    ]}
+                }
+            },
+            {
+                patient: "Парень, 25 лет", visual: "sym-sweat",
+                startText: "Обратился в дежурную больницу с жалобами на тяжесть в груди.",
+                nodes: {
+                    start: { options: [{ text: "Здравствуйте. Не могли бы вы уточнить, где именно вы ощущаете тяжесть?", next: "c" }, { text: "Мне нужно вас осмотреть и перкуторно определить границы легких.", next: "i", type: 'action' }] },
+                    c: { reply: "Слева в груди. Неделю назад была острая боль при кашле, а теперь боль прошла, но дышать стало очень тяжело, не хватает воздуха.", options: [{ text: "Это требует немедленного осмотра. Пожалуйста, снимите футболку.", next: "i", type: 'action' }, { text: "Я предполагаю, в чем дело. Перейдем к диагнозу.", next: "diag" }] },
+                    i: { actionResult: "Отставание левой половины грудной клетки при дыхании. Слева ниже лопатки - абсолютно тупой перкуторный звук (линия Дамуазо), дыхание там не проводится.", reply: "Готов к осмотру.", options: [{ text: "Есть еще пара вопросов по вашему состоянию на прошлой неделе.", next: "c" }, { text: "Осмотр показал четкую картину. Выставляю диагноз.", next: "diag" }] },
+                    diag: { reply: "Доктор, почему мне так тяжело дышать?", options: [
+                        { text: "Межреберная невралгия", isDiagnosis: true, isCorrect: false },
+                        { text: "Спонтанный пневмоторакс", isDiagnosis: true, isCorrect: false },
+                        { text: "Экссудативный плеврит (скопление жидкости)", isDiagnosis: true, isCorrect: true }
+                    ]}
+                }
+            },
+            {
+                patient: "Малыш, 1 год", visual: "sym-fever",
+                startText: "Срочный вызов на дом, ребенок задыхается.",
+                nodes: {
+                    start: { options: [{ text: "Я слушаю вас, постарайтесь успокоиться и рассказать подробно, что случилось ночью?", next: "c" }, { text: "Срочно освобождаем грудную клетку малыша, мне нужно оценить дыхание!", next: "i", type: 'action' }] },
+                    c: { reply: "Он спал, а ночью проснулся, появился грубый лающий кашель, дышит со свистом, голос совсем осип!", options: [{ text: "Дайте мне его осмотреть, нужно оценить степень дыхательной недостаточности.", next: "i", type: 'action' }, { text: "Ситуация экстренная, диагноз ясен.", next: "diag" }] },
+                    i: { actionResult: "Шумное, стридорозное дыхание. Выраженное втяжение уступчивых мест грудной клетки (яремной ямки, межреберий) при вдохе. Акроцианоз.", reply: "Помогите ему, он задыхается!", options: [{ text: "Были ли у него симптомы ОРВИ до этого?", next: "c" }, { text: "Срочно переходим к постановке диагноза и оказанию помощи!", next: "diag" }] },
+                    diag: { reply: "Что с ним?!", options: [
+                        { text: "Инородное тело дыхательных путей", isDiagnosis: true, isCorrect: false },
+                        { text: "Острый стенозирующий ларинготрахеит (синдром крупа)", isDiagnosis: true, isCorrect: true },
+                        { text: "Приступ бронхиальной астмы", isDiagnosis: true, isCorrect: false }
+                    ]}
+                }
+            },
+            {
+                patient: "Женщина, 35 лет", visual: "sym-pale",
+                startText: "Пациентка с ВИЧ-инфекцией в анамнезе.",
+                nodes: {
+                    start: { options: [{ text: "Добрый день. Расскажите, какие симптомы вас сейчас беспокоят больше всего?", next: "c" }, { text: "Пожалуйста, ложитесь на кушетку, я проведу полный врачебный осмотр.", next: "i", type: 'action' }] },
+                    c: { reply: "Я забросила терапию от ВИЧ год назад. Сейчас жуткая слабость, температура 39, сильная одышка и невыносимые головные боли.", options: [{ text: "Это очень серьезно. Мне необходимо провести осмотр, включая оценку неврологического статуса.", next: "i", type: 'action' }, { text: "Я готов вынести предварительное заключение.", next: "diag" }] },
+                    i: { actionResult: "Пациентка крайне истощена. Выраженная одышка в покое. Тахикардия. Положительные менингеальные симптомы (ригидность затылочных мышц).", reply: "Сил нет даже сидеть...", options: [{ text: "Уточните, когда именно появились головные боли?", next: "c" }, { text: "Осмотр завершен. Диагноз требует срочной госпитализации.", next: "diag" }] },
+                    diag: { reply: "Доктор, что со мной происходит?", options: [
+                        { text: "Пневмоцистная пневмония", isDiagnosis: true, isCorrect: false },
+                        { text: "ОРВИ, тяжелое течение на фоне иммунодефицита", isDiagnosis: true, isCorrect: false },
+                        { text: "Генерализованный (милиарный) туберкулез с менингитом", isDiagnosis: true, isCorrect: true }
+                    ]}
+                }
+            }
+        ];
+
+        let g1CurrentNode = 'start';
+        let g1Inspected = false;
+        let g1CurrentScenarioObj = null;
+
+        function initGame1() {
+            showScreen('game1Screen');
+            g1CurrentScenarioObj = g1Cases[Math.floor(Math.random() * g1Cases.length)];
+            
+            // Динамическое обновление данных пациента и его внешнего вида
+            document.getElementById('g1-patient-info').innerText = "Пациент: " + g1CurrentScenarioObj.patient;
+            document.getElementById('g1-schematic-patient').className = g1CurrentScenarioObj.visual;
+            
+            document.getElementById('g1-chat-history').innerHTML = `<div class="text-gray-500 italic text-center mb-4">${g1CurrentScenarioObj.startText}</div>`;
+            document.getElementById('g1-inspection-results').classList.add('hidden');
+            g1Inspected = false;
+            g1CurrentNode = 'start';
+            renderG1Options();
+        }
+
+        function addChatMessage(sender, text) {
+            const chat = document.getElementById('g1-chat-history');
+            const msgDiv = document.createElement('div');
+            if (sender === 'doctor') {
+                msgDiv.className = "ml-auto bg-blue-100 text-blue-900 p-2 rounded-lg max-w-[80%] text-right";
+                msgDiv.innerHTML = `<strong>Вы:</strong> ${text}`;
+            } else if (sender === 'patient') {
+                msgDiv.className = "mr-auto bg-white border p-2 rounded-lg max-w-[80%]";
+                msgDiv.innerHTML = `<strong>Пациент:</strong> ${text}`;
+            } else {
+                msgDiv.className = "mx-auto bg-yellow-50 text-yellow-800 p-2 rounded-lg w-full text-center text-sm border border-yellow-200";
+                msgDiv.innerHTML = text;
+            }
+            chat.appendChild(msgDiv);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        function handleG1OptionClick(option) {
+            // Если это кнопка выбора окончательного диагноза
+            if (option.isDiagnosis) {
+                addChatMessage('doctor', `Я предполагаю диагноз: ${option.text}.`);
+                
+                if (option.isCorrect) {
+                    addChatMessage('system', `✅ Вы поставили верный предварительный диагноз: <strong>${option.text}</strong>.<br>Отличная клиническая логика!`);
+                } else {
+                    addChatMessage('system', `❌ Ошибка. Вы выбрали: <strong>${option.text}</strong>, но анамнез и результаты осмотра указывают на другое заболевание.`);
+                }
+                
+                // Предлагаем перейти к следующему пациенту
+                document.getElementById('g1-options').innerHTML = '<button class="bg-blue-600 text-white hover:bg-blue-700 px-4 py-3 rounded transition w-full font-bold shadow-md" onclick="initGame1()">Принять следующего пациента</button>';
+                return;
+            }
+
+            // Стандартная обработка диалога и осмотра
+            addChatMessage('doctor', option.text);
+            const nextNode = g1CurrentScenarioObj.nodes[option.next];
+            g1CurrentNode = option.next;
+
+            // Очищаем кнопки на время "раздумья"
+            document.getElementById('g1-options').innerHTML = '';
+
+            setTimeout(() => {
+                if (option.type === 'action') {
+                    if (!g1Inspected) {
+                        const inspectionBox = document.getElementById('g1-inspection-results');
+                        inspectionBox.innerHTML = `<strong>Результаты осмотра:</strong><br>${nextNode.actionResult}`;
+                        inspectionBox.classList.remove('hidden');
+                        g1Inspected = true;
+                        addChatMessage('system', 'Проведен визуальный и физикальный осмотр пациента.');
+                    }
+                }
+                
+                if (nextNode.reply) {
+                    addChatMessage('patient', nextNode.reply);
+                }
+
+                renderG1Options();
+            }, 800);
+        }
+
+        function renderG1Options() {
+            const container = document.getElementById('g1-options');
+            container.innerHTML = '';
+            const options = g1CurrentScenarioObj.nodes[g1CurrentNode].options;
+            
+            // Если это варианты диагнозов, стилизуем их иначе (под кнопки выбора ответа)
+            const isDiagNode = options.length > 0 && options[0].isDiagnosis;
+            
+            options.forEach(opt => {
+                if (opt.type === 'action' && g1Inspected && opt.next === 'inspection') return;
+                
+                const btn = document.createElement('button');
+                
+                if (isDiagNode) {
+                    btn.className = "bg-white border-2 border-indigo-200 hover:bg-indigo-50 hover:border-indigo-400 text-indigo-900 px-4 py-3 rounded-lg text-sm transition font-medium text-left w-full shadow-sm";
+                } else {
+                    btn.className = "bg-white border border-gray-300 hover:bg-blue-50 hover:border-blue-300 text-gray-700 px-4 py-2 rounded text-sm transition flex-grow text-left shadow-sm";
+                }
+                
+                btn.innerText = opt.text;
+                btn.onclick = () => handleG1OptionClick(opt);
+                container.appendChild(btn);
+            });
+        }
+
+
+        // ==================== ИГРА 2: ДОЗИРОВКА ====================
+        const g2Cases = [
+            { id: 1, type: "Ребенок", weight: 15, targetDrug: 'isoniazid', drugName: 'Изониазид (H)', minDose: 135, maxDose: 225, hint: "Норма: 10 мг/кг (max 300)", prompt: "Главный бактерицидный препарат первого ряда, производное изоникотиновой кислоты. Из-за риска нейропатии назначается вместе с витамином B6." },
+            { id: 2, type: "Ребенок", weight: 25, targetDrug: 'rifampicin', drugName: 'Рифампицин (R)', minDose: 320, maxDose: 400, hint: "Норма: 15 мг/кг", prompt: "Антибиотик широкого спектра действия. Ингибитор РНК-полимеразы. Предупредите мать, что препарат окрашивает мочу и слезы в красный цвет." },
+            { id: 3, type: "Ребенок", weight: 30, targetDrug: 'pyrazinamide', drugName: 'Пиразинамид (Z)', minDose: 900, maxDose: 1200, hint: "Норма: 35 мг/кг", prompt: "Препарат, который лучше всего действует на внутриклеточно расположенные микобактерии в кислой среде макрофагов. Может вызывать гиперурикемию." },
+            { id: 4, type: "Ребенок", weight: 20, targetDrug: 'ethambutol', drugName: 'Этамбутол (E)', minDose: 350, maxDose: 450, hint: "Норма: 20 мг/кг", prompt: "Бактериостатический препарат первого ряда. При назначении необходим контроль окулиста из-за риска ретробульбарного неврита зрительного нерва." },
+            { id: 5, type: "Ребенок", weight: 18, targetDrug: 'kanamycin', drugName: 'Канамицин (Km)', minDose: 250, maxDose: 300, hint: "Норма: 15 мг/кг (В/м)", prompt: "Аминогликозид, резервный препарат (второй ряд) для внутримышечного введения. Обладает выраженной ототоксичностью и нефротоксичностью." },
+            { id: 6, type: "Взрослый", weight: 60, targetDrug: 'isoniazid', drugName: 'Изониазид (H)', minDose: 280, maxDose: 320, hint: "Норма: 5 мг/кг (max 300)", prompt: "Пациент с впервые выявленным туберкулезом легких. Назначьте базовый бактерицидный препарат, для которого характерна гепатотоксичность (в метаболизме участвует ацетилирование)." },
+            { id: 7, type: "Взрослый", weight: 55, targetDrug: 'rifampicin', drugName: 'Рифампицин (R)', minDose: 500, maxDose: 600, hint: "Норма: 10 мг/кг (max 600)", prompt: "Пациентка с туберкулезом. Назначьте препарат, являющийся мощным индуктором ферментов печени (цитохрома Р450), снижающий эффективность оральных контрацептивов." },
+            { id: 8, type: "Взрослый", weight: 70, targetDrug: 'pyrazinamide', drugName: 'Пиразинамид (Z)', minDose: 1500, maxDose: 2000, hint: "Норма: 25 мг/кг", prompt: "В интенсивной фазе лечения нужно назначить препарат, эффективно «добивающий» микобактерии внутри казеозных масс и макрофагов. Побочный эффект - боли в суставах." },
+            { id: 9, type: "Взрослый", weight: 65, targetDrug: 'ethambutol', drugName: 'Этамбутол (E)', minDose: 900, maxDose: 1100, hint: "Норма: 15 мг/кг", prompt: "Добавьте в схему первого ряда препарат, действующий на синтез клеточной стенки. Обязательно предупредите о возможном нарушении цветовосприятия." },
+            { id: 10, type: "Взрослый", weight: 80, targetDrug: 'kanamycin', drugName: 'Канамицин (Km)', minDose: 900, maxDose: 1100, hint: "Норма: 15 мг/кг (max 1000)", prompt: "У пациента множественная лекарственная устойчивость (МЛУ) к H и R. Назначьте инъекционный препарат из группы аминогликозидов." },
+            { id: 11, type: "Ребенок", weight: 10, targetDrug: 'isoniazid', drugName: 'Изониазид (H)', minDose: 90, maxDose: 120, hint: "Норма: 10 мг/кг", prompt: "Ребенку назначена химиопрофилактика из-за тесного контакта с бактериовыделителем. Какой препарат применяется для профилактики в монотерапии?" },
+            { id: 12, type: "Взрослый", weight: 50, targetDrug: 'rifampicin', drugName: 'Рифампицин (R)', minDose: 450, maxDose: 550, hint: "Норма: 10 мг/кг", prompt: "Ключевой полусинтетический антибиотик из группы ансамицинов. Выберите его из списка для добавления в схему." },
+            { id: 13, type: "Ребенок", weight: 35, targetDrug: 'pyrazinamide', drugName: 'Пиразинамид (Z)', minDose: 1100, maxDose: 1300, hint: "Норма: 35 мг/кг", prompt: "Третий обязательный препарат в интенсивной фазе стандартного режима химиотерапии у детей. Синтетическое средство, аналог никотинамида." },
+            { id: 14, type: "Взрослый", weight: 90, targetDrug: 'ethambutol', drugName: 'Этамбутол (E)', minDose: 1200, maxDose: 1500, hint: "Норма: 15 мг/кг", prompt: "Назначьте туберкулостатик, который не влияет на слух и печень, но противопоказан при диабетической ретинопатии и катаракте из-за токсичности для глаз." },
+            { id: 15, type: "Ребенок", weight: 12, targetDrug: 'kanamycin', drugName: 'Канамицин (Km)', minDose: 160, maxDose: 200, hint: "Норма: 15 мг/кг", prompt: "Инъекционный антибиотик резервного ряда. Требует регулярного контроля аудиограммы (слуха)." }
+        ];
+
+        let g2CurrentCaseObj = {};
+        
+        function initGame2() {
+            showScreen('game2Screen');
+            document.getElementById('g2-drug-select').value = "";
+            document.getElementById('g2-dose-input').value = "";
+            document.getElementById('g2-result').classList.add('hidden');
+            
+            g2CurrentCaseObj = g2Cases[Math.floor(Math.random() * g2Cases.length)];
+
+            document.getElementById('g2-scenario-text').innerHTML = `
+                Пациент: <strong>${g2CurrentCaseObj.type}</strong>, вес <strong>${g2CurrentCaseObj.weight} кг</strong>. <br>
+                <em>Вводная информация:</em> ${g2CurrentCaseObj.prompt}
+            `;
+        }
+
+        function checkGame2() {
+            const drug = document.getElementById('g2-drug-select').value;
+            const dose = parseInt(document.getElementById('g2-dose-input').value);
+            const resDiv = document.getElementById('g2-result');
+            resDiv.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
+
+            if (!drug || isNaN(dose)) {
+                resDiv.classList.add('bg-red-100', 'text-red-700');
+                resDiv.innerText = "Пожалуйста, выберите препарат и введите дозу.";
+                return;
+            }
+
+            if (drug !== g2CurrentCaseObj.targetDrug) {
+                resDiv.classList.add('bg-red-100', 'text-red-700');
+                resDiv.innerText = `Ошибка. В задании требовалось назначить ${g2CurrentCaseObj.drugName}.`;
+                return;
+            }
+
+            if (dose >= g2CurrentCaseObj.minDose && dose <= g2CurrentCaseObj.maxDose) {
+                resDiv.classList.add('bg-green-100', 'text-green-700');
+                resDiv.innerHTML = `<strong>Верно!</strong><br>Доза ${dose} мг/сут входит в терапевтический диапазон (${g2CurrentCaseObj.minDose} - ${g2CurrentCaseObj.maxDose} мг).<br><span class="text-sm">${g2CurrentCaseObj.hint}</span>`;
+            } else {
+                resDiv.classList.add('bg-red-100', 'text-red-700');
+                resDiv.innerHTML = `<strong>Неверная дозировка.</strong><br>Введенная доза (${dose} мг) не подходит. Для веса ${g2CurrentCaseObj.weight} кг нужно от ${g2CurrentCaseObj.minDose} до ${g2CurrentCaseObj.maxDose} мг.<br><span class="text-sm">${g2CurrentCaseObj.hint}</span>`;
+            }
+        }
+
+
+        // ==================== ИГРА 3: МАНТУ ====================
+        let g3PapuleSizeMM = 0;
+        let isDraggingRuler = false;
+        let rulerStartX, rulerStartY, initialRulerLeft, initialRulerTop;
+
+        function initGame3() {
+            showScreen('game3Screen');
+            document.getElementById('g3-size-input').value = "";
+            document.getElementById('g3-verdict-select').value = "";
+            document.getElementById('g3-result').classList.add('hidden');
+
+            // Генерация папулы (от 0 до 22 мм)
+            g3PapuleSizeMM = Math.floor(Math.random() * 23);
+            const pixelsPerMM = 10;
+            const papuleEl = document.getElementById('g3-papule');
+            
+            if (g3PapuleSizeMM === 0) {
+                papuleEl.style.width = '4px'; // След от укола
+                papuleEl.style.height = '4px';
+                papuleEl.style.backgroundColor = 'rgba(255,0,0,0.8)';
+            } else {
+                const sizePx = g3PapuleSizeMM * pixelsPerMM;
+                papuleEl.style.width = sizePx + 'px';
+                papuleEl.style.height = sizePx + 'px';
+                papuleEl.style.backgroundColor = 'rgba(255, 0, 0, 0.35)'; // Полупрозрачная краснота
+            }
+
+            // Отрисовка рисок линейки (30 см/мм)
+            const ruler = document.getElementById('g3-ruler');
+            ruler.innerHTML = '';
+            for (let i = 0; i <= 29; i++) {
+                const tick = document.createElement('div');
+                tick.className = 'ruler-tick';
+                if (i % 5 === 0) {
+                    tick.classList.add('cm');
+                    if (i % 10 === 0) tick.setAttribute('data-cm', i / 10);
+                }
+                ruler.appendChild(tick);
+            }
+            
+            // Сброс позиции линейки
+            ruler.style.left = '20px';
+            ruler.style.top = '20px';
+        }
+
+        // Логика перетаскивания линейки
+        const rulerEl = document.getElementById('g3-ruler');
+        
+        function dragStart(e) {
+            isDraggingRuler = true;
+            if (e.type === "touchstart") {
+                rulerStartX = e.touches[0].clientX;
+                rulerStartY = e.touches[0].clientY;
+            } else {
+                rulerStartX = e.clientX;
+                rulerStartY = e.clientY;
+            }
+            initialRulerLeft = rulerEl.offsetLeft;
+            initialRulerTop = rulerEl.offsetTop;
+        }
+
+        function drag(e) {
+            if (!isDraggingRuler) return;
+            e.preventDefault();
+            let currentX, currentY;
+            if (e.type === "touchmove") {
+                currentX = e.touches[0].clientX;
+                currentY = e.touches[0].clientY;
+            } else {
+                currentX = e.clientX;
+                currentY = e.clientY;
+            }
+            
+            const dx = currentX - rulerStartX;
+            const dy = currentY - rulerStartY;
+            
+            rulerEl.style.left = (initialRulerLeft + dx) + "px";
+            rulerEl.style.top = (initialRulerTop + dy) + "px";
+        }
+
+        function dragEnd() {
+            isDraggingRuler = false;
+        }
+
+        rulerEl.addEventListener('mousedown', dragStart);
+        rulerEl.addEventListener('touchstart', dragStart, {passive: false});
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('touchmove', drag, {passive: false});
+        document.addEventListener('mouseup', dragEnd);
+        document.addEventListener('touchend', dragEnd);
+
+        function checkGame3() {
+            const sizeInput = parseInt(document.getElementById('g3-size-input').value);
+            const verdict = document.getElementById('g3-verdict-select').value;
+            const resDiv = document.getElementById('g3-result');
+            resDiv.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700');
+
+            if (isNaN(sizeInput) || !verdict) {
+                resDiv.classList.add('bg-red-100', 'text-red-700');
+                resDiv.innerText = "Укажите размер и выберите заключение.";
+                return;
+            }
+
+            // Допуск +-1 мм из-за неточности наведения на экране
+            const isSizeCorrect = Math.abs(sizeInput - g3PapuleSizeMM) <= 1; 
+            
+            let correctVerdict = "";
+            if (g3PapuleSizeMM <= 1) correctVerdict = "negative";
+            else if (g3PapuleSizeMM >= 2 && g3PapuleSizeMM <= 4) correctVerdict = "doubtful";
+            else if (g3PapuleSizeMM >= 5 && g3PapuleSizeMM <= 16) correctVerdict = "positive";
+            else if (g3PapuleSizeMM >= 17) correctVerdict = "hyperergic";
+
+            if (isSizeCorrect && verdict === correctVerdict) {
+                resDiv.classList.add('bg-green-100', 'text-green-700');
+                resDiv.innerHTML = `<strong>Верно!</strong><br>Реальный размер: ${g3PapuleSizeMM} мм. Диагноз поставлен правильно.`;
+            } else if (!isSizeCorrect) {
+                resDiv.classList.add('bg-yellow-100', 'text-yellow-700');
+                resDiv.innerHTML = `<strong>Ошибка измерения!</strong><br>Вы указали ${sizeInput} мм, а реальный размер папулы: ${g3PapuleSizeMM} мм. Приложите 0 линейки к краю покраснения.`;
+            } else {
+                resDiv.classList.add('bg-red-100', 'text-red-700');
+                resDiv.innerHTML = `<strong>Размер определен верно (${g3PapuleSizeMM} мм), но интерпретация неверна!</strong><br>Повторите критерии оценки пробы Манту.`;
+            }
+        }
+
+
+        // ==================== ИГРА 4: РЕНТГЕН ====================
+        const xrayBuilder = (paths, shift = '') => `
+            <div class="relative w-[300px] h-[320px]">
+                <div class="xray-lung left"></div>
+                <div class="xray-lung right"></div>
+                <div class="xray-mediastinum ${shift}"></div>
+                ${paths}
+            </div>`;
+
+        const g4Cases = [
+            { id: 1, desc: "Взрослый пациент. Жалобы на длительный кашель, кровохарканье, ночную потливость. Перкуторно - укорочение звука в верхних отделах справа, влажные хрипы.", signs: ['infiltrate', 'cavity'], diagnosis: 'tb_infiltrative', html: xrayBuilder('<div class="xray-pathology path-infiltrate" style="top:30px; right:35px;"></div><div class="xray-pathology path-cavity" style="top:40px; right:45px;"></div>') },
+            { id: 2, desc: "Молодой человек, астеничного телосложения. Жалоб нет, изменения выявлены при плановой ФЛГ. Контакт с больным ТБ на работе.", signs: ['infiltrate'], diagnosis: 'tb_focal', html: xrayBuilder('<div class="xray-pathology path-infiltrate" style="top:25px; right:40px; width:25px; height:25px;"></div>') },
+            { id: 3, desc: "Ребенок 5 лет. Вираж пробы Манту (с 5 до 14 мм). Вялость, капризность, плохой аппетит, вечерний субфебрилитет.", signs: ['nodes'], diagnosis: 'tb_vglu', html: xrayBuilder('<div class="xray-pathology path-nodes" style="top:110px; right:120px;"></div>') },
+            { id: 4, desc: "Мужчина 40 лет. Острое начало 2 дня назад, озноб, температура 39.5°C, боль в груди при дыхании, ржавая мокрота.", signs: ['infiltrate'], diagnosis: 'pneumonia', html: xrayBuilder('<div class="xray-pathology path-infiltrate" style="bottom:20px; right:20px; width:100px; height:80px;"></div>') },
+            { id: 5, desc: "Пациент жалуется на нарастающую одышку, чувство тяжести в левой половине грудной клетки. Перкуторно слева тупой звук (линия Дамуазо), дыхание не проводится.", signs: ['pleural', 'shift'], diagnosis: 'pleurisy', html: xrayBuilder('<div class="xray-pathology path-pleural left"></div>', 'path-shift-right') },
+            { id: 6, desc: "ВИЧ-инфицированный пациент с резкой слабостью, одышкой в покое и гектической лихорадкой. Начат поиск генерализованной инфекции.", signs: ['dissemination'], diagnosis: 'tb_disseminated', html: xrayBuilder('<div class="xray-pathology path-dissemination" style="top:0; left:20px;"></div><div class="xray-pathology path-dissemination" style="top:0; right:20px;"></div>') },
+            { id: 7, desc: "Мужчина 65 лет, стаж курения 40 лет. Жалобы на надсадный сухой кашель, прожилки крови в мокроте, потерю веса на 10 кг.", signs: ['infiltrate'], diagnosis: 'cancer', html: xrayBuilder('<div class="xray-pathology path-infiltrate" style="top:120px; left:40px; border-radius:30%; opacity:1; filter:blur(1px);"></div>') },
+            { id: 8, desc: "Студент проходит ежегодный медицинский осмотр для допуска к занятиям по физкультуре. Жалоб нет.", signs: [], diagnosis: 'norm', html: xrayBuilder('') },
+            { id: 9, desc: "Женщина 30 лет после родов. Отмечает стойкий субфебрилитет, покашливание. В мокроте обнаружены КУМ (кислотоустойчивые микобактерии).", signs: ['infiltrate', 'cavity'], diagnosis: 'tb_infiltrative', html: xrayBuilder('<div class="xray-pathology path-infiltrate" style="top:40px; left:30px;"></div><div class="xray-pathology path-cavity" style="top:50px; left:40px;"></div>') },
+            { id: 10, desc: "Больной жалуется на тяжесть в правом боку. При осмотре: отставание правой половины грудной клетки при дыхании, голосовое дрожание резко ослаблено.", signs: ['pleural', 'shift'], diagnosis: 'pleurisy', html: xrayBuilder('<div class="xray-pathology path-pleural right"></div>', 'path-shift-left') },
+            { id: 11, desc: "Ребенок 4 года, из очага туберкулезной инфекции. Длительный сухой, иногда коклюшеподобный кашель. Положительный симптом бифуркации.", signs: ['nodes'], diagnosis: 'tb_vglu', html: xrayBuilder('<div class="xray-pathology path-nodes" style="top:120px; left:120px;"></div>') },
+            { id: 12, desc: "Молодой человек, переохлаждение накануне. Острый кашель, интоксикация. Аускультативно: крепитация в нижних отделах слева.", signs: ['infiltrate'], diagnosis: 'pneumonia', html: xrayBuilder('<div class="xray-pathology path-infiltrate" style="bottom:30px; left:30px; width:90px; height:70px;"></div>') },
+            { id: 13, desc: "Пациент с язвенной болезнью желудка. Месяц назад перенес тяжелый стресс. Появилась слабость, ночные поты, температура 37.2°C.", signs: ['infiltrate'], diagnosis: 'tb_focal', html: xrayBuilder('<div class="xray-pathology path-infiltrate" style="top:30px; left:40px; width:30px; height:30px;"></div>') },
+            { id: 14, desc: "Пациент с длительной иммуносупрессивной терапией по поводу ревматоидного артрита. Нарастающая одышка, непродуктивный кашель.", signs: ['dissemination'], diagnosis: 'tb_disseminated', html: xrayBuilder('<div class="xray-pathology path-dissemination" style="top:0; left:20px; height:180px;"></div><div class="xray-pathology path-dissemination" style="top:0; right:20px; height:180px;"></div>') },
+            { id: 15, desc: "Мужчина 58 лет. Рецидивирующие воспалительные процессы в одном и том же сегменте правого легкого, стойкий кашель, не поддающийся терапии антибиотиками.", signs: ['nodes', 'infiltrate'], diagnosis: 'cancer', html: xrayBuilder('<div class="xray-pathology path-nodes" style="top:110px; right:110px; width:70px; height:90px; filter:blur(2px); opacity:1;"></div>') }
+        ];
+
+        let g4CurrentCaseObj = null;
+
+        function initGame4() {
+            showScreen('game4Screen');
+            g4CurrentCaseObj = g4Cases[Math.floor(Math.random() * g4Cases.length)];
+            
+            document.getElementById('g4-case-desc').innerText = g4CurrentCaseObj.desc;
+            document.getElementById('g4-xray-container').innerHTML = g4CurrentCaseObj.html;
+
+            document.getElementById('g4-diagnosis').value = "";
+            document.querySelectorAll('#g4-signs input[type="checkbox"]').forEach(cb => cb.checked = false);
+            document.getElementById('g4-result').classList.add('hidden');
+        }
+
+        function checkGame4() {
+            const selectedSigns = Array.from(document.querySelectorAll('#g4-signs input:checked')).map(cb => cb.value);
+            const diagnosis = document.getElementById('g4-diagnosis').value;
+            const resDiv = document.getElementById('g4-result');
+            resDiv.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700');
+
+            if (!diagnosis) {
+                resDiv.classList.add('bg-red-100', 'text-red-700');
+                resDiv.innerText = "Выберите основное заключение.";
+                return;
+            }
+
+            const isSignsCorrect = (selectedSigns.length === g4CurrentCaseObj.signs.length) && 
+                                   g4CurrentCaseObj.signs.every(val => selectedSigns.includes(val));
+            
+            const isDiagCorrect = (diagnosis === g4CurrentCaseObj.diagnosis);
+
+            if (isSignsCorrect && isDiagCorrect) {
+                resDiv.classList.add('bg-green-100', 'text-green-700');
+                resDiv.innerHTML = "<strong>Блестяще!</strong><br>Диагноз и синдромы определены абсолютно верно.";
+            } else if (!isSignsCorrect && isDiagCorrect) {
+                resDiv.classList.add('bg-yellow-100', 'text-yellow-700');
+                resDiv.innerHTML = "<strong>Диагноз верен, но синдромы отмечены неточно.</strong><br>Внимательнее изучите рентгенограмму.";
+            } else {
+                resDiv.classList.add('bg-red-100', 'text-red-700');
+                resDiv.innerHTML = "<strong>Клиническое заключение неверно.</strong><br>Пересмотрите снимок и анамнез.";
+            }
+        }
+
+        // Инициализация при старте
+        showScreen('menuScreen');
+
+    </script>
+</body>
+</html>
