@@ -100,10 +100,59 @@ section {
             margin-bottom: 10px; overflow-y: auto; padding: 10px;
         }
         .basket-item {
-            display: grid; grid-template-columns: 1fr 70px 20px 35px 35px;
-            align-items: center; gap: 5px; background: #fff;
-            padding: 8px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+            margin-bottom: 6px;
+            box-sizing: border-box;
+            width: 100%;
         }
+
+        /* Название продукта занимает всё свободное место слева */
+        .basket-item > span,
+        .basket-item .item-title {
+            flex: 1;
+            min-width: 0;
+            word-break: break-word;
+            font-size: 0.9rem;
+            line-height: 1.2;
+        }
+
+        /* Поле ввода веса */
+        .basket-item input[type="number"] {
+            width: 75px;
+            min-width: 65px;
+            max-width: 85px;
+            padding: 6px 4px;
+            font-size: 0.9rem;
+            text-align: center;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            -moz-appearance: textfield;
+        }
+        .basket-item input[type="number"]::-webkit-outer-spin-button,
+        .basket-item input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+		.dish-group { border: 2px solid #8e44ad; border-radius: 9px; margin-bottom: 8px; background: #fbf7fd; }
+		.dish-heading { display:flex; align-items:center; gap:7px; padding:8px; background:#f0e5f5; font-weight:700; color:#6c3483; }
+		.dish-component { margin:0 8px 5px 26px; }
+		.selection-box { width:18px; height:18px; accent-color:var(--accent); }
+		.feature-actions { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 10px; }
+		.feature-actions button { padding:8px 10px; color:#fff; font-weight:600; }
+		#analysis-modal { display:none; position:fixed; inset:0; z-index:2500; background:rgba(0,0,0,.55); align-items:center; justify-content:center; }
+		#analysis-modal .analysis-card { background:#fff; width:min(1200px,96vw); max-height:92vh; overflow:auto; border-radius:12px; padding:18px; }
+		#analysis-modal table { min-width:900px; font-size:.72rem; }
+		#analysis-modal .analysis-table-wrap { overflow:auto; max-height:48vh; border:1px solid #ddd; }
+		#analysis-modal .dish-table-row td { background:#f0e5f5; font-weight:700; color:#6c3483; }
+		.analysis-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+		.analysis-actions button { padding:9px 12px; color:#fff; }
 		#product-search:focus {
     outline: none;
     border-color: var(--accent);
@@ -135,13 +184,29 @@ section {
         button { cursor: pointer; border: none; border-radius: 4px; }
         .add-btn { background: var(--accent); color: white; padding: 8px; width: 100%; margin-top: 5px; }
         .del-btn {
-    min-width: 35px;
-    min-height: 35px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-} 
+            width: 34px;
+            height: 34px;
+            min-width: 34px;
+            max-width: 34px;
+            min-height: 34px;
+            max-height: 34px;
+            padding: 0;
+            margin: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            line-height: 1;
+            background: #e74c3c;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .del-btn:hover {
+            background: #c0392b;
+        }
 /* Специальные правила для мобильных устройств (экраны меньше 768px) */
 @media screen and (max-width: 850px) {
     body {
@@ -183,14 +248,20 @@ section {
 }
 
 /* Делаем кнопки удобными для нажатия пальцем */
+/* Делаем кнопки удобными для нажатия пальцем */
 button, .product-card {
     min-height: 44px; 
 }
-		}
+
+/* Исключение: кнопки управления внутри строки корзины не раздуваем */
+.basket-item button {
+    min-height: 34px;
+}
     </style>
 </head>
 <body>
-<header><strong>Интерактивный калькулятор нутриентного состава и планирования рациона</strong></header>
+<header><strong>Интерактивный калькулятор нутриентного состава и планирования рациона
+</strong></header>
 
 <div id="auto-menu" style="display:none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 2px solid #ff69b4; border-radius: 12px; z-index: 1000; box-shadow: 0 0 20px rgba(0,0,0,0.3); width: 300px;">
     <h4>Выберите любимые группы:</h4>
@@ -224,6 +295,9 @@ button, .product-card {
         <option value="Мои">⭐ Мои созданные продукты</option>
     </select>
     <div id="product-list"></div>
+        <div class="feature-actions">
+            <button onclick="addSelectedShelfToBasket()" style="background:#2980b9;">Добавить выбранные</button>
+        </div>
         <div style="font-size: 0.8rem;">
             <strong>Добавить свой продукт:</strong>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:3px;" id="new-prod-form">
@@ -261,7 +335,12 @@ button, .product-card {
     </section>
 
     <section>
-        <h3>Корзина (Drag-n-Drop)</h3>
+        <h3>Корзина</h3>
+        <div class="feature-actions">
+            <button onclick="groupSelectedIntoDish()" style="background:#8e44ad;">Объединить в блюдо</button>
+            <button onclick="copyDietTable()" style="background:#16a085;">Копировать таблицу TSV</button>
+            <button onclick="openAnalysisModal()" style="background:#2c3e50;">Протокол анализа</button>
+        </div>
         <div id="basket"></div>
         </div>
     </section>
@@ -296,6 +375,19 @@ button, .product-card {
         <div id="cooking-methods-list" style="display:flex; flex-direction:column; gap:8px; overflow-y: auto; padding-right: 5px;">
             </div>
         <button onclick="closeCookingModal()" style="margin-top:15px; width:100%; padding:10px; background:#e74c3c; color:white; border:none; border-radius:5px; cursor:pointer;">Отмена / Закрыть</button>
+    </div>
+</div>
+<div id="analysis-modal" role="dialog" aria-modal="true" aria-labelledby="analysis-title">
+    <div class="analysis-card">
+        <h3 id="analysis-title" style="margin-top:0;">Протокол сравнительного анализа рациона</h3>
+        <div id="analysis-conclusions"></div>
+        <div class="analysis-table-wrap"><table id="analysis-table"></table></div>
+        <div class="analysis-actions">
+            <button onclick="downloadAnalysisTXT()" style="background:#34495e;">Скачать TXT</button>
+            <button onclick="downloadAnalysisPDF()" style="background:#c0392b;">Скачать PDF</button>
+            <button onclick="copyDietTable()" style="background:#16a085;">Копировать TSV</button>
+            <button onclick="closeAnalysisModal()" style="background:#7f8c8d;">Закрыть</button>
+        </div>
     </div>
 </div>
 <script>
@@ -2559,6 +2651,7 @@ function importProducts(event) {
         imported.forEach(p => {
             if (!products.find(old => old.id === p.id)) products.push(p);
         });
+        if (typeof saveCustomCatalog === 'function') saveCustomCatalog();
         renderShelf();
     };
     reader.readAsText(file);
@@ -2774,11 +2867,69 @@ function addNewProduct() {
         water: getValue('p-water')
     };
     products.push(p);
+    if (typeof saveCustomCatalog === 'function') saveCustomCatalog();
     document.getElementById('category-filter').value = "Мои"; // Сразу переключаемся на "Мои"
     renderShelf();
 }
 
     init();
+
+/* Дополнительный слой функций. Он работает поверх legacy API и не меняет
+   исходный формат продуктов/корзины: блюдо хранит снимок своих компонентов. */
+(function () {
+    const selectedShelf = new Set();
+    const selectedBasket = new Set();
+    const nutrientBase = ['cal','prot','fat','carb','vitA','vitB1','vitB2','vitPP','vitC','ca','p','mg','na','k','fe','water'];
+    const nutrientLabels = {cal:'Калории',prot:'Белки',fat:'Жиры',carb:'Углеводы',vitA:'Витамин А',vitB1:'Витамин B1',vitB2:'Витамин B2',vitPP:'Витамин PP',vitC:'Витамин C',ca:'Кальций',p:'Фосфор',mg:'Магний',na:'Натрий',k:'Калий',fe:'Железо',water:'Вода'};
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    const keys = () => [...new Set(products.flatMap(p => Object.keys(p).filter(k => !['id','category','name','isCustom','isDish','components','baseWeight','bId','weight','cookingMethod'].includes(k) && typeof p[k] === 'number')))].filter(k => nutrientBase.includes(k) || products.some(p => typeof p[k] === 'number'));
+    const fmt = (value, key) => Number(value || 0).toFixed(['cal','ca','p','mg','na','k'].includes(key) ? 0 : 2);
+    function applyLoss(item, key, value) { const loss = item.cookingMethod && item.cookingMethod.losses ? item.cookingMethod.losses[key] : undefined; return value * (loss === undefined ? 1 : 1 - loss / 100); }
+    function addContribution(target, item, scale) {
+        if (item.isDish && Array.isArray(item.components)) { const dishScale = item.baseWeight ? (item.weight || item.baseWeight) / item.baseWeight : 1; item.components.forEach(component => addContribution(target, component, scale * dishScale)); return; }
+        const ratio = (item.weight || 0) / 100 * scale;
+        nutrientBase.forEach(key => { target[key] = (target[key] || 0) + applyLoss(item, key, Number(item[key] || 0) * ratio); });
+    }
+    function getTotals() { const total = Object.fromEntries(nutrientBase.map(k => [k, 0])); basket.forEach(item => addContribution(total, item, 1)); return total; }
+    function aggregateComponents(components) { const total = Object.fromEntries(nutrientBase.map(k => [k, 0])); components.forEach(component => addContribution(total, component, 1)); const weight = components.reduce((sum, item) => sum + Number(item.weight || 0), 0); const per100 = {...total}; nutrientBase.forEach(k => per100[k] = weight ? total[k] * 100 / weight : 0); return {total, weight, per100}; }
+    function saveCustomCatalog() { try { localStorage.setItem('scurihin-custom-products', JSON.stringify(products.filter(p => p.isCustom))); } catch (_) {} }
+    function loadCustomCatalog() { try { const saved = JSON.parse(localStorage.getItem('scurihin-custom-products') || '[]'); saved.forEach(p => { if (!products.some(old => old.id === p.id)) products.push(p); }); } catch (_) {} }
+    window.saveCustomCatalog = saveCustomCatalog;
+    window.addToBasket = function(id) { const p = products.find(x => x.id == id); if (p) { basket.push({...p, weight: p.isDish ? (p.baseWeight || 100) : 100, bId: Date.now() + Math.random()}); updateUI(); } };
+    window.addSelectedShelfToBasket = function() { [...selectedShelf].forEach(id => window.addToBasket(id)); selectedShelf.clear(); renderShelf(); };
+    window.renderShelf = function() {
+        const shelf = document.getElementById('product-list'); if (!shelf) return; const filter = document.getElementById('category-filter').value; const search = document.getElementById('product-search').value.toLowerCase();
+        const filtered = products.filter(p => (filter === 'Все' || p.category === filter) && p.name.toLowerCase().includes(search));
+        shelf.innerHTML = filtered.length ? filtered.map(p => `<div class="product-card" data-product-id="${p.id}"><input class="selection-box shelf-select" type="checkbox" ${selectedShelf.has(p.id) ? 'checked' : ''} aria-label="Выбрать ${esc(p.name)}">${p.isCustom ? `<button onclick="event.stopPropagation(); deleteProduct(${p.id})" style="float:right;background:none;border:none;color:var(--danger);font-size:1.2rem;">×</button>` : ''}<strong>${esc(p.name)}</strong> <small>(${fmt(p.cal,'cal')} ккал)</small><br><small style="color:#888;font-style:italic;">Глава: ${esc(p.category || 'Общее')}${p.isDish ? ' · Блюдо' : ''}</small></div>`).join('') : '<div style="padding:10px;color:gray;text-align:center;">Ничего не найдено</div>';
+        shelf.querySelectorAll('.product-card').forEach(card => { const id = Number(card.dataset.productId), check = card.querySelector('.shelf-select'); check.onchange = e => { e.stopPropagation(); e.target.checked ? selectedShelf.add(id) : selectedShelf.delete(id); }; card.onclick = e => { if (e.target !== check && !e.target.closest('button')) window.addToBasket(id); }; });
+    };
+    window.groupSelectedIntoDish = function() {
+        const chosen = basket.filter(item => selectedBasket.has(item.bId)); if (!chosen.length) return alert('Выберите хотя бы один элемент в корзине.'); if (chosen.some(item => item.isDish)) return alert('Блюдо уже содержит компоненты и не может быть вложено в другое блюдо.'); const name = prompt('Название блюда:', 'Новое блюдо'); if (!name || !name.trim()) return;
+        const components = chosen.map(item => ({...item, bId: Date.now() + Math.random()})); const agg = aggregateComponents(components); const dish = {id: Date.now(), bId: Date.now() + Math.random(), isCustom:true, isDish:true, category:'Мои', name:name.trim(), weight:agg.weight, baseWeight:agg.weight, components}; nutrientBase.forEach(k => dish[k] = agg.per100[k]);
+        basket = basket.filter(item => !selectedBasket.has(item.bId)); basket.push(dish); products.push({...dish, bId: undefined, weight: undefined}); saveCustomCatalog(); selectedBasket.clear(); renderShelf(); updateUI();
+    };
+    window.renderBasket = function() {
+        const b = document.getElementById('basket'); b.innerHTML = '';
+        basket.forEach(item => { const wrapper = document.createElement('div'); wrapper.className = item.isDish ? 'dish-group' : ''; const items = item.isDish ? [item, ...item.components] : [item]; items.forEach((row, index) => { const d = document.createElement('div'); d.className = index === 0 && item.isDish ? 'dish-heading' : 'basket-item' + (item.isDish ? ' dish-component' : ''); const id = item.isDish ? item.bId : row.bId;
+            d.innerHTML = `<input class="selection-box basket-select" type="checkbox" ${item.isDish && index > 0 ? 'disabled' : ''} ${selectedBasket.has(id) ? 'checked' : ''} aria-label="Выбрать ${esc(row.name)}"><span style="font-size:.85rem;line-height:1.2;">${index === 0 && item.isDish ? '🍽️ ' : ''}${esc(row.name)}${row.cookingMethod ? `<br><small style="color:var(--accent);font-weight:bold;">(${esc(row.cookingMethod.name)})</small>` : ''}</span><input type="number" value="${row.weight || 0}" ${item.isDish && index===0 ? 'oninput="changeW(' + item.bId + ', this.value)"' : (!item.isDish ? 'oninput="changeW(' + row.bId + ', this.value)"' : 'disabled')} style="width:100%;text-align:center;"><span style="font-size:.8rem;color:#666;">г</span>${!item.isDish || index > 0 ? `<button class="del-btn" style="background:#f1c40f;color:#fff;" onclick="openCookingModal(${row.bId})" title="Термообработка">🍳</button>` : '<span></span>'}${!item.isDish || index === 0 ? `<button class="del-btn" style="background:var(--danger);color:#fff;" onclick="removeI(${item.isDish ? item.bId : row.bId})">×</button>` : '<span></span>'}`;
+            d.querySelector('.basket-select').onchange = e => { e.target.checked ? selectedBasket.add(id) : selectedBasket.delete(id); }; wrapper.appendChild(d); }); b.appendChild(wrapper); });
+    };
+    window.changeW = function(id, value) { const item = basket.find(x => x.bId == id); if (item) item.weight = parseFloat(value) || 0; updateUI(); }; window.removeI = function(id) { basket = basket.filter(x => x.bId != id); updateUI(); }; window.deleteProduct = function(id) { if (confirm('Вы уверены, что хотите удалить этот продукт?')) { products = products.filter(p => p.id != id); saveCustomCatalog(); renderShelf(); } };
+    window.updateGoal = function(key, value) { goals[key] = parseFloat(value) || 0; updateUI(); };
+    window.addNewProduct = function() { const value = id => parseFloat(document.getElementById(id).value) || 0; const p={id:Date.now(),isCustom:true,category:'Мои',name:document.getElementById('p-name').value || 'Продукт',cal:value('p-cal'),prot:value('p-prot'),fat:value('p-fat'),carb:value('p-carb'),vitA:value('p-vitA'),vitB1:value('p-vitB1'),vitB2:value('p-vitB2'),vitPP:value('p-vitPP'),vitC:value('p-vitC'),ca:value('p-ca'),p:value('p-p'),mg:value('p-mg'),na:value('p-na'),k:value('p-k'),fe:value('p-fe'),water:value('p-water')}; products.push(p); saveCustomCatalog(); document.getElementById('category-filter').value='Мои'; renderShelf(); };
+    window.updateUI = function() { const total = getTotals(), progress = document.getElementById('progress-scroll'); if (progress) { progress.innerHTML = ''; nutrientBase.forEach(key => { const fact = key === 'vitA' ? total[key] * 1000 : total[key], goal = Number(goals[key] || 0), per = goal ? fact / goal * 100 : 0; progress.innerHTML += `<div class="stat-row"><div class="stat-info"><span>${nutrientLabels[key]}</span><span class="${per > 100 ? 'limit-text':''}">${fact.toFixed(1)} / ${goal}</span></div><div class="progress-container"><div class="progress-fill ${per > 100 ? 'over-limit':''}" style="width:${Math.min(per,100)}%;background:${getBarColor(nutrientLabels[key])}"></div></div></div>`; }); } renderBasket(); };
+    function tableRows() { const rows=[]; basket.forEach(item => { if (item.isDish) { rows.push({heading:true,item}); item.components.forEach(c => rows.push({item:c, indent:true, scale:item.weight / (item.baseWeight || 1)})); } else rows.push({item}); }); return rows; }
+    function rowValues(row) { const item=row.item, scale=row.scale || 1, out={weight:(item.weight || 0)*scale}; nutrientBase.forEach(k => out[k]=applyLoss(item,k,Number(item[k]||0)*out.weight/100)); return out; }
+    function buildTableHTML() { const cols=keys(), head=['Название','Вес (г)',...cols.map(k=>nutrientLabels[k] || k)]; let html='<thead><tr>'+head.map(h=>`<th>${esc(h)}</th>`).join('')+'</tr></thead><tbody>'; tableRows().forEach(row => { if(row.heading){ const v=Object.fromEntries(nutrientBase.map(k=>[k,0])); addContribution(v,row.item,1); html+=`<tr class="dish-table-row"><td colspan="2">🍽️ ${esc(row.item.name)} (состав ниже)</td>${cols.map(k=>`<td>${fmt(v[k],k)}</td>`).join('')}</tr>`; } else { const v=rowValues(row); html+=`<tr><td style="text-align:left;padding-left:${row.indent?'22px':'3px'}">${esc(row.item.name)}</td><td>${fmt(v.weight,'weight')}</td>${cols.map(k=>`<td>${fmt(v[k],k)}</td>`).join('')}</tr>`; }}); return html+'</tbody>'; }
+    function tableTSV() { const table=document.createElement('table'); table.innerHTML=buildTableHTML(); return [...table.rows].map(row=>[...row.cells].map(c=>c.innerText.replace(/\t|\n/g,' ')).join('\t')).join('\n'); }
+    window.copyDietTable = async function() { const text=tableTSV(); try { await navigator.clipboard.writeText(text); alert('Таблица скопирована в TSV.'); } catch (_) { const area=document.createElement('textarea'); area.value=text; document.body.appendChild(area); area.select(); document.execCommand('copy'); area.remove(); alert('Таблица скопирована в TSV.'); } };
+    function analysisText() { const t=getTotals(), lines=[]; nutrientBase.forEach(k=>{const fact=k==='vitA'?t[k]*1000:t[k], norm=Number(goals[k]||0), delta=fact-norm, pct=norm?fact/norm*100:0; lines.push(`${nutrientLabels[k]}: факт ${fact.toFixed(1)}, норма ${norm.toFixed(1)}, дельта ${delta.toFixed(1)}, выполнение ${pct.toFixed(1)}%`);}); return lines; }
+    window.openAnalysisModal = function() { const t=getTotals(), c=[], comparison=[]; nutrientBase.forEach(k=>{const fact=k==='vitA'?t[k]*1000:t[k], norm=Number(goals[k]||0), delta=fact-norm, pct=norm?fact/norm*100:0; comparison.push(`<tr><td style="text-align:left">${esc(nutrientLabels[k])}</td><td>${fact.toFixed(1)}</td><td>${norm.toFixed(1)}</td><td>${delta.toFixed(1)}</td><td>${pct.toFixed(1)}%</td></tr>`); if(pct<80)c.push(`Дефицит: ${nutrientLabels[k]} — ${pct.toFixed(0)}% нормы. Рекомендуется добавить продукты, богатые этим показателем.`); else if(pct>120)c.push(`Профицит: ${nutrientLabels[k]} — ${pct.toFixed(0)}% нормы. Рекомендуется сократить его источники.`);}); document.getElementById('analysis-conclusions').innerHTML='<p><b>Сравнение с нормативами</b></p><div style="overflow:auto"><table><thead><tr><th>Показатель</th><th>Факт</th><th>Норма</th><th>Дельта</th><th>Выполнение</th></tr></thead><tbody>'+comparison.join('')+'</tbody></table></div><p><b>Выводы и рекомендации</b></p>'+(c.length?'<ul>'+c.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>':'<p>Значимых отклонений (менее 80% или более 120%) не выявлено.</p>'); document.getElementById('analysis-table').innerHTML=buildTableHTML(); document.getElementById('analysis-modal').style.display='flex'; };
+    window.closeAnalysisModal = function(){document.getElementById('analysis-modal').style.display='none';}; window.downloadAnalysisTXT = function(){ downloadBlob('ПРОТОКОЛ СРАВНИТЕЛЬНОГО АНАЛИЗА\n\n'+analysisText().join('\n')+'\n\nТАБЛИЦА РАЦИОНА\n'+tableTSV(),'diet-analysis.txt','text/plain;charset=utf-8'); };
+    function downloadBlob(content,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
+    window.downloadAnalysisPDF = function(){ const translit=s=>s.replace(/[А-Яа-яЁё]/g,ch=>({'А':'A','Б':'B','В':'V','Г':'G','Д':'D','Е':'E','Ё':'Yo','Ж':'Zh','З':'Z','И':'I','Й':'J','К':'K','Л':'L','М':'M','Н':'N','О':'O','П':'P','Р':'R','С':'S','Т':'T','У':'U','Ф':'F','Х':'Kh','Ц':'Ts','Ч':'Ch','Ш':'Sh','Щ':'Sch','Ъ':'','Ы':'Y','Ь':'','Э':'E','Ю':'Yu','Я':'Ya','а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'zh','з':'z','и':'i','й':'j','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'}[ch]||'?')); const ascii=translit('PROTOKOL ANALIZA\n\n'+analysisText().join('\n')+'\n\nTABLITSA\n'+tableTSV()), lines=ascii.split('\n').slice(0,90), stream='BT /F1 9 Tf 40 800 Td '+lines.map(x=>'('+x.replace(/[\\()]/g,'\\$&')+') Tj 0 -12 Td').join(' ')+' ET'; const pdf='%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Resources<</Font<</F1 4 0 R>>>>/Contents 5 0 R>>endobj\n4 0 obj<</Type/Font/Subtype/Type1/BaseFont/Courier>>endobj\n5 0 obj<</Length '+stream.length+'>>stream\n'+stream+'\nendstream endobj\ntrailer<</Root 1 0 R>>\n%%EOF'; downloadBlob(pdf,'diet-analysis.pdf','application/pdf'); };
+    loadCustomCatalog(); renderShelf(); updateUI();
+})();
 </script>
 </body>
 </html>
