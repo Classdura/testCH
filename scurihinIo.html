@@ -253,15 +253,33 @@ button, .product-card {
     min-height: 44px; 
 }
 
-/* Исключение: кнопки управления внутри строки корзины не раздуваем */
+        /* Исключение: кнопки управления внутри строки корзины не раздуваем */
 .basket-item button {
     min-height: 34px;
+}
+.app-header { position: relative; padding-right: 260px; min-height: 58px; }
+.translation-controls {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; align-items: flex-end; gap: 3px;
+}
+#auto-translate-toggle {
+    min-height: 38px; padding: 8px 12px; border: 1px solid rgba(255,255,255,.55);
+    background: #1f8b4d; color: #fff; border-radius: 7px; font-weight: 700;
+}
+#auto-translate-toggle:hover { background: #176f3d; }
+#translation-status { min-height: 12px; font-size: 10px; color: #eaf2f8; }
+@media screen and (max-width: 700px) {
+    .app-header { padding: 10px 10px 58px; }
+    .translation-controls { top: auto; bottom: 4px; right: 50%; transform: translateX(50%); align-items: center; }
 }
     </style>
 </head>
 <body>
-<header><strong>Интерактивный калькулятор нутриентного состава и планирования рациона
-</strong></header>
+<header class="app-header"><strong>Интерактивный калькулятор нутриентного состава и планирования рациона
+</strong><div class="translation-controls" data-translate-skip>
+    <button id="auto-translate-toggle" type="button" onclick="toggleAutoTranslation()" aria-pressed="false" title="Онлайн-перевод: сервису передаются текст интерфейса и названия продуктов">Автоперевод: English</button>
+    <span id="translation-status" aria-live="polite"></span>
+</div></header>
 
 <div id="auto-menu" style="display:none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 2px solid #ff69b4; border-radius: 12px; z-index: 1000; box-shadow: 0 0 20px rgba(0,0,0,0.3); width: 300px;">
     <h4>Выберите любимые группы:</h4>
@@ -2929,6 +2947,467 @@ function addNewProduct() {
     function downloadBlob(content,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
     window.downloadAnalysisPDF = function(){ const translit=s=>s.replace(/[А-Яа-яЁё]/g,ch=>({'А':'A','Б':'B','В':'V','Г':'G','Д':'D','Е':'E','Ё':'Yo','Ж':'Zh','З':'Z','И':'I','Й':'J','К':'K','Л':'L','М':'M','Н':'N','О':'O','П':'P','Р':'R','С':'S','Т':'T','У':'U','Ф':'F','Х':'Kh','Ц':'Ts','Ч':'Ch','Ш':'Sh','Щ':'Sch','Ъ':'','Ы':'Y','Ь':'','Э':'E','Ю':'Yu','Я':'Ya','а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'zh','з':'z','и':'i','й':'j','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'}[ch]||'?')); const ascii=translit('PROTOKOL ANALIZA\n\n'+analysisText().join('\n')+'\n\nTABLITSA\n'+tableTSV()), lines=ascii.split('\n').slice(0,90), stream='BT /F1 9 Tf 40 800 Td '+lines.map(x=>'('+x.replace(/[\\()]/g,'\\$&')+') Tj 0 -12 Td').join(' ')+' ET'; const pdf='%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Resources<</Font<</F1 4 0 R>>>>/Contents 5 0 R>>endobj\n4 0 obj<</Type/Font/Subtype/Type1/BaseFont/Courier>>endobj\n5 0 obj<</Length '+stream.length+'>>stream\n'+stream+'\nendstream endobj\ntrailer<</Root 1 0 R>>\n%%EOF'; downloadBlob(pdf,'diet-analysis.pdf','application/pdf'); };
     loadCustomCatalog(); renderShelf(); updateUI();
+})();
+</script>
+<script>
+(function () {
+    "use strict";
+
+    var dictionary = {
+        "Интерактивный калькулятор нутриентного состава и планирования рациона": "Interactive nutrient calculator and meal planner",
+        "Выберите любимые группы:": "Choose your preferred food groups:",
+        "Сформировать рацион": "Create meal plan",
+        "Отмена": "Cancel",
+        "Закрыть": "Close",
+        "Отмена / Закрыть": "Cancel / Close",
+        "Продукты (100г)": "Foods (per 100 g)",
+        "Поиск продукта...": "Search foods...",
+        "-- Все главы --": "-- All categories --",
+        "Глава 1. Зерно и продукты переработки": "Category 1. Grains and grain products",
+        "Глава 2. Хлеб и хлебобулочные изделия": "Category 2. Bread and bakery products",
+        "Глава 3. Кондитерские изделия": "Category 3. Confectionery",
+        "Глава 4. Молочные продукты": "Category 4. Dairy products",
+        "Глава 5. Жиры и жировые продукты": "Category 5. Fats and oils",
+        "Глава 6. Овощи, картофель, плоды, ягоды": "Category 6. Vegetables, potatoes, fruits and berries",
+        "Глава 7. Мясо и мясные продукты": "Category 7. Meat and meat products",
+        "Глава 8. Птица и яйцепродукты": "Category 8. Poultry and eggs",
+        "Глава 9. Рыба и морепродукты": "Category 9. Fish and seafood",
+        "Глава 10. Консервы и концентраты": "Category 10. Canned and concentrated foods",
+        "Глава 11. Продукты детского питания": "Category 11. Baby foods",
+        "Глава 12. Напитки": "Category 12. Drinks",
+        "Доп. Сырьё": "Additional ingredients",
+        "⭐ Мои созданные продукты": "⭐ My foods",
+        "Все": "All",
+        "Зерновые": "Grains",
+        "Хлеб": "Bread",
+        "Кондитерские": "Confectionery",
+        "Молочные": "Dairy",
+        "Жиры": "Fats and oils",
+        "Овощи": "Vegetables",
+        "Мясо": "Meat",
+        "Птица": "Poultry",
+        "Рыбы": "Fish",
+        "Консервы": "Canned foods",
+        "Детское": "Baby foods",
+        "Напитки": "Drinks",
+        "Сырье": "Ingredients",
+        "Мои": "My foods",
+        "Добавить выбранные": "Add selected",
+        "Добавить свой продукт:": "Add a food:",
+        "Название": "Name",
+        "Ккал": "kcal",
+        "Белок (г)": "Protein (g)",
+        "Жир (г)": "Fat (g)",
+        "Угл (г)": "Carbs (g)",
+        "Кальций (мг)": "Calcium (mg)",
+        "Фосфор (мг)": "Phosphorus (mg)",
+        "Магний (мг)": "Magnesium (mg)",
+        "Натрий (мг)": "Sodium (mg)",
+        "Калий (мг)": "Potassium (mg)",
+        "Вода (г или мл)": "Water (g or ml)",
+        "Создать продукт": "Create food",
+        "Сохранить набор": "Save food set",
+        "Загрузить набор": "Load food set",
+        "Корзина": "Basket",
+        "Объединить в блюдо": "Combine into a dish",
+        "Копировать таблицу TSV": "Copy table as TSV",
+        "Протокол анализа": "Analysis report",
+        "Ваши нормативы": "Your daily targets",
+        "💾 Сохранить нормы": "💾 Save targets",
+        "📂 Загрузить нормы": "📂 Load targets",
+        "Прогресс": "Progress",
+        "Способ приготовления": "Cooking method",
+        "Выберите метод, чтобы учесть потери нутриентов по Скурихину.": "Choose a method to account for nutrient losses in the Skurikhin data.",
+        "Протокол сравнительного анализа рациона": "Diet comparison report",
+        "Скачать TXT": "Download TXT",
+        "Скачать PDF": "Download PDF",
+        "Копировать TSV": "Copy TSV",
+        "Калории": "Calories",
+        "Белки": "Protein",
+        "Жиры": "Fat",
+        "Углеводы": "Carbohydrates",
+        "Витамин А": "Vitamin A",
+        "Витамин B1": "Vitamin B1",
+        "Витамин B2": "Vitamin B2",
+        "Витамин PP": "Vitamin B3 (PP)",
+        "Витамин C": "Vitamin C",
+        "Кальций": "Calcium",
+        "Фосфор": "Phosphorus",
+        "Магний": "Magnesium",
+        "Натрий": "Sodium",
+        "Калий": "Potassium",
+        "Железо": "Iron",
+        "Вода": "Water",
+        "Выбрать": "Select",
+        "г": "g",
+        "Общее": "General",
+        "Глава:": "Category:",
+        " · Блюдо": " · Dish",
+        " (состав ниже)": " (ingredients below)",
+        "Ничего не найдено": "No foods found",
+        "Выберите хотя бы один элемент в корзине.": "Select at least one item in the basket.",
+        "Блюдо уже содержит компоненты и не может быть вложено в другое блюдо.": "This dish already contains ingredients and cannot be nested inside another dish.",
+        "Название блюда:": "Dish name:",
+        "Новое блюдо": "New dish",
+        "Вы уверены, что хотите удалить этот продукт?": "Are you sure you want to delete this food?",
+        "Термообработка": "Cooking",
+        "Таблица скопирована в TSV.": "Table copied as TSV.",
+        "Нормативы успешно загружены!": "Targets loaded successfully!",
+        "Ошибка: файл имеет неверный формат!": "Error: the file format is invalid!",
+        "Сравнение с нормативами": "Comparison with targets",
+        "Показатель": "Nutrient",
+        "Факт": "Actual",
+        "Норма": "Target",
+        "Дельта": "Difference",
+        "Выполнение": "Target met",
+        "Выводы и рекомендации": "Summary and recommendations",
+        "Дефицит:": "Low:",
+        "Профицит:": "High:",
+        "Рекомендуется добавить продукты, богатые этим показателем.": "Consider adding foods rich in this nutrient.",
+        "Рекомендуется сократить его источники.": "Consider reducing sources of this nutrient.",
+        "Значимых отклонений (менее 80% или более 120%) не выявлено.": "No substantial deviations (below 80% or above 120%) were found.",
+        "Вес (г)": "Weight (g)",
+        "Название": "Name",
+        "мкг RE": "mcg RE",
+        "ретинолэквивалент": "retinol equivalent",
+        "ниацинэквивалент": "niacin equivalent",
+        "Витамин": "Vitamin",
+        "вводится в": "is entered in",
+        "К сожалению, для этого продукта пока нет данных по потерям. Оставьте его сырым.": "There is no nutrient-loss data for this food yet. Leave it uncooked."
+    };
+
+    var CACHE_KEY = "scurihin-ru-en-translation-cache-v1";
+    var cache = {};
+    try {
+        cache = JSON.parse(localStorage.getItem(CACHE_KEY) || "{}") || {};
+    } catch (_) {}
+
+    function normalize(value) {
+        return String(value == null ? "" : value).replace(/\s+/g, " ").trim();
+    }
+    function hasRussian(value) {
+        return /[А-Яа-яЁё]/.test(value);
+    }
+    Object.keys(dictionary).forEach(function (key) {
+        cache[normalize(key)] = dictionary[key];
+    });
+
+    var enabled = false;
+    var button = document.getElementById("auto-translate-toggle");
+    var status = document.getElementById("translation-status");
+    var textOriginals = new Map();
+    var attributeOriginals = new Map();
+    var pending = new Map();
+    var timer = null;
+    var flushing = false;
+    var failedCount = 0;
+    var translatedCount = 0;
+
+    function saveCache() {
+        try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+        } catch (_) {}
+    }
+    function withSpacing(source, translated) {
+        var leading = (String(source).match(/^\s*/) || [""])[0];
+        var trailing = (String(source).match(/\s*$/) || [""])[0];
+        return leading + translated + trailing;
+    }
+    function setStatus(value) {
+        if (status) status.textContent = value;
+    }
+    function excluded(element) {
+        while (element && element.nodeType === 1) {
+            if (element.hasAttribute("data-translate-skip")) return true;
+            if (/^(SCRIPT|STYLE|NOSCRIPT|SVG)$/.test(element.tagName)) return true;
+            element = element.parentElement;
+        }
+        return false;
+    }
+    function addJob(source, setter) {
+        var key = normalize(source);
+        if (!key || !hasRussian(key)) return;
+        if (cache[key]) {
+            setter(withSpacing(source, cache[key]));
+            return;
+        }
+        if (!pending.has(key)) pending.set(key, []);
+        pending.get(key).push(function (translated) {
+            setter(withSpacing(source, translated));
+        });
+        scheduleFlush();
+    }
+    function scanText(node) {
+        if (!enabled || !node || node.nodeType !== 3 || excluded(node.parentElement)) return;
+        var source = textOriginals.get(node);
+        if (source === undefined) {
+            source = node.nodeValue;
+            textOriginals.set(node, source);
+        } else {
+            var knownTranslation = cache[normalize(source)];
+            if (normalize(node.nodeValue) !== normalize(source) &&
+                normalize(node.nodeValue) !== normalize(knownTranslation || "")) {
+                source = node.nodeValue;
+                textOriginals.set(node, source);
+            }
+        }
+        addJob(source, function (translated) {
+            if (enabled && node.isConnected &&
+                (normalize(node.nodeValue) === normalize(source) ||
+                 normalize(node.nodeValue) === normalize(cache[normalize(source)] || ""))) {
+                if (node.nodeValue !== translated) node.nodeValue = translated;
+            }
+        });
+    }
+    function scanAttribute(element, name) {
+        if (!enabled || !element || excluded(element)) return;
+        var value = element.getAttribute(name);
+        if (value == null) return;
+        var saved = attributeOriginals.get(element);
+        if (!saved) {
+            saved = {};
+            attributeOriginals.set(element, saved);
+        }
+        var source = saved[name];
+        if (source === undefined) {
+            source = value;
+            saved[name] = source;
+        } else {
+            var knownTranslation = cache[normalize(source)];
+            if (normalize(value) !== normalize(source) &&
+                normalize(value) !== normalize(knownTranslation || "")) {
+                source = value;
+                saved[name] = source;
+            }
+        }
+        addJob(source, function (translated) {
+            if (enabled && element.isConnected &&
+                (normalize(element.getAttribute(name)) === normalize(source) ||
+                 normalize(element.getAttribute(name)) === normalize(cache[normalize(source)] || ""))) {
+                if (element.getAttribute(name) !== translated) element.setAttribute(name, translated);
+            }
+        });
+    }
+    function scan(root) {
+        if (!enabled || !root) return;
+        if (root.nodeType === 3) {
+            scanText(root);
+            return;
+        }
+        if (root.nodeType === 1 && excluded(root)) return;
+        if (root.nodeType === 1) {
+            ["placeholder", "title", "aria-label"].forEach(function (name) {
+                scanAttribute(root, name);
+            });
+        }
+        Array.prototype.forEach.call(root.childNodes || [], scan);
+    }
+
+    var boundary = "ZXQBOUNDARYZXQ";
+    async function remoteTranslate(items) {
+        var joined = items.join("\n" + boundary + "\n");
+        var url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=ru&tl=en&dt=t&q=" +
+            encodeURIComponent(joined);
+        var controller = new AbortController();
+        var timeout = setTimeout(function () { controller.abort(); }, 15000);
+        try {
+            var response = await fetch(url, {
+                method: "GET",
+                mode: "cors",
+                credentials: "omit",
+                referrerPolicy: "no-referrer",
+                signal: controller.signal
+            });
+            if (!response.ok) return null;
+            var result = await response.json();
+            if (!Array.isArray(result) || !Array.isArray(result[0])) return null;
+            var translated = result[0].map(function (part) {
+                return Array.isArray(part) ? (part[0] || "") : "";
+            }).join("");
+            var boundaryPattern = new RegExp("\\s*" + boundary.split("").join("\\s*") + "\\s*", "gi");
+            var parts = translated.split(boundaryPattern);
+            if (parts.length !== items.length) return null;
+            return parts.map(function (part) { return part.trim(); });
+        } catch (_) {
+            return null;
+        } finally {
+            clearTimeout(timeout);
+        }
+    }
+    function makeBatches(entries) {
+        var batches = [];
+        var batch = [];
+        var length = 0;
+        entries.forEach(function (entry) {
+            var itemLength = entry[0].length + boundary.length + 2;
+            if (batch.length && (batch.length >= 20 || length + itemLength > 950)) {
+                batches.push(batch);
+                batch = [];
+                length = 0;
+            }
+            batch.push(entry);
+            length += itemLength;
+        });
+        if (batch.length) batches.push(batch);
+        return batches;
+    }
+    function updateProgress(done, total) {
+        if (enabled) setStatus("Translating to English… " + done + "/" + total);
+    }
+    async function flush() {
+        timer = null;
+        if (flushing || !enabled || !pending.size) return;
+        flushing = true;
+        var entries = Array.from(pending.entries());
+        pending.clear();
+        var batches = makeBatches(entries);
+        var completed = 0;
+        var cursor = 0;
+        async function worker() {
+            while (cursor < batches.length && enabled) {
+                var batch = batches[cursor++];
+                var sourceTexts = batch.map(function (entry) { return entry[0]; });
+                var results = await remoteTranslate(sourceTexts);
+                if (!results) {
+                    failedCount += batch.length;
+                } else {
+                    batch.forEach(function (entry, index) {
+                        var key = entry[0];
+                        cache[key] = results[index] || key;
+                        if (cache[key] === key) failedCount++;
+                        else translatedCount++;
+                        entry[1].forEach(function (setter) { setter(cache[key]); });
+                    });
+                    saveCache();
+                }
+                completed += batch.length;
+                updateProgress(completed, entries.length);
+            }
+        }
+        await Promise.all([worker(), worker(), worker()]);
+        flushing = false;
+        if (enabled && pending.size) {
+            scheduleFlush();
+        } else if (enabled) {
+            if (failedCount) {
+                setStatus("Some text could not be translated. Check your internet connection.");
+            } else {
+                setStatus("English translation is on");
+            }
+            if (typeof window.renderShelf === "function") {
+                var search = document.getElementById("product-search");
+                if (search && /[A-Za-z]/.test(search.value)) window.renderShelf();
+            }
+        }
+    }
+    function scheduleFlush() {
+        if (timer || flushing) return;
+        timer = setTimeout(flush, 40);
+    }
+
+    function toggleAutoTranslation() {
+        enabled = !enabled;
+        if (button) {
+            button.setAttribute("aria-pressed", enabled ? "true" : "false");
+            button.textContent = enabled ? "Show Russian" : "Автоперевод: English";
+            button.title = enabled
+                ? "Turn translation off and show the Russian interface"
+                : "Онлайн-перевод: сервису передаются текст интерфейса и названия продуктов";
+        }
+        if (enabled) {
+            document.documentElement.lang = "en";
+            failedCount = 0;
+            translatedCount = 0;
+            setStatus("Translating to English…");
+            scan(document.documentElement);
+        } else {
+            document.documentElement.lang = "ru";
+            if (timer) clearTimeout(timer);
+            timer = null;
+            pending.clear();
+            textOriginals.forEach(function (original, node) {
+                if (node.isConnected) node.nodeValue = original;
+            });
+            attributeOriginals.forEach(function (values, element) {
+                if (element.isConnected) {
+                    Object.keys(values).forEach(function (name) {
+                        element.setAttribute(name, values[name]);
+                    });
+                }
+            });
+            setStatus("");
+        }
+    }
+    window.toggleAutoTranslation = toggleAutoTranslation;
+
+    var originalAlert = window.alert.bind(window);
+    var originalConfirm = window.confirm.bind(window);
+    var originalPrompt = window.prompt.bind(window);
+    window.alert = function (message) {
+        var text = String(message);
+        return originalAlert(enabled ? (cache[normalize(text)] || text) : text);
+    };
+    window.confirm = function (message) {
+        var text = String(message);
+        return originalConfirm(enabled ? (cache[normalize(text)] || text) : text);
+    };
+    window.prompt = function (message, defaultValue) {
+        var text = String(message);
+        var value = defaultValue == null ? defaultValue : String(defaultValue);
+        return originalPrompt(
+            enabled ? (cache[normalize(text)] || text) : text,
+            enabled && value != null ? (cache[normalize(value)] || value) : value
+        );
+    };
+
+    var originalRenderShelf = window.renderShelf;
+    if (typeof originalRenderShelf === "function") {
+        window.renderShelf = function () {
+            var search = document.getElementById("product-search");
+            var query = search ? search.value.trim() : "";
+            if (!enabled || !/[A-Za-z]/.test(query)) {
+                return originalRenderShelf.apply(this, arguments);
+            }
+            search.value = "";
+            var result = originalRenderShelf.apply(this, arguments);
+            search.value = query;
+            var cards = document.querySelectorAll("#product-list .product-card");
+            var shown = 0;
+            Array.prototype.forEach.call(cards, function (card) {
+                var product = products.find(function (item) {
+                    return Number(item.id) === Number(card.getAttribute("data-product-id"));
+                });
+                var englishName = product ? cache[normalize(product.name)] : "";
+                var matches = !!englishName && englishName.toLowerCase().indexOf(query.toLowerCase()) !== -1;
+                card.style.display = matches ? "" : "none";
+                if (matches) shown++;
+            });
+            if (!shown) {
+                var message = document.createElement("div");
+                message.style.cssText = "padding:10px;color:gray;text-align:center;";
+                message.setAttribute("data-translate-skip", "");
+                message.textContent = "No foods found";
+                document.getElementById("product-list").appendChild(message);
+            }
+            return result;
+        };
+    }
+
+    var observer = new MutationObserver(function (mutations) {
+        if (!enabled) return;
+        mutations.forEach(function (mutation) {
+            if (mutation.type === "characterData") scanText(mutation.target);
+            if (mutation.type === "attributes") scanAttribute(mutation.target, mutation.attributeName);
+            Array.prototype.forEach.call(mutation.addedNodes || [], scan);
+        });
+    });
+    observer.observe(document.documentElement, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ["placeholder", "title", "aria-label"]
+    });
 })();
 </script>
 </body>
