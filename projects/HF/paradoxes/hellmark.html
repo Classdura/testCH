@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Шоу «Адская Этикетка»: Маркетинговый детектив</title>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --border-color: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-cyan: #38bdf8;
+      --accent-gold: #f59e0b;
+      --fake-color: #ef4444;
+      --real-color: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+
+    header {
+      text-align: center;
+      max-width: 800px;
+      margin-bottom: 24px;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      color: var(--accent-gold);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 8px;
+      text-shadow: 0 2px 8px rgba(245, 158, 11, 0.25);
+    }
+
+    p.subtitle {
+      color: var(--accent-cyan);
+      font-size: 1.05rem;
+    }
+
+    .stats-bar {
+      display: flex;
+      gap: 20px;
+      background: var(--card-bg);
+      padding: 10px 24px;
+      border-radius: 999px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 24px;
+      font-weight: 600;
+    }
+
+    .badge-count {
+      color: var(--accent-cyan);
+    }
+    .badge-score {
+      color: var(--real-color);
+    }
+
+    /* Layout */
+    .show-container {
+      max-width: 760px;
+      width: 100%;
+      background-color: var(--card-bg);
+      border: 2px solid var(--border-color);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .case-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+    }
+
+    .case-number {
+      font-size: 1rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .product-category {
+      background: #0284c7;
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .product-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* Уловка на упаковке */
+    .claim-box {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05));
+      border: 2px dashed var(--accent-gold);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .claim-label {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      color: var(--accent-gold);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .claim-text {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #fef08a;
+    }
+
+    /* Состав */
+    .ingr-box {
+      background-color: #0b1329;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .ingr-title {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .ingr-content {
+      font-size: 1.05rem;
+      line-height: 1.6;
+      color: #e2e8f0;
+    }
+
+    /* Кнопки голосования */
+    .actions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 10px;
+    }
+
+    .btn-vote {
+      padding: 16px;
+      border-radius: 10px;
+      border: none;
+      font-size: 1.1rem;
+      font-weight: 800;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: transform 0.15s ease, opacity 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-vote:hover {
+      transform: translateY(-2px);
+      opacity: 0.95;
+    }
+
+    .btn-vote:active {
+      transform: translateY(0);
+    }
+
+    .btn-fake {
+      background-color: var(--fake-color);
+      color: #fff;
+    }
+
+    .btn-real {
+      background-color: var(--real-color);
+      color: #fff;
+    }
+
+    /* Блок вердикта и разоблачения */
+    .verdict-box {
+      display: none;
+      background: #0b1329;
+      border-radius: 12px;
+      padding: 20px;
+      border: 2px solid transparent;
+      animation: fadeIn 0.25s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .verdict-box.show {
+      display: block;
+    }
+
+    .verdict-tag {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-weight: 800;
+      font-size: 1.1rem;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .verdict-tag.fake {
+      background-color: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid var(--fake-color);
+    }
+
+    .verdict-tag.real {
+      background-color: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border: 1px solid var(--real-color);
+    }
+
+    .verdict-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--accent-cyan);
+    }
+
+    .verdict-desc {
+      font-size: 1rem;
+      line-height: 1.6;
+      color: #cbd5e1;
+    }
+
+    .next-nav {
+      display: none;
+      justify-content: flex-end;
+      margin-top: 10px;
+    }
+
+    .btn-next {
+      background-color: var(--accent-gold);
+      color: #0f172a;
+      border: none;
+      padding: 12px 28px;
+      font-size: 1rem;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .btn-next:hover {
+      opacity: 0.9;
+    }
+
+    /* Экран результатов */
+    .results-screen {
+      display: none;
+      text-align: center;
+      padding: 30px 10px;
+    }
+
+    .results-score {
+      font-size: 3rem;
+      font-weight: 900;
+      color: var(--accent-gold);
+      margin: 16px 0;
+    }
+
+    .btn-restart {
+      background-color: var(--accent-cyan);
+      color: #0f172a;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    @media (max-width: 640px) {
+      .actions-grid {
+        grid-template-columns: 1fr;
+      }
+      .product-title {
+        font-size: 1.3rem;
+      }
+      .claim-text {
+        font-size: 1.1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Шоу «Адская Этикетка»</h1>
+    <p class="subtitle">Интерактивный детектив: выведи маркетинг на чистую воду</p>
+  </header>
+
+  <div class="stats-bar">
+    <div>Кейс: <span class="badge-count" id="statIndex">1/15</span></div>
+    <div>Точных вердиктов: <span class="badge-score" id="statScore">0</span></div>
+  </div>
+
+  <div class="show-container" id="gameBox">
+    <div class="case-header">
+      <span class="case-number" id="caseNum">Кейс #1</span>
+      <span class="product-category" id="caseCategory">Снеки</span>
+    </div>
+
+    <div class="product-title" id="caseTitle">Название продукта</div>
+
+    <div class="claim-box">
+      <div class="claim-label">Громкое обещание на лицевой стороне:</div>
+      <div class="claim-text" id="caseClaim">«БЕЗ ДОБАВЛЕНИЯ САХАРА!»</div>
+    </div>
+
+    <div class="ingr-box">
+      <div class="ingr-title">Реальный состав с обратной стороны упаковки:</div>
+      <div class="ingr-content" id="caseIngredients">Состав загружается...</div>
+    </div>
+
+    <div class="actions-grid" id="actionsRow">
+      <button class="btn-vote btn-fake" onclick="makeVerdict('fake')">
+        🚩 Маркетинговый развод
+      </button>
+      <button class="btn-vote btn-real" onclick="makeVerdict('real')">
+        ✅ Честная польза
+      </button>
+    </div>
+
+    <div class="verdict-box" id="verdictBox">
+      <div class="verdict-tag" id="verdictTag">РАЗВОД</div>
+      <div class="verdict-title" id="verdictTitle">Где зарыта собака?</div>
+      <div class="verdict-desc" id="verdictDesc">Подробный гигиенический разбор...</div>
+    </div>
+
+    <div class="next-nav" id="nextNav">
+      <button class="btn-next" onclick="nextCase()">Следующий кейс ➔</button>
+    </div>
+  </div>
+
+  <div class="show-container results-screen" id="resultsBox">
+    <h2>Шоу завершено!</h2>
+    <p style="color: var(--text-muted); margin-top: 8px;">Вы проверили все 15 этикеток на детекторе маркетинговой лжи.</p>
+    <div class="results-score" id="finalScore">0 / 15</div>
+    <p id="finalFeedback" style="line-height: 1.6; max-width: 500px; margin: 0 auto;"></p>
+    <button class="btn-restart" onclick="restartGame()">Начать шоу заново</button>
+  </div>
+
+  <script>
+    const cases = [
+      {
+        category: "Батончики и снеки",
+        title: "Фитнес-батончик «Стройность и Энергия»",
+        claim: "«0% ДОБАВЛЕННОГО САХАРА! ДЛЯ ЗДОРОВОГО ПОХУДЕНИЯ»",
+        ingredients: "Овсяные хлопья, патока крахмальная, мальтодекстрин, концентрированный яблочный сок, масло пальмовое гидрогенизированное, рис воздушный.",
+        isFake: true,
+        verdictTitle: "Скрытый сахар под юридической маскировкой",
+        verdictDesc: "Белого кристаллического сахара формально нет, но мальтодекстрин и патока имеют гликемический индекс выше, чем у столового сахара (ГИ 105-110 против 65). Плюс добавлен концентрат фруктового сока. Продукт вызывает мощный выброс инсулина."
+      },
+      {
+        category: "Молочная полка",
+        title: "Напиток овсяный ультрапастеризованный «Эко-Бариста»",
+        claim: "«100% РАСТИТЕЛЬНАЯ ПОЛЬЗА — ИДЕАЛЬНАЯ ЗАМЕНА МОЛОКУ ДЕТЯМ»",
+        ingredients: "Вода, овсяная мука, рапсовое масло, фосфат калия, соль, ароматизатор натуральный ваниль.",
+        isFake: true,
+        verdictTitle: "Углеводно-масляная эмульсия без белка",
+        verdictDesc: "В напитке всего 0.8-1 г неполноценного белка на 100 мл (против 3.2 г полноценного животного белка в коровьем молоке) и нет естественного биодоступного кальция. Заменять им молоко в детском рационе без врачебного контроля опасно дефицитом белка."
+      },
+      {
+        category: "Хлеб и злаки",
+        title: "Хлеб «Деревенский Темный Фитнес с клетчаткой»",
+        claim: "«ЦЕЛЬНОЗЕРНОВОЙ СУПЕРФУД ДЛЯ ОЧИЩЕНИЯ ОРГАНИЗМА»",
+        ingredients: "Мука пшеничная хлебопекарная высшего сорта, вода, патока мальтозная, карамельный колер (краситель), отруби пшеничные (2%), дрожжи, соль.",
+        isFake: true,
+        verdictTitle: "Покрашенная белая мука с щепоткой отрубей",
+        verdictDesc: "Темный цвет создан жженым сахаром и красителем. Основа продукта — рафинированная мука высшего сорта (крахмал без оболочки зерна), а заявленных отрубей добавлено символические 2%. Это не цельнозерновой хлеб."
+      },
+      {
+        category: "Заморозка и полуфабрикаты",
+        title: "Овощная смесь «Шоковая заморозка: Брокколи, фасоль, перец»",
+        claim: "«ПРОСТО СВЕЖИЕ ОВОЩИ БЕЗ КОНСЕРВАНТОВ»",
+        ingredients: "Капуста брокколи, стручковая фасоль, сладкий перец, морковь.",
+        isFake: false,
+        verdictTitle: "Честная и реальная польза",
+        verdictDesc: "Шоковая заморозка сохраняет витамины (включая витамин C) лучше, чем долгое хранение 'свежих' овощей на складах и витринах. Нет добавленного сахара, крахмала, жиров и скрытой соли. Отличный источник пищевых волокон."
+      },
+      {
+        category: "Тонизирующие напитки",
+        title: "Энергетик «Brain Focus & Fitness Active»",
+        claim: "«НАТУРАЛЬНЫЙ ИСТОЧНИК ЭНЕРГИИ И СПОРТИВНОГО ТОНУСА С ВИТАМИНАМИ B»",
+        ingredients: "Вода, сахар (11 г/100 мл), кофеин (32 мг/100 мл), таурин, экстракт гуараны, витамин B3, B6, консервант бензоат натрия.",
+        isFake: true,
+        verdictTitle: "Психостимулятор в сахарном сиропе под маской витаминов",
+        verdictDesc: "Стандартная банка дает около 55 г сахара (дневной максимум) и мощную дозу кофеина, умноженную гуараной. Витамины группы B добавлены как маркетинговое прикрытие ('health halo'). Энергию напиток не дает, а берет в долг из резервов ЦНС."
+      },
+      {
+        category: "Кондитерские изделия",
+        title: "Конфеты желейные «Эко-Детки с натуральным соком»",
+        claim: "«БЕЗ ХИМИИ, БЕЗ ГМО, С АКТИВНЫМ ВИТАМИНОМ С»",
+        ingredients: "Глюкозный сироп, сахар, концентрированный яблочный сок (5%), желатин, лимонная кислота, аскорбиновая кислота, краситель антоциан.",
+        isFake: true,
+        verdictTitle: "90% чистого сахара под лозунгом «Детское здоровье»",
+        verdictDesc: "ГМО в конфетах не бывает в принципе, а 5% сока — маркетинговая уловка, чтобы не писать, что продукт почти целиком состоит из сахара и патоки. Добавление копеечной аскорбиновой кислоты не превращает конфету в полезный продукт."
+      },
+      {
+        category: "Спортивное питание",
+        title: "Протеиновое печенье «Heavy Protein 25%»",
+        claim: "«ЧИСТЫЙ БЕЛОК ДЛЯ МЫШЦ БЕЗ ВРЕДА ДЛЯ ФИГУРЫ»",
+        ingredients: "Концентрат сывороточного белка, кондитерская глазурь (масло кокосовое, заменитель масла какао, сахар), мальтит, мука пшеничная, маргарин.",
+        isFake: true,
+        verdictTitle: "Калорийная бомба с маргарином под маской протеина",
+        verdictDesc: "Белок здесь действительно есть, но он утоплен в гидрогенизированных растительных жирах глазури, маргарине и муке. Калорийность штуки сопоставима с обычным пирожным, а мальтит в таких дозах вызывает вздутие и слабительный эффект."
+      },
+      {
+        category: "Консервация",
+        title: "Рыбные консервы «Горбуша тихоокеанская натуральная»",
+        claim: "«НАТУРАЛЬНЫЙ ИСТОЧНИК ОМЕГА-3 И ПОЛНОЦЕННОГО БЕЛКА»",
+        ingredients: "Горбуша (куски рыбы), соль поваренная пищевая.",
+        isFake: false,
+        verdictTitle: "Чистый состав без уловок",
+        verdictDesc: "Консервация рыбы в собственном соку без добавления растительного масла не требует консервантов (сохранность обеспечивает автоклав). Продукт дает полноценный легкоусвояемый белок, омега-3 жирные кислоты, фосфор и кальций из косточек."
+      },
+      {
+        category: "БАД и аптека",
+        title: "Капсулы для похудения «Slim Fast Detox Express»",
+        claim: "«100% ТРАВЯНОЙ СБОР — МИНУС 7 КГ ЗА НЕДЕЛЮ БЕЗ ДИЕТ»",
+        ingredients: "Экстракт гарцинии камбоджийской, сенна, микрокристаллическая целлюлоза, экстракт зеленого чая, желатин.",
+        isFake: true,
+        verdictTitle: "Слабительное обезвоживание вместо жиросжигания",
+        verdictDesc: "Сенна — агрессивное слабительное, вызывающее атонию кишечника и вымывание электролитов (калия, натрия). Сброс массы на весах происходит исключительно за счет потери воды и содержимого ЖКТ, а не жировой ткани."
+      },
+      {
+        category: "Воды и напитки",
+        title: "Вода минеральная природная лечебно-столовая",
+        claim: "«ПРИРОДНАЯ МИНЕРАЛИЗАЦИЯ И ВОДНО-СОЛЕВОЙ БАЛАНС»",
+        ingredients: "Вода минеральная природная гидрокарбонатная натриевая. Минерализация 3.0-5.0 г/л.",
+        isFake: false,
+        verdictTitle: "Настоящий природный электролит",
+        verdictDesc: "В отличие от сладких модных изотоников, это натуральный источник гидрокарбонатов, натрия и хлоридов без сахара, красителей и консервантов. Отлично восполняет соли при жаре и интенсивном потоотделении."
+      },
+      {
+        category: "Соусы и заправки",
+        title: "Майонезный соус «Легкий Фитнес 15%»",
+        claim: "«БЕЗ ХОЛЕСТЕРИНА И ЛИШНИХ КАЛОРИЙ ДЛЯ СТРОЙНОСТИ»",
+        ingredients: "Вода, подсолнечное масло, модифицированный кукурузный крахмал, загуститель ксантановая камедь, уксус, сахар, ароматизатор горчицы.",
+        isFake: true,
+        verdictTitle: "Замена полезных жиров крахмальным клейстером",
+        verdictDesc: "В растительном масле холестерина и так не бывает. Чтобы убрать калории от масла, производитель заменил его водой и модифицированным крахмалом с сахаром. Потребитель думает, что худеет, но ест жидкий ультрапереработанный крахмал."
+      },
+      {
+        category: "Завтраки",
+        title: "Хлопья овсяные «Геркулес Монастырский»",
+        claim: "«ИСТОЧНИК МЕДЛЕННЫХ УГЛЕВОДОВ И БЕТА-ГЛЮКАНА ДЛЯ СЕРДЦА»",
+        ingredients: "Хлопья овсяные из цельного зерна (время варки 20 минут).",
+        isFake: false,
+        verdictTitle: "Эталон сложного углевода",
+        verdictDesc: "Минимальная обработка цельного зерна. Низкий гликемический индекс, обилие растворимой клетчатки (бета-глюкана), снижающей уровень холестерина, и длительное насыщение без скачков сахара."
+      },
+      {
+        category: "Детские продукты",
+        title: "Детский творожок «Клубника-Малина для иммунитета»",
+        claim: "«ОБОГАЩЕН КАЛЬЦИЕМ И ВИТАМИНОМ D ДЛЯ РОСТА»",
+        ingredients: "Творог нормализованный, наполнитель (сахар, вода, пюре клубники, загуститель дикрахмалфосфат, ароматизатор, краситель кармин), сироп глюкозно-фруктозный.",
+        isFake: true,
+        verdictTitle: "Творожный десерт с 4 ложками сахара",
+        verdictDesc: "На 100 г продукта приходится до 13-14 г сахаров. В маленькой баночке ребенок получает почти половину суточного лимита добавленного сахара. Намного полезнее взять обычный чистый творог и размять в него свежие ягоды."
+      },
+      {
+        category: "Масла и жиры",
+        title: "Масло сливочное Традиционное 82.5%",
+        claim: "«НАТУРАЛЬНЫЙ МОЛОЧНЫЙ ПРОДУКТ ВЫСШЕГО СОРТА ПО ГОСТ»",
+        ingredients: "Пастеризованные сливки из коровьего молока.",
+        isFake: false,
+        verdictTitle: "Честный цельный продукт в разумных дозах",
+        verdictDesc: "Чистый состав без гидрогенизированных растительных жиров и эмульгаторов. Источник жирорастворимых витаминов A и D. Главное гигиеническое правило — умеренность (не превышать норму насыщенных жиров в 15-20 г в день)."
+      },
+      {
+        category: "Диетические тренды",
+        title: "Безглютеновое печенье «Pure Health Gluten-Free»",
+        claim: "«100% БЕЗ ГЛЮТЕНА — ДЛЯ ДЕТОКСА И ИДЕАЛЬНОГО ПИЩЕВАРЕНИЯ»",
+        ingredients: "Крахмал кукурузный, пальмовое масло, сахар, рисовая мука, эмульгатор соевый лецитин, разрыхлитель, ароматизатор ванилин.",
+        isFake: true,
+        verdictTitle: "Крахмал и пальмовый жир по тройной цене",
+        verdictDesc: "Продукт необходим только людям с целиакией. Для здорового человека это ультрапереработанная смесь чистого крахмала, сахара и дешевого жира, лишенная витаминов группы B и клетчатки цельного зерна."
+      }
+    ];
+
+    let currentIndex = 0;
+    let correctCount = 0;
+
+    function renderCase() {
+      const c = cases[currentIndex];
+      document.getElementById('statIndex').textContent = `${currentIndex + 1}/${cases.length}`;
+      document.getElementById('caseNum').textContent = `Кейс #${currentIndex + 1}`;
+      document.getElementById('caseCategory').textContent = c.category;
+      document.getElementById('caseTitle').textContent = c.title;
+      document.getElementById('caseClaim').textContent = c.claim;
+      document.getElementById('caseIngredients').textContent = c.ingredients;
+
+      // Сброс визуальных элементов
+      document.getElementById('verdictBox').className = 'verdict-box';
+      document.getElementById('actionsRow').style.display = 'grid';
+      document.getElementById('nextNav').style.display = 'none';
+    }
+
+    function makeVerdict(userChoice) {
+      const c = cases[currentIndex];
+      const isActualFake = c.isFake;
+      const userGuessed = (userChoice === 'fake' && isActualFake) || (userChoice === 'real' && !isActualFake);
+
+      if (userGuessed) {
+        correctCount++;
+        document.getElementById('statScore').textContent = correctCount;
+      }
+
+      // Настройка плашки вердикта
+      const box = document.getElementById('verdictBox');
+      const tag = document.getElementById('verdictTag');
+      
+      if (isActualFake) {
+        tag.textContent = userGuessed ? "🎯 ВЫ В ТАКТ! ЭТО РАЗВОД" : "❌ ОШИБКА: ЭТО МАРКЕТИНГОВЫЙ РАЗВОД";
+        tag.className = "verdict-tag fake";
+      } else {
+        tag.textContent = userGuessed ? "🎯 ВЕРНО! ЭТО ЧЕСТНЫЙ ПРОДУКТ" : "❌ ОШИБКА: ЭТО ДЕЙСТВИТЕЛЬНО ХОРОШИЙ ПРОДУКТ";
+        tag.className = "verdict-tag real";
+      }
+
+      document.getElementById('verdictTitle').textContent = c.verdictTitle;
+      document.getElementById('verdictDesc').textContent = c.verdictDesc;
+
+      box.classList.add('show');
+      document.getElementById('actionsRow').style.display = 'none';
+      document.getElementById('nextNav').style.display = 'flex';
+    }
+
+    function nextCase() {
+      currentIndex++;
+      if (currentIndex < cases.length) {
+        renderCase();
+      } else {
+        showFinalResults();
+      }
+    }
+
+    function showFinalResults() {
+      document.getElementById('gameBox').style.display = 'none';
+      const results = document.getElementById('resultsBox');
+      results.style.display = 'block';
+
+      document.getElementById('finalScore').textContent = `${correctCount} из ${cases.length}`;
+      const feedback = document.getElementById('finalFeedback');
+
+      if (correctCount >= 13) {
+        feedback.innerHTML = "<strong>Звание: Старший гигиенический инспектор!</strong><br>Вас невозможно провести ни мальтодекстрином, ни ярлыками 'ЭКО'. Вы видите суть через призму биохимии.";
+      } else if (correctCount >= 9) {
+        feedback.innerHTML = "<strong>Звание: Внимательный потребитель.</strong><br>Вы отлично чувствуете скрытый подвох, но маркетологам еще удается запутать вас сложными терминами.";
+      } else {
+        feedback.innerHTML = "<strong>Звание: Жертва «Ореола здоровья».</strong><br>Реклама пока побеждает факты. Чаще переворачивайте упаковку и читайте первые 3 строчки состава!";
+      }
+    }
+
+    function restartGame() {
+      currentIndex = 0;
+      correctCount = 0;
+      document.getElementById('statScore').textContent = 0;
+      document.getElementById('resultsBox').style.display = 'none';
+      document.getElementById('gameBox').style.display = 'flex';
+      renderCase();
+    }
+
+    // Старт
+    renderCase();
+  </script>
+</body>
+</html>

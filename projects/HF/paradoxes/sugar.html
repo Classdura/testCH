@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Баттл: Сахарная Башня (Реальные бренды)</title>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --panel-bg: #1e293b;
+      --border-color: #334155;
+      --accent-cyan: #38bdf8;
+      --accent-gold: #f59e0b;
+      --sugar-color: #f8fafc;
+      --sugar-border: #cbd5e1;
+      --danger-red: #ef4444;
+      --success-green: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      overflow-x: hidden;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: var(--accent-gold);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      text-shadow: 0 2px 10px rgba(245, 158, 11, 0.3);
+    }
+
+    p.subtitle {
+      color: var(--accent-cyan);
+      font-size: 0.95rem;
+      margin-top: 4px;
+    }
+
+    /* Main Container */
+    .battle-layout {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 16px;
+      max-width: 1140px;
+      width: 100%;
+      height: 720px;
+    }
+
+    /* Left Sidebar: Cards & Info */
+    .sidebar {
+      background: var(--panel-bg);
+      border: 2px solid var(--border-color);
+      border-radius: 14px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    .selector-label {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    select.product-select {
+      background: #0b1329;
+      color: #fff;
+      border: 1px solid var(--border-color);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.92rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .product-card {
+      background: #0b1329;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .prod-volume {
+      font-size: 0.85rem;
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    .prod-source {
+      font-size: 0.78rem;
+      color: #94a3b8;
+      background: rgba(255,255,255,0.04);
+      padding: 4px 8px;
+      border-radius: 4px;
+      border-left: 3px solid var(--accent-gold);
+    }
+
+    .prod-desc {
+      font-size: 0.88rem;
+      line-height: 1.4;
+      color: #cbd5e1;
+    }
+
+    /* Counter stats */
+    .counter-board {
+      background: #0b1329;
+      border: 2px dashed #475569;
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .counter-value {
+      font-size: 2rem;
+      font-weight: 900;
+      color: var(--accent-gold);
+    }
+
+    .counter-hint {
+      font-size: 0.78rem;
+      color: #94a3b8;
+    }
+
+    .btn-action {
+      background: var(--accent-gold);
+      color: #0b1329;
+      border: none;
+      padding: 11px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      border-radius: 8px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: transform 0.1s ease, filter 0.2s ease, background-color 0.2s ease;
+      touch-action: manipulation;
+    }
+
+    .btn-action:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    .btn-action:active {
+      transform: translateY(1px);
+    }
+
+    .btn-action.stream-mode {
+      background: #ef4444 !important;
+      color: #fff !important;
+      animation: pulseBtn 0.3s infinite alternate;
+    }
+
+    @keyframes pulseBtn {
+      from { filter: brightness(1); }
+      to { filter: brightness(1.25); }
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: #94a3b8;
+      border: 1px solid #475569;
+      padding: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .btn-secondary:hover {
+      color: #fff;
+      border-color: #94a3b8;
+    }
+
+    /* Result Panel */
+    .reveal-box {
+      display: none;
+      background: #022c22;
+      border: 2px solid var(--success-green);
+      border-radius: 10px;
+      padding: 14px;
+      animation: popIn 0.3s ease;
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .reveal-box.fail {
+      background: #450a0a;
+      border-color: var(--danger-red);
+    }
+
+    .reveal-title {
+      font-weight: 800;
+      font-size: 1.05rem;
+      margin-bottom: 6px;
+    }
+
+    .reveal-detail {
+      font-size: 0.85rem;
+      line-height: 1.45;
+      color: #e2e8f0;
+    }
+
+    /* Canvas / Physics Stage */
+    .stage-wrapper {
+      background: #020617;
+      border: 2px solid var(--border-color);
+      border-radius: 14px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stage-hud {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .hud-tag {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      color: var(--accent-cyan);
+      backdrop-filter: blur(4px);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+
+    canvas:active {
+      cursor: grabbing;
+    }
+
+    @media (max-width: 860px) {
+      .battle-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .stage-wrapper {
+        height: 500px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Баттл: Сахарная Башня</h1>
+    <p class="subtitle">Хватай и бросай кубики сахара мышкой: строй башню и угадывай сахар по реальным этикеткам (1 куб = 4 г)</p>
+  </header>
+
+  <div class="battle-layout">
+    <!-- Боковая панель -->
+    <div class="sidebar">
+      <div class="selector-label">Выбери подопытный продукт:</div>
+      <select id="prodSelect" class="product-select" onchange="changeProduct()">
+        <!-- Заполняется динамически -->
+      </select>
+
+      <div class="product-card">
+        <div id="pTitle" style="font-weight: 700; font-size: 1.05rem; color: #fff;">-</div>
+        <div id="pVol" class="prod-volume">-</div>
+        <div id="pSource" class="prod-source">-</div>
+        <div id="pDesc" class="prod-desc">-</div>
+      </div>
+
+      <div class="counter-board">
+        <div class="counter-hint">Кубиков в твоей башне (ГОСТ рафинад 4 г):</div>
+        <div class="counter-value" id="cubeCounter">0 шт.</div>
+        <div class="counter-hint" id="gramCounter">≈ 0 г чистого сахара</div>
+      </div>
+
+      <button class="btn-action" id="spawnBtn">+ Добавить кубик</button>
+      <button class="btn-action" style="background: #38bdf8;" onclick="revealAnswer()">Проверить догадку!</button>
+      <button class="btn-secondary" onclick="resetCubes()">Очистить поле</button>
+
+      <!-- Вердикт -->
+      <div class="reveal-box" id="revealBox">
+        <div class="reveal-title" id="revealTitle">Правда раскрыта!</div>
+        <div class="reveal-detail" id="revealText">...</div>
+      </div>
+    </div>
+
+    <!-- Физическая сцена -->
+    <div class="stage-wrapper">
+      <div class="stage-hud">
+        <div class="hud-tag">Управление: ЛКМ — схватить, поднять, швырнуть кубик</div>
+        <div class="hud-tag" id="physicsStatus">Стандарт: 1 кубик = 4 г (ГОСТ 33222)</div>
+      </div>
+      <canvas id="worldCanvas"></canvas>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       1. База продуктов: Бренды и маркировка по ТР ТС 022/2011
+       ========================================================================= */
+    const products = [
+      {
+        id: "cola",
+        title: "Газировка «Добрый Cola» (ранее Coca-Cola)",
+        volume: "ПЭТ-бутылка 0.5 л (500 мл)",
+        source: "Этикетка: Углеводы — 10.6 г на 100 мл (ТР ТС 022/2011)",
+        desc: "Самый массовый газированный напиток. Пьется незаметно, жажду не утоляет.",
+        grams: 53,
+        cubes: 13,
+        fact: "Расчет: 10.6 г × 5 = 53 г сахара на бутылку. При весе кубика 4 г получаем ровно 13 кусков сахара! Это больше двойной предельной суточной нормы ВОЗ для подростков."
+      },
+      {
+        id: "adrenaline",
+        title: "Энергетик «Adrenaline Rush» / «Monster Energy»",
+        volume: "Алюминиевая банка 0.449 л (~450 мл)",
+        source: "Этикетка: Углеводы — 11.5 г на 100 мл",
+        desc: "Маскируется витаминами группы B и таурином под функциональный спортивный тоник.",
+        grams: 52,
+        cubes: 13,
+        fact: "Расчет: 11.5 г × 4.5 = ~52 г сахара (13 кубиков). Иллюзия прилива сил вызвана не столько таурином, сколько резким инсулиновым взрывом от полусотни граммов жидкого сахара."
+      },
+      {
+        id: "frutonyanya",
+        title: "Сок яблочный осветленный «ФрутоНяня» / «Добрый»",
+        volume: "Тетрапак 0.2 л (200 мл) с трубочкой",
+        source: "Этикетка: Углеводы — 11.5 г на 100 мл",
+        desc: "Классический напиток для перекуса в детском саду и начальной школе.",
+        grams: 23,
+        cubes: 6,
+        fact: "Расчет: 11.5 г × 2 = 23 г простых сахаров (почти 6 кубиков рафинада). Поскольку пищевые волокна (клетчатка) удалены при фильтрации сока, вся эта фруктоза и сахароза мгновенно бьют по печени."
+      },
+      {
+        id: "corny",
+        title: "Злаковый батончик «Corny Big» с бананом и шоколадом",
+        volume: "Индивидуальная упаковка 50 г",
+        desc: "Продается возле касс как 'полезный злаковый фитнес-перекус'.",
+        grams: 32,
+        cubes: 8,
+        fact: "Этикетка: Углеводы 64 г на 100 г (из них сахара — 35 г). На один 50-граммовый батончик приходится 17.5 г добавленного сахара (4.5 кубика), а суммарно с патокой и быстрым крахмалом — углеводный эквивалент 8 кубиков!"
+      },
+      {
+        id: "chudo",
+        title: "Йогурт питьевой «Чудо Клубника-Малина» 2.4%",
+        volume: "Пластиковая бутылка 270 г",
+        desc: "Позиционируется как кисломолочный продукт для легкого завтрака.",
+        grams: 35,
+        cubes: 9,
+        fact: "Этикетка: Углеводы — 13.0 г на 100 г. В бутылке 270 г содержится 35.1 г углеводов = 9 кубиков сахара! Из них естественная лактоза молока дает лишь ~11 г, а остальные 24 г (6 кубиков) — сахар в ягодном сиропе."
+      },
+      {
+        id: "heinz",
+        title: "Томатный кетчуп «Heinz» оригинальный",
+        volume: "Порция 100 г (около 4 столовых ложек)",
+        desc: "Казалось бы, соленый томатный соус к картошке или шашлыку.",
+        grams: 23,
+        cubes: 6,
+        fact: "Этикетка: Углеводы — 23.2 г на 100 г. Ровно 6 кусков чистого сахара! Сахар добавляется в больших объемах для маскировки едкой кислоты концентрированной томатной пасты и уксуса."
+      },
+      {
+        id: "essentuki",
+        title: "Минеральная вода «Ессентуки №4» (ГОСТ Р 54316)",
+        volume: "Стеклянная/ПЭТ бутылка 0.5 л",
+        desc: "Природная гидрокарбонатно-хлоридная натриевая вода.",
+        grams: 0,
+        cubes: 0,
+        fact: "Этикетка: 0 г углеводов, 0 г сахара. Абсолютный ноль пустых калорий. Реальный источник минералов (натрий, калий, магний), который гигиенически идеален для утоления жажды."
+      }
+    ];
+
+    /* =========================================================================
+       2. Инициализация UI
+       ========================================================================= */
+    const prodSelect = document.getElementById('prodSelect');
+    products.forEach((p, index) => {
+      const opt = document.createElement('option');
+      opt.value = index;
+      opt.textContent = p.title;
+      prodSelect.appendChild(opt);
+    });
+
+    let activeProduct = products[0];
+
+    function changeProduct() {
+      activeProduct = products[prodSelect.value];
+      document.getElementById('pTitle').textContent = activeProduct.title;
+      document.getElementById('pVol').textContent = activeProduct.volume;
+      document.getElementById('pSource').textContent = activeProduct.source;
+      document.getElementById('pDesc').textContent = activeProduct.desc;
+      document.getElementById('revealBox').style.display = 'none';
+    }
+    changeProduct();
+
+    function updateCubeCounter() {
+      const count = bodies.length;
+      document.getElementById('cubeCounter').textContent = `${count} шт.`;
+      document.getElementById('gramCounter').textContent = `≈ ${count * 4} г сахара`;
+    }
+
+    function revealAnswer() {
+      const box = document.getElementById('revealBox');
+      const title = document.getElementById('revealTitle');
+      const text = document.getElementById('revealText');
+      const userCubes = bodies.length;
+      const targetCubes = activeProduct.cubes;
+      const diff = Math.abs(userCubes - targetCubes);
+
+      box.style.display = 'block';
+
+      if (diff === 0) {
+        box.className = 'reveal-box';
+        title.textContent = `🎯 В яблочко! Ровно ${targetCubes} шт.`;
+      } else if (diff <= 2) {
+        box.className = 'reveal-box';
+        title.textContent = `Очень близко! По этикетке: ${targetCubes} шт.`;
+      } else {
+        box.className = 'reveal-box fail';
+        title.textContent = userCubes > targetCubes 
+          ? `Перебор! Ваша башня: ${userCubes}, а в бутылке: ${targetCubes} шт.`
+          : `Недооценили! Ваша башня: ${userCubes}, а там целых ${targetCubes} шт.!`;
+      }
+
+      text.innerHTML = `<strong>${activeProduct.grams} граммов сахара</strong>.<br>${activeProduct.fact}`;
+    }
+
+    /* =========================================================================
+       3. Физический движок на Canvas (Rigid Body Physics)
+       ========================================================================= */
+    const canvas = document.getElementById('worldCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let width = 0;
+    let height = 0;
+
+    function resizeCanvas() {
+      width = canvas.parentElement.clientWidth;
+      height = canvas.parentElement.clientHeight;
+      canvas.width = width;
+      canvas.height = height;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    const GRAVITY = 0.35;
+    const CUBE_SIZE = 36;
+    const RESTITUTION = 0.22;
+    const FRICTION = 0.88;
+
+    class Box {
+      constructor(x, y) {
+        this.w = CUBE_SIZE;
+        this.h = CUBE_SIZE;
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 4;
+        this.vy = Math.random() * -2;
+        this.angle = (Math.random() - 0.5) * 0.2;
+        this.angVelocity = (Math.random() - 0.5) * 0.05;
+        this.isGrabbed = false;
+      }
+
+      update() {
+        if (this.isGrabbed) return;
+
+        this.vy += GRAVITY;
+        this.x += this.vx;
+        this.y += this.vy;
+        this.angle += this.angVelocity;
+
+        this.vx *= 0.995;
+        this.angVelocity *= 0.96;
+
+        const floorY = height - 25;
+        if (this.y + this.h / 2 > floorY) {
+          this.y = floorY - this.h / 2;
+          this.vy = -this.vy * RESTITUTION;
+          this.vx *= FRICTION;
+          this.angVelocity *= FRICTION;
+          if (Math.abs(this.vy) < 0.2) this.vy = 0;
+        }
+
+        if (this.x - this.w / 2 < 10) {
+          this.x = 10 + this.w / 2;
+          this.vx = -this.vx * RESTITUTION;
+        } else if (this.x + this.w / 2 > width - 10) {
+          this.x = width - 10 - this.w / 2;
+          this.vx = -this.vx * RESTITUTION;
+        }
+      }
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 4;
+
+        ctx.fillStyle = this.isGrabbed ? '#fef08a' : '#f8fafc';
+        ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
+
+        ctx.strokeStyle = this.isGrabbed ? '#eab308' : '#94a3b8';
+        ctx.lineWidth = 1.8;
+        ctx.strokeRect(-this.w / 2, -this.h / 2, this.w, this.h);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.fillRect(-this.w / 2 + 3, -this.h / 2 + 3, this.w - 6, 4);
+
+        ctx.restore();
+      }
+    }
+
+    let bodies = [];
+
+    function spawnCube() {
+      const dropX = width / 2 + (Math.random() - 0.5) * 60;
+      const dropY = 40;
+      bodies.push(new Box(dropX, dropY));
+      updateCubeCounter();
+    }
+
+    function resetCubes() {
+      bodies = [];
+      updateCubeCounter();
+      document.getElementById('revealBox').style.display = 'none';
+    }
+
+    function resolveCollisions() {
+      for (let i = 0; i < bodies.length; i++) {
+        for (let j = i + 1; j < bodies.length; j++) {
+          const b1 = bodies[i];
+          const b2 = bodies[j];
+
+          const dx = b2.x - b1.x;
+          const dy = b2.y - b1.y;
+          const minDistX = (b1.w + b2.w) / 2;
+          const minDistY = (b1.h + b2.h) / 2;
+
+          if (Math.abs(dx) < minDistX && Math.abs(dy) < minDistY) {
+            const overlapX = minDistX - Math.abs(dx);
+            const overlapY = minDistY - Math.abs(dy);
+
+            if (overlapX < overlapY) {
+              const sign = dx > 0 ? 1 : -1;
+              if (!b1.isGrabbed && !b2.isGrabbed) {
+                b1.x -= (overlapX / 2) * sign;
+                b2.x += (overlapX / 2) * sign;
+              } else if (b1.isGrabbed) {
+                b2.x += overlapX * sign;
+              } else {
+                b1.x -= overlapX * sign;
+              }
+              const avgVx = (b1.vx + b2.vx) * 0.5;
+              b1.vx = avgVx * 0.8;
+              b2.vx = avgVx * 0.8;
+            } else {
+              const sign = dy > 0 ? 1 : -1;
+              if (!b1.isGrabbed && !b2.isGrabbed) {
+                b1.y -= (overlapY / 2) * sign;
+                b2.y += (overlapY / 2) * sign;
+              } else if (b1.isGrabbed) {
+                b2.y += overlapY * sign;
+              } else {
+                b1.y -= overlapY * sign;
+              }
+
+              const relVy = b2.vy - b1.vy;
+              b1.vy += relVy * 0.45;
+              b2.vy -= relVy * 0.45;
+
+              b1.vx *= 0.88;
+              b2.vx *= 0.88;
+              b1.angVelocity *= 0.8;
+              b2.angVelocity *= 0.8;
+            }
+          }
+        }
+      }
+    }
+
+    /* =========================================================================
+       4. Логика кнопки спавна: Одиночный клик vs Длительное удержание (>3 сек)
+       ========================================================================= */
+    const spawnBtn = document.getElementById('spawnBtn');
+    let holdTimeout = null;
+    let streamInterval = null;
+    let isStreaming = false;
+
+    function startHold(e) {
+      if (e.button !== undefined && e.button !== 0) return; // только левая кнопка
+      
+      // Добавляем один кубик сразу при нажатии
+      spawnCube();
+
+      // Запускаем таймер проверки длительного зажатия на 3 секунды (3000 мс)
+      holdTimeout = setTimeout(() => {
+        isStreaming = true;
+        spawnBtn.classList.add('stream-mode');
+        spawnBtn.textContent = "⚡ ЛАВИНА САХАРА! (ОТПУСТИ КНОПКУ)";
+
+        // Начинаем непрерывно сыпать кубики каждые 90 миллисекунд
+        streamInterval = setInterval(() => {
+          spawnCube();
+        }, 90);
+      }, 3000);
+    }
+
+    function endHold() {
+      // Очищаем таймер ожидания 3 секунд
+      if (holdTimeout) {
+        clearTimeout(holdTimeout);
+        holdTimeout = null;
+      }
+      // Останавливаем лавину
+      if (streamInterval) {
+        clearInterval(streamInterval);
+        streamInterval = null;
+      }
+      if (isStreaming) {
+        isStreaming = false;
+        spawnBtn.classList.remove('stream-mode');
+        spawnBtn.textContent = "+ Добавить кубик (зажми >3 сек для лавины)";
+      }
+    }
+
+    // События для мыши
+    spawnBtn.addEventListener('mousedown', startHold);
+    window.addEventListener('mouseup', endHold);
+
+    // События для сенсорных экранов
+    spawnBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      startHold(e);
+    }, { passive: false });
+    window.addEventListener('touchend', endHold);
+    window.addEventListener('touchcancel', endHold);
+
+    /* =========================================================================
+       5. Управление мышью и пальцем на Canvas (Таскание / Бросок)
+       ========================================================================= */
+    let grabbedBody = null;
+    let grabOffsetX = 0;
+    let grabOffsetY = 0;
+    let lastMouseX = 0;
+    let lastMouseY = 0;
+    let mouseVx = 0;
+    let mouseVy = 0;
+
+    function getCanvasPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+    }
+
+    function onPointerDown(e) {
+      const { x, y } = getCanvasPos(e);
+      lastMouseX = x;
+      lastMouseY = y;
+      mouseVx = 0;
+      mouseVy = 0;
+
+      for (let i = bodies.length - 1; i >= 0; i--) {
+        const b = bodies[i];
+        if (
+          x >= b.x - b.w / 2 &&
+          x <= b.x + b.w / 2 &&
+          y >= b.y - b.h / 2 &&
+          y <= b.y + b.h / 2
+        ) {
+          grabbedBody = b;
+          b.isGrabbed = true;
+          grabOffsetX = x - b.x;
+          grabOffsetY = y - b.y;
+          bodies.splice(i, 1);
+          bodies.push(b);
+          break;
+        }
+      }
+    }
+
+    function onPointerMove(e) {
+      const { x, y } = getCanvasPos(e);
+      mouseVx = x - lastMouseX;
+      mouseVy = y - lastMouseY;
+      lastMouseX = x;
+      lastMouseY = y;
+
+      if (grabbedBody) {
+        grabbedBody.x = x - grabOffsetX;
+        grabbedBody.y = y - grabOffsetY;
+      }
+    }
+
+    function onPointerUp() {
+      if (grabbedBody) {
+        grabbedBody.isGrabbed = false;
+        grabbedBody.vx = mouseVx * 0.7;
+        grabbedBody.vy = mouseVy * 0.7;
+        grabbedBody.angVelocity = (mouseVx * 0.02);
+        grabbedBody = null;
+      }
+    }
+
+    canvas.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+    window.addEventListener('touchmove', onPointerMove, { passive: false });
+    window.addEventListener('touchend', onPointerUp);
+
+    /* =========================================================================
+       6. Главный цикл отрисовки
+       ========================================================================= */
+    function gameLoop() {
+      ctx.clearRect(0, 0, width, height);
+
+      const floorY = height - 25;
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(0, floorY, width, 25);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, floorY);
+      ctx.lineTo(width, floorY);
+      ctx.stroke();
+
+      bodies.forEach(b => b.update());
+      for (let step = 0; step < 4; step++) {
+        resolveCollisions();
+      }
+
+      bodies.forEach(b => b.draw());
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+    setTimeout(spawnCube, 150);
+    setTimeout(spawnCube, 350);
+    setTimeout(spawnCube, 550);
+  </script>
+</body>
+</html>

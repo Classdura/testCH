@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Конструктор: Собери идеальную тарелку</title>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --panel-bg: #1e293b;
+      --border-color: #334155;
+      --accent-cyan: #38bdf8;
+      --accent-gold: #f59e0b;
+      --green-ok: #10b981;
+      --red-warn: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: var(--accent-gold);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    p.subtitle {
+      color: var(--accent-cyan);
+      font-size: 0.95rem;
+      margin-top: 4px;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 340px 1fr 350px;
+      gap: 16px;
+      max-width: 1400px;
+      width: 100%;
+      min-height: 720px;
+    }
+
+    .panel {
+      background: var(--panel-bg);
+      border: 2px solid var(--border-color);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent-gold);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Список продуктов */
+    .catalog-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      max-height: 620px;
+      padding-right: 4px;
+    }
+
+    .food-card {
+      background: #0b1329;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .food-card:hover {
+      border-color: var(--accent-cyan);
+      background: #172554;
+      transform: translateX(2px);
+    }
+
+    .food-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .food-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .food-meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .btn-add {
+      background: var(--accent-gold);
+      color: #0b1329;
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Тарелка по центру */
+    .plate-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      position: relative;
+    }
+
+    .plate-container {
+      position: relative;
+      width: 330px;
+      height: 330px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #1e293b 45%, #0f172a 100%);
+      border: 10px solid #334155;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), inset 0 0 25px rgba(0, 0, 0, 0.7);
+      margin: 4px 0;
+      overflow: hidden;
+    }
+
+    #plateCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .plate-empty-hint {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      pointer-events: none;
+      width: 220px;
+      line-height: 1.4;
+      z-index: 1;
+    }
+
+    .plate-items-wrapper {
+      width: 100%;
+      flex: 1;
+      background: #0b1329;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px;
+      overflow-y: auto;
+      max-height: 190px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .plate-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #1e293b;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    .btn-remove {
+      color: var(--red-warn);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      padding: 0 4px;
+    }
+
+    /* Блок кнопок подсказок */
+    .hints-bar {
+      width: 100%;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .hint-skill-btn {
+      position: relative;
+      background: #0b1329;
+      color: #fff;
+      border: 2px solid var(--accent-cyan);
+      border-radius: 10px;
+      padding: 10px 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow: hidden;
+      flex: 1;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      transition: transform 0.1s ease, border-color 0.2s ease;
+    }
+
+    .hint-skill-btn:hover:not(.on-cooldown) {
+      border-color: var(--accent-gold);
+      transform: translateY(-2px);
+    }
+
+    /* Круговая диагональная маска кулдауна (conic-gradient) */
+    .cooldown-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: conic-gradient(rgba(15, 23, 42, 0.9) var(--cd-angle, 0deg), transparent 0deg);
+      display: none;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .cooldown-timer {
+      position: absolute;
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: var(--accent-gold);
+      z-index: 3;
+      display: none;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    }
+
+    .hint-skill-btn.on-cooldown {
+      cursor: not-allowed;
+      border-color: #475569;
+      color: #64748b;
+    }
+
+    .hint-skill-btn.on-cooldown .cooldown-overlay,
+    .hint-skill-btn.on-cooldown .cooldown-timer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Правая колонка */
+    .progress-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .bar-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .progress-bg {
+      background: #0b1329;
+      height: 10px;
+      border-radius: 5px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent-cyan);
+      transition: width 0.25s ease, background-color 0.25s ease;
+    }
+
+    .status-box {
+      background: #0b1329;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.85rem;
+      line-height: 1.45;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .status-title {
+      font-weight: 700;
+      color: var(--accent-gold);
+    }
+
+    .hint-popup {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid var(--accent-cyan);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.85rem;
+      color: #e0f2fe;
+      line-height: 1.4;
+      display: none;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .btn-clear {
+      background: transparent;
+      border: 1px solid #475569;
+      color: var(--text-muted);
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+
+    .btn-clear:hover {
+      color: #fff;
+      border-color: #94a3b8;
+    }
+
+    @media (max-width: 1050px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+      .catalog-list {
+        max-height: 250px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Собери Идеальную Тарелку</h1>
+    <p class="subtitle">Интерактивный конструктор рациона с DVD-анимацией продуктов на тарелке</p>
+  </header>
+
+  <div class="main-grid">
+    <!-- Левая колонка: Продукты -->
+    <div class="panel">
+      <div class="panel-title">
+        <span>Продукты и блюда</span>
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Клик для добавления</span>
+      </div>
+      <div class="catalog-list" id="foodCatalog"></div>
+    </div>
+
+    <!-- Центральная колонка: Тарелка с DVD-отскоками продуктов -->
+    <div class="panel plate-stage">
+      <div class="panel-title" style="width: 100%;">
+        <span>Тарелка на день</span>
+        <button class="btn-clear" onclick="clearPlate()">Очистить</button>
+      </div>
+
+      <!-- Круглая тарелка с Canvas -->
+      <div class="plate-container">
+        <canvas id="plateCanvas"></canvas>
+        <div class="plate-empty-hint" id="plateHint">
+          <div style="font-size: 2.2rem; margin-bottom: 4px;">🍽️</div>
+          Добавьте продукты слева, чтобы наполнить тарелку
+        </div>
+      </div>
+
+      <!-- Кнопки подсказок с круговым кулдауном -->
+      <div class="hints-bar">
+        <button class="hint-skill-btn" id="btnHintNeed" onclick="useHint('need')">
+          <div class="cooldown-overlay" id="cdOverlayNeed"></div>
+          <div class="cooldown-timer" id="cdTimerNeed">5</div>
+          <span>🔍 Чего мало?</span>
+        </button>
+
+        <button class="hint-skill-btn" id="btnHintExcess" onclick="useHint('excess')">
+          <div class="cooldown-overlay" id="cdOverlayExcess"></div>
+          <div class="cooldown-timer" id="cdTimerExcess">5</div>
+          <span>⚠️ Что лишнее?</span>
+        </button>
+
+        <button class="hint-skill-btn" id="btnHintAuto" onclick="useHint('auto')">
+          <div class="cooldown-overlay" id="cdOverlayAuto"></div>
+          <div class="cooldown-timer" id="cdTimerAuto">5</div>
+          <span>💡 Что добавить?</span>
+        </button>
+      </div>
+
+      <div class="hint-popup" id="hintBox"></div>
+
+      <div class="plate-items-wrapper" id="plateItemsList"></div>
+    </div>
+
+    <!-- Правая колонка: Анализатор МР 2.3.1.0253-21 -->
+    <div class="panel">
+      <div class="panel-title">
+        <span>Анализ баланса</span>
+        <span style="font-size: 0.78rem; color: var(--accent-cyan);">Цель ~2000 ккал</span>
+      </div>
+
+      <div class="progress-group">
+        <div class="bar-row">
+          <div class="bar-label"><span>Калории</span><span id="txtKcal">0 / 2000</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barKcal"></div></div>
+        </div>
+
+        <div class="bar-row">
+          <div class="bar-label"><span>Углеводы (цель 55-65%)</span><span id="txtCarbs">0% (0 г)</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barCarbs"></div></div>
+        </div>
+
+        <div class="bar-row">
+          <div class="bar-label"><span>Жиры (цель 15-30%)</span><span id="txtFat">0% (0 г)</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barFat"></div></div>
+        </div>
+
+        <div class="bar-row">
+          <div class="bar-label"><span>Белки (норма 70-90 г)</span><span id="txtProt">0 г</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barProt"></div></div>
+        </div>
+
+        <div class="bar-row">
+          <div class="bar-label"><span>Клетчатка (норма ≥25 г)</span><span id="txtFiber">0 / 25 г</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barFiber"></div></div>
+        </div>
+
+        <div class="bar-row">
+          <div class="bar-label"><span>Скрытый сахар (&lt;50 г)</span><span id="txtSugar">0 г</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barSugar" style="background: var(--red-warn);"></div></div>
+        </div>
+      </div>
+
+      <div class="status-box">
+        <div class="status-title" id="verdictStatus">Ожидание наполнения...</div>
+        <div id="verdictText" style="color: #cbd5e1;">Добавьте продукты на тарелку. При затруднениях используйте подсказки.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const foodDB = [
+      { id: "oats", icon: "🥣", label: "Овсянка", name: "Овсяная каша на воде (200г)", kcal: 180, p: 6, f: 3, c: 32, fiber: 5, sugar: 0, color: "#f59e0b" },
+      { id: "eggs", icon: "🍳", label: "Яйца", name: "Яичница из 2 яиц (100г)", kcal: 160, p: 13, f: 11, c: 1, fiber: 0, sugar: 0, color: "#fbbf24" },
+      { id: "buckwheat", icon: "🌾", label: "Гречка", name: "Гречневая каша (150г)", kcal: 165, p: 6, f: 2, c: 31, fiber: 4, sugar: 0, color: "#b45309" },
+      { id: "chicken", icon: "🍗", label: "Курица", name: "Куриное филе запеченное (150г)", kcal: 220, p: 35, f: 5, c: 0, fiber: 0, sugar: 0, color: "#f97316" },
+      { id: "salmon", icon: "🐟", label: "Лосось", name: "Лосось/Горбуша на пару (120г)", kcal: 200, p: 24, f: 12, c: 0, fiber: 0, sugar: 0, color: "#fb7185" },
+      { id: "salad", icon: "🥗", label: "Салат", name: "Овощной салат с оливк. маслом (200г)", kcal: 140, p: 2, f: 10, c: 8, fiber: 4.5, sugar: 2, color: "#10b981" },
+      { id: "rye_bread", icon: "🍞", label: "Ржаной хлеб", name: "Хлеб ржаной цельнозерновой (2 куска)", kcal: 160, p: 5, f: 1.5, c: 30, fiber: 6, sugar: 1, color: "#78350f" },
+      { id: "butter", icon: "🧈", label: "Масло", name: "Масло сливочное 82.5% (15г)", kcal: 112, p: 0.1, f: 12.4, c: 0.1, fiber: 0, sugar: 0, color: "#fef08a" },
+      { id: "apple", icon: "🍎", label: "Яблоко", name: "Яблоко свежее (1 шт, 180г)", kcal: 85, p: 0.5, f: 0.5, c: 20, fiber: 4, sugar: 15, color: "#ef4444" },
+      { id: "curd", icon: "🥛", label: "Творог", name: "Творог 5% (150г)", kcal: 180, p: 24, f: 7.5, c: 4.5, fiber: 0, sugar: 4.5, color: "#38bdf8" },
+      { id: "lentils", icon: "🫘", label: "Чечевица", name: "Чечевица/Фасоль вареная (150г)", kcal: 175, p: 12, f: 1, c: 28, fiber: 8, sugar: 0, color: "#a855f7" },
+      { id: "white_bread", icon: "🥖", label: "Батон", name: "Батон нарезной пшеничный (2 куска)", kcal: 180, p: 5, f: 2, c: 36, fiber: 1.5, sugar: 3, color: "#fde047" },
+      { id: "burger", icon: "🍔", label: "Бургер", name: "Фастфуд-бургер стандартный (1 шт)", kcal: 520, p: 22, f: 28, c: 45, fiber: 2, sugar: 12, color: "#dc2626" },
+      { id: "energy_drink", icon: "⚡", label: "Энергетик", name: "Банка энергетика (0.5 л)", kcal: 225, p: 0, f: 0, c: 55, fiber: 0, sugar: 55, color: "#6366f1" },
+      { id: "fitness_bar", icon: "🍫", label: "Батончик", name: "Сладкий злаковый батончик (50г)", kcal: 210, p: 3, f: 6, c: 35, fiber: 2, sugar: 22, color: "#ec4899" }
+    ];
+
+    let plate = [];
+
+    /* =========================================================================
+       DVD-АНИМАЦИЯ: МЕДЛЕННЫЙ ХАОТИЧЕСКИЙ ОТСКОК В КРУГЛОЙ ТАРЕЛКЕ
+       ========================================================================= */
+    const canvas = document.getElementById('plateCanvas');
+    const ctx = canvas.getContext('2d');
+    const plateHint = document.getElementById('plateHint');
+
+    let cWidth = 330;
+    let cHeight = 330;
+    let cRadius = 150; // внутренний рабочий радиус тарелки
+
+    function initCanvas() {
+      cWidth = canvas.parentElement.clientWidth;
+      cHeight = canvas.parentElement.clientHeight;
+      canvas.width = cWidth;
+      canvas.height = cHeight;
+      cRadius = (Math.min(cWidth, cHeight) / 2) - 8;
+    }
+    window.addEventListener('resize', initCanvas);
+    initCanvas();
+
+    class DVDItem {
+      constructor(food, plateId) {
+        this.food = food;
+        this.plateId = plateId;
+        this.radius = 26; // радиус плашки продукта
+        
+        // Появление в центре с небольшим случайным смещением
+        this.x = cWidth / 2 + (Math.random() - 0.5) * 40;
+        this.y = cHeight / 2 + (Math.random() - 0.5) * 40;
+
+        // Медленная DVD-скорость
+        const speed = 0.75 + Math.random() * 0.35;
+        const angle = Math.random() * Math.PI * 2;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Вектор от центра тарелки
+        const cx = cWidth / 2;
+        const cy = cHeight / 2;
+        const dx = this.x - cx;
+        const dy = this.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // Столкновение со сферической стенкой тарелки (DVD-отскок)
+        if (dist + this.radius >= cRadius) {
+          // Нормаль к границе окружности
+          const nx = dx / dist;
+          const ny = dy / dist;
+
+          // Отражение вектора скорости: v' = v - 2 * (v . n) * n
+          const dot = this.vx * nx + this.vy * ny;
+          this.vx = this.vx - 2 * dot * nx;
+          this.vy = this.vy - 2 * dot * ny;
+
+          // Корректировка позиции ровно на границу
+          this.x = cx + nx * (cRadius - this.radius);
+          this.y = cy + ny * (cRadius - this.radius);
+        }
+      }
+
+      draw() {
+        ctx.save();
+
+        // Тень плашки
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetY = 3;
+
+        // Круглая плашка продукта
+        ctx.fillStyle = this.food.color || '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Светящаяся рамка
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        ctx.restore();
+
+        // Эмодзи иконка
+        ctx.font = '18px "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.food.icon, this.x, this.y - 4);
+
+        // Подпись под иконкой
+        ctx.font = 'bold 8.5px "Segoe UI", sans-serif';
+        ctx.fillStyle = '#0f172a';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.food.label, this.x, this.y + 13);
+      }
+    }
+
+    let dvdItems = [];
+
+    function renderDVDLoop() {
+      ctx.clearRect(0, 0, cWidth, cHeight);
+
+      // Внутреннее оформление тарелки
+      const cx = cWidth / 2;
+      const cy = cHeight / 2;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, cRadius, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(71, 85, 105, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.restore();
+
+      // Отрисовка плавающих продуктов
+      dvdItems.forEach(item => {
+        item.update();
+        item.draw();
+      });
+
+      requestAnimationFrame(renderDVDLoop);
+    }
+    renderDVDLoop();
+
+    /* =========================================================================
+       КАТАЛОГ И ЛОГИКА ТАРЕЛКИ
+       ========================================================================= */
+    function renderCatalog() {
+      const container = document.getElementById('foodCatalog');
+      container.innerHTML = '';
+      foodDB.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'food-card';
+        div.onclick = () => addToPlate(item);
+        div.innerHTML = `
+          <div class="food-info">
+            <span class="food-name">${item.icon} ${item.name}</span>
+            <span class="food-meta">${item.kcal} ккал | Б:${item.p}г Ж:${item.f}г У:${item.c}г</span>
+          </div>
+          <button class="btn-add">+</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function addToPlate(item) {
+      const plateId = Date.now() + Math.random();
+      plate.push({ ...item, plateId });
+      dvdItems.push(new DVDItem(item, plateId));
+      updateUI();
+    }
+
+    function removeFromPlate(plateId) {
+      plate = plate.filter(x => x.plateId !== plateId);
+      dvdItems = dvdItems.filter(x => x.plateId !== plateId);
+      updateUI();
+    }
+
+    function clearPlate() {
+      plate = [];
+      dvdItems = [];
+      document.getElementById('hintBox').style.display = 'none';
+      updateUI();
+    }
+
+    function calcTotals() {
+      let totKcal = 0, totP = 0, totF = 0, totC = 0, totFiber = 0, totSugar = 0;
+      plate.forEach(x => {
+        totKcal += x.kcal;
+        totP += x.p;
+        totF += x.f;
+        totC += x.c;
+        totFiber += x.fiber;
+        totSugar += x.sugar;
+      });
+      const cKcal = totC * 4;
+      const fKcal = totF * 9;
+      const cPct = totKcal > 0 ? Math.round((cKcal / totKcal) * 100) : 0;
+      const fPct = totKcal > 0 ? Math.round((fKcal / totKcal) * 100) : 0;
+      return { totKcal, totP, totF, totC, totFiber, totSugar, cPct, fPct };
+    }
+
+    function updateUI() {
+      const list = document.getElementById('plateItemsList');
+      list.innerHTML = '';
+
+      if (plate.length === 0) {
+        plateHint.style.display = 'block';
+      } else {
+        plateHint.style.display = 'none';
+        plate.forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'plate-item';
+          row.innerHTML = `
+            <span>${item.icon} ${item.name}</span>
+            <div>
+              <span style="color: var(--accent-gold); margin-right: 8px;">${item.kcal} ккал</span>
+              <button class="btn-remove" onclick="removeFromPlate(${item.plateId})">✕</button>
+            </div>
+          `;
+          list.appendChild(row);
+        });
+      }
+
+      const t = calcTotals();
+
+      document.getElementById('txtKcal').textContent = `${t.totKcal} / 2000`;
+      setBar('barKcal', (t.totKcal / 2000) * 100, t.totKcal > 2300 ? 'var(--red-warn)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtCarbs').textContent = `${t.cPct}% (${Math.round(t.totC)} г)`;
+      setBar('barCarbs', t.cPct, (t.cPct >= 55 && t.cPct <= 65) ? 'var(--green-ok)' : (t.cPct > 65 || t.cPct < 45 ? 'var(--red-warn)' : 'var(--accent-gold)'));
+
+      document.getElementById('txtFat').textContent = `${t.fPct}% (${Math.round(t.totF)} г)`;
+      setBar('barFat', t.fPct, (t.fPct >= 15 && t.fPct <= 30) ? 'var(--green-ok)' : 'var(--red-warn)');
+
+      document.getElementById('txtProt').textContent = `${Math.round(t.totP)} г (цель 70-90г)`;
+      setBar('barProt', (t.totP / 80) * 100, (t.totP >= 65 && t.totP <= 100) ? 'var(--green-ok)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtFiber').textContent = `${t.totFiber.toFixed(1)} / 25 г`;
+      setBar('barFiber', (t.totFiber / 25) * 100, t.totFiber >= 25 ? 'var(--green-ok)' : 'var(--accent-gold)');
+
+      document.getElementById('txtSugar').textContent = `${t.totSugar} г`;
+      setBar('barSugar', (t.totSugar / 50) * 100, t.totSugar > 50 ? 'var(--red-warn)' : 'var(--green-ok)');
+
+      buildVerdict(t);
+    }
+
+    function setBar(id, percent, color) {
+      const bar = document.getElementById(id);
+      bar.style.width = Math.min(percent, 100) + '%';
+      bar.style.backgroundColor = color;
+    }
+
+    function buildVerdict(t) {
+      const status = document.getElementById('verdictStatus');
+      const desc = document.getElementById('verdictText');
+
+      if (plate.length === 0) {
+        status.textContent = "Ожидание наполнения...";
+        status.style.color = "var(--accent-gold)";
+        desc.textContent = "Добавьте продукты на тарелку. Кнопки подсказок помогут сбалансировать рацион.";
+        return;
+      }
+
+      let issues = [];
+      if (t.totSugar > 50) issues.push("избыток скрытого сахара (>50г)");
+      if (t.totFiber < 20) issues.push("мало клетчатки (<20г)");
+      if (t.fPct > 35) issues.push("перебор по жирам (>35%)");
+      if (t.cPct < 45 && plate.length > 2) issues.push("мало сложных углеводов");
+      if (t.totP < 60 && plate.length > 2) issues.push("дефицит белка");
+
+      if (issues.length === 0 && plate.length >= 4 && t.totKcal >= 1650 && t.totKcal <= 2200) {
+        status.textContent = "🏆 Идеальный гигиенический баланс!";
+        status.style.color = "var(--green-ok)";
+        desc.textContent = "Рацион полностью закрывает норму клетчатки, белка и укладывается в физиологический коридор.";
+      } else {
+        status.textContent = issues.length > 0 ? "⚠️ Есть отклонения от нормы" : "Набираем калории...";
+        status.style.color = issues.length > 0 ? "var(--red-warn)" : "var(--accent-gold)";
+        desc.textContent = issues.length > 0 ? `Обратите внимание: ${issues.join(', ')}.` : "Рацион на правильном пути, дополните приемы пищи.";
+      }
+    }
+
+    /* =========================================================================
+       КУЛДАУН ПОДСКАЗОК (5 СЕКУНД)
+       ========================================================================= */
+    const cooldowns = {
+      need: { active: false, duration: 5000, btnId: 'btnHintNeed', overlayId: 'cdOverlayNeed', timerId: 'cdTimerNeed' },
+      excess: { active: false, duration: 5000, btnId: 'btnHintExcess', overlayId: 'cdOverlayExcess', timerId: 'cdTimerExcess' },
+      auto: { active: false, duration: 5000, btnId: 'btnHintAuto', overlayId: 'cdOverlayAuto', timerId: 'cdTimerAuto' }
+    };
+
+    function useHint(type) {
+      const cd = cooldowns[type];
+      if (cd.active) return;
+
+      const t = calcTotals();
+      const box = document.getElementById('hintBox');
+      let text = "";
+
+      if (type === 'need') {
+        if (plate.length === 0) {
+          text = "Тарелка пуста! Начните со сложных углеводов (овсянка, гречка) или полноценного белка (яйца, творог).";
+        } else if (t.totFiber < 20) {
+          text = `💡 <strong>Не хватает клетчатки!</strong> Сейчас всего ${t.totFiber.toFixed(1)}г из 25г. Добавьте чечевицу (+8г), ржаной хлеб (+6г) или овощной салат.`;
+        } else if (t.totP < 65) {
+          text = `💡 <strong>Дефицит белка!</strong> Набрано ${Math.round(t.totP)}г из 70-90г. Добавьте куриное филе (+35г), рыбу (+24г) или творог (+24г).`;
+        } else if (t.totKcal < 1600) {
+          text = `💡 <strong>Мало калорий для суточного рациона</strong> (сейчас ${t.totKcal} из ~2000 ккал). Добавьте гарнир из круп.`;
+        } else {
+          text = "✅ Все основные дефициты закрыты! Проверьте баланс белков, жиров и углеводов.";
+        }
+      } else if (type === 'excess') {
+        if (t.totSugar > 50) {
+          text = `⚠️ <strong>Опасный избыток сахара (${t.totSugar}г)!</strong> Главные виновники: энергетик (55г) или фитнес-батончик (22г). Удалите их!`;
+        } else if (t.fPct > 35) {
+          text = `⚠️ <strong>Много жиров (${t.fPct}% калорийности при норме до 30%)!</strong> Фастфуд-бургер или избыток сливочного масла тянут жиры вверх.`;
+        } else if (t.totKcal > 2300) {
+          text = `⚠️ <strong>Перебор калорий (${t.totKcal} ккал)!</strong> Уберите калорийные пустые перекусы.`;
+        } else {
+          text = "✅ Критических перекосов и вредных излишков на тарелке нет!";
+        }
+      } else if (type === 'auto') {
+        if (t.totFiber < 20) {
+          text = "🎯 <strong>Рекомендация:</strong> Добавьте <em>«Чечевица/Фасоль»</em> — она сразу даст 8г чистой клетчатки и 12г белка при минимуме жира.";
+        } else if (t.totP < 70) {
+          text = "🎯 <strong>Рекомендация:</strong> Добавьте <em>«Куриное филе»</em> или <em>«Лосось/Горбуша»</em> для легкого закрытия белкового коридора.";
+        } else if (t.cPct < 55) {
+          text = "🎯 <strong>Рекомендация:</strong> Добавьте <em>«Гречневую кашу»</em> или <em>«Ржаной цельнозерновой хлеб»</em> для выравнивания сложных углеводов.";
+        } else {
+          text = "🎯 <strong>Тарелка идеальна:</strong> Добавьте <em>«Свежее яблоко»</em> для свежести и микроэлементов!";
+        }
+      }
+
+      box.innerHTML = text;
+      box.style.display = 'block';
+
+      triggerCooldown(type);
+    }
+
+    function triggerCooldown(type) {
+      const cd = cooldowns[type];
+      cd.active = true;
+
+      const btn = document.getElementById(cd.btnId);
+      const overlay = document.getElementById(cd.overlayId);
+      const timer = document.getElementById(cd.timerId);
+
+      btn.classList.add('on-cooldown');
+
+      const startTime = performance.now();
+      const totalMs = cd.duration;
+
+      function updateCooldownFrame(currentTime) {
+        const elapsed = currentTime - startTime;
+        const remainingMs = Math.max(0, totalMs - elapsed);
+        const progress = elapsed / totalMs;
+
+        if (progress < 1) {
+          const angle = progress * 360;
+          overlay.style.setProperty('--cd-angle', `${angle}deg`);
+          timer.textContent = (remainingMs / 1000).toFixed(1);
+          requestAnimationFrame(updateCooldownFrame);
+        } else {
+          cd.active = false;
+          btn.classList.remove('on-cooldown');
+          overlay.style.removeProperty('--cd-angle');
+        }
+      }
+
+      requestAnimationFrame(updateCooldownFrame);
+    }
+
+    renderCatalog();
+    updateUI();
+  </script>
+</body>
+</html>

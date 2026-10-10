@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Конструктор: Собери идеальную тарелку (Расширенная версия)</title>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --panel-bg: #1e293b;
+      --border-color: #334155;
+      --accent-cyan: #38bdf8;
+      --accent-gold: #f59e0b;
+      --green-ok: #10b981;
+      --red-warn: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      font-size: 1.9rem;
+      color: var(--accent-gold);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    p.subtitle {
+      color: var(--accent-cyan);
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 350px 1fr 390px;
+      gap: 16px;
+      max-width: 1460px;
+      width: 100%;
+      min-height: 740px;
+    }
+
+    .panel {
+      background: var(--panel-bg);
+      border: 2px solid var(--border-color);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--accent-gold);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Категории и поиск */
+    .catalog-search {
+      background: #0b1329;
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    .catalog-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      overflow-y: auto;
+      max-height: 600px;
+      padding-right: 4px;
+    }
+
+    .food-card {
+      background: #0b1329;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 9px 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .food-card:hover {
+      border-color: var(--accent-cyan);
+      background: #172554;
+      transform: translateX(2px);
+    }
+
+    .food-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .food-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .food-meta {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    .btn-add {
+      background: var(--accent-gold);
+      color: #0b1329;
+      border: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Тарелка по центру */
+    .plate-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      position: relative;
+    }
+
+    .plate-container {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #1e293b 45%, #0f172a 100%);
+      border: 10px solid #334155;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), inset 0 0 25px rgba(0, 0, 0, 0.7);
+      margin: 4px 0;
+      overflow: hidden;
+    }
+
+    #plateCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .plate-empty-hint {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      pointer-events: none;
+      width: 200px;
+      line-height: 1.4;
+      z-index: 1;
+    }
+
+    .plate-items-wrapper {
+      width: 100%;
+      flex: 1;
+      background: #0b1329;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 8px 10px;
+      overflow-y: auto;
+      max-height: 180px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .plate-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #1e293b;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+    }
+
+    .btn-remove {
+      color: var(--red-warn);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      padding: 0 4px;
+    }
+
+    /* Подсказки с кулдауном */
+    .hints-bar {
+      width: 100%;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .hint-skill-btn {
+      position: relative;
+      background: #0b1329;
+      color: #fff;
+      border: 2px solid var(--accent-cyan);
+      border-radius: 10px;
+      padding: 8px 8px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      overflow: hidden;
+      flex: 1;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      transition: transform 0.1s ease, border-color 0.2s ease;
+    }
+
+    .hint-skill-btn:hover:not(.on-cooldown) {
+      border-color: var(--accent-gold);
+      transform: translateY(-2px);
+    }
+
+    .cooldown-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: conic-gradient(rgba(15, 23, 42, 0.9) var(--cd-angle, 0deg), transparent 0deg);
+      display: none;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .cooldown-timer {
+      position: absolute;
+      font-size: 1rem;
+      font-weight: 900;
+      color: var(--accent-gold);
+      z-index: 3;
+      display: none;
+    }
+
+    .hint-skill-btn.on-cooldown {
+      cursor: not-allowed;
+      border-color: #475569;
+      color: #64748b;
+    }
+
+    .hint-skill-btn.on-cooldown .cooldown-overlay,
+    .hint-skill-btn.on-cooldown .cooldown-timer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hint-popup {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid var(--accent-cyan);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.82rem;
+      color: #e0f2fe;
+      line-height: 1.4;
+      display: none;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Вкладки в правой панели */
+    .tabs-nav {
+      display: flex;
+      gap: 6px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 6px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: #0b1329;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 6px 4px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .tab-btn.active {
+      background: #0284c7;
+      color: #fff;
+      border-color: #38bdf8;
+    }
+
+    .tab-content {
+      display: none;
+      flex-direction: column;
+      gap: 7px;
+      overflow-y: auto;
+      max-height: 480px;
+      padding-right: 2px;
+    }
+
+    .tab-content.active {
+      display: flex;
+    }
+
+    .bar-row {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.74rem;
+      font-weight: 600;
+    }
+
+    .progress-bg {
+      background: #0b1329;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent-cyan);
+      transition: width 0.2s ease;
+    }
+
+    .status-box {
+      background: #0b1329;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .status-title {
+      font-weight: 700;
+      color: var(--accent-gold);
+    }
+
+    .btn-clear {
+      background: transparent;
+      border: 1px solid #475569;
+      color: var(--text-muted);
+      padding: 5px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.76rem;
+    }
+
+    .btn-clear:hover {
+      color: #fff;
+      border-color: #94a3b8;
+    }
+
+    @media (max-width: 1100px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+      .catalog-list {
+        max-height: 250px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Собери Идеальную Тарелку</h1>
+    <p class="subtitle">Рацион по нормам МР 2.3.1.0253-21 с детальным расчётом 15 нутриентов и минералов</p>
+  </header>
+
+  <div class="main-grid">
+    <!-- Левая колонка: Продукты -->
+    <div class="panel">
+      <div class="panel-title">
+        <span>Каталог блюд (30+)</span>
+        <button class="btn-clear" onclick="clearPlate()">Очистить всё</button>
+      </div>
+      <input type="text" class="catalog-search" id="searchInp" placeholder="Быстрый поиск (рыба, яблоко, печень...)" oninput="filterCatalog()">
+      <div class="catalog-list" id="foodCatalog"></div>
+    </div>
+
+    <!-- Центральная колонка: Тарелка + DVD плашки + Кулдаун подсказок -->
+    <div class="panel plate-stage">
+      <div class="panel-title" style="width: 100%;">
+        <span>Тарелка на день</span>
+        <span style="font-size: 0.75rem; color: var(--accent-cyan);" id="itemsCount">0 блюд</span>
+      </div>
+
+      <div class="plate-container">
+        <canvas id="plateCanvas"></canvas>
+        <div class="plate-empty-hint" id="plateHint">
+          <div style="font-size: 2.2rem; margin-bottom: 4px;">🍽️</div>
+          Нажмите <strong>«+»</strong> у продуктов слева, чтобы отправить их на тарелку
+        </div>
+      </div>
+
+      <div class="hints-bar">
+        <button class="hint-skill-btn" id="btnHintNeed" onclick="useHint('need')">
+          <div class="cooldown-overlay" id="cdOverlayNeed"></div>
+          <div class="cooldown-timer" id="cdTimerNeed">5</div>
+          <span>🔍 Чего мало?</span>
+        </button>
+
+        <button class="hint-skill-btn" id="btnHintExcess" onclick="useHint('excess')">
+          <div class="cooldown-overlay" id="cdOverlayExcess"></div>
+          <div class="cooldown-timer" id="cdTimerExcess">5</div>
+          <span>⚠️ Что лишнее?</span>
+        </button>
+
+        <button class="hint-skill-btn" id="btnHintAuto" onclick="useHint('auto')">
+          <div class="cooldown-overlay" id="cdOverlayAuto"></div>
+          <div class="cooldown-timer" id="cdTimerAuto">5</div>
+          <span>💡 Что добавить?</span>
+        </button>
+      </div>
+
+      <div class="hint-popup" id="hintBox"></div>
+
+      <div class="plate-items-wrapper" id="plateItemsList"></div>
+    </div>
+
+    <!-- Правая колонка: Анализатор МР (Вкладки Макро и Витамины/Минералы) -->
+    <div class="panel">
+      <div class="panel-title">
+        <span>Анализ нормы</span>
+        <span style="font-size: 0.75rem; color: var(--accent-cyan);">МР 2.3.1.0253-21</span>
+      </div>
+
+      <div class="tabs-nav">
+        <button class="tab-btn active" id="tabBtnMacro" onclick="switchTab('macro')">Макронутриенты</button>
+        <button class="tab-btn" id="tabBtnVit" onclick="switchTab('vit')">Витамины</button>
+        <button class="tab-btn" id="tabBtnMin" onclick="switchTab('min')">Минералы & Вода</button>
+      </div>
+
+      <!-- Вкладка: Макронутриенты -->
+      <div class="tab-content active" id="tabMacro">
+        <div class="bar-row">
+          <div class="bar-label"><span>Калорийность</span><span id="txtKcal">0 / 2000 ккал</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barKcal"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Углеводы (цель 55-65%)</span><span id="txtCarbs">0% (0 г)</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barCarbs"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Жиры (цель 15-30%)</span><span id="txtFat">0% (0 г)</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barFat"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Белки (норма 75-90 г)</span><span id="txtProt">0 г</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barProt"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Клетчатка (норма ≥25-30 г)</span><span id="txtFiber">0 / 25 г</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barFiber"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Скрытый сахар (лимит &lt;50 г)</span><span id="txtSugar">0 г</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barSugar" style="background: var(--red-warn);"></div></div>
+        </div>
+      </div>
+
+      <!-- Вкладка: Витамины -->
+      <div class="tab-content" id="tabVit">
+        <div class="bar-row">
+          <div class="bar-label"><span>Витамин A (РЭ, норма 900 мкг)</span><span id="txtVitA">0 / 900 мкг</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barVitA"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Витамин B1 (Тиамин, норма 1.5 мг)</span><span id="txtVitB1">0 / 1.5 мг</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barVitB1"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Витамин B2 (Рибофлавин, норма 1.8 мг)</span><span id="txtVitB2">0 / 1.8 мг</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barVitB2"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Витамин PP / B3 (Ниацин, норма 20 мг)</span><span id="txtVitPP">0 / 20 мг</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barVitPP"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Витамин C (Аскорб. к-та, норма 100 мг)</span><span id="txtVitC">0 / 100 мг</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barVitC"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Витамин E (Токоферол, норма 15 мг)</span><span id="txtVitE">0 / 15 мг</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barVitE"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Витамин K (Филлохинон, норма 120 мкг)</span><span id="txtVitK">0 / 120 мкг</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barVitK"></div></div>
+        </div>
+      </div>
+
+      <!-- Вкладка: Минералы & Вода -->
+      <div class="tab-content" id="tabMin">
+        <div class="bar-row">
+          <div class="bar-label"><span>Кальций Ca (норма 1000 мг)</span><span id="txtCa">0 / 1000 мг</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barCa"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Фосфор P (норма 800 мг)</span><span id="txtP">0 / 800 мг</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barP"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Магний Mg (норма 400 мг)</span><span id="txtMg">0 / 400 мг</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barMg"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Калий K (норма 2500 мг)</span><span id="txtK">0 / 2500 мг</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barK"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Железо Fe (норма 15 мг)</span><span id="txtFe">0 / 15 мг</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barFe"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Натрий Na (лимит &lt;2000 мг)</span><span id="txtNa">0 мг</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barNa"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Вода в еде (норма ~1500-2000 мл)</span><span id="txtWater">0 мл</span></div>
+          <div class="progress-bg"><div class="progress-fill" id="barWater"></div></div>
+        </div>
+      </div>
+
+      <div class="status-box">
+        <div class="status-title" id="verdictStatus">Ожидание наполнения...</div>
+        <div id="verdictText" style="color: #cbd5e1;">Добавьте продукты на тарелку для старта анализа.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       1. РАСШИРЕННАЯ БАЗА ПРОДУКТОВ (30+ ПОЗИЦИЙ С 15 НУТРИЕНТАМИ)
+       ========================================================================= */
+    const foodDB = [
+      // Крупы и хлеб
+      { id: "oats", icon: "🥣", label: "Овсянка", name: "Овсяная каша на воде (200г)", kcal: 180, p: 6, f: 3, c: 32, fiber: 5, sugar: 0, water: 155, va: 0, vb1: 0.2, vb2: 0.08, vpp: 1.5, vc: 0, ve: 1.2, vk: 3, ca: 40, ph: 180, mg: 70, k: 180, fe: 2.2, na: 10, color: "#f59e0b" },
+      { id: "buckwheat", icon: "🌾", label: "Гречка", name: "Гречневая каша (150г)", kcal: 165, p: 6, f: 2, c: 31, fiber: 4.2, sugar: 0, water: 105, va: 0, vb1: 0.25, vb2: 0.1, vpp: 3.2, vc: 0, ve: 0.8, vk: 7, ca: 20, ph: 150, mg: 90, k: 220, fe: 3.4, na: 8, color: "#b45309" },
+      { id: "rice_brown", icon: "🍚", label: "Бурый рис", name: "Рис бурый отварной (150г)", kcal: 170, p: 4, f: 1.5, c: 35, fiber: 2.8, sugar: 0, water: 108, va: 0, vb1: 0.18, vb2: 0.05, vpp: 2.8, vc: 0, ve: 0.6, vk: 2, ca: 15, ph: 120, mg: 65, k: 140, fe: 1.1, na: 5, color: "#cbd5e1" },
+      { id: "rye_bread", icon: "🍞", label: "Ржаной хлеб", name: "Хлеб ржаной цельнозерновой (70г)", kcal: 160, p: 5, f: 1.2, c: 30, fiber: 6.2, sugar: 1, water: 30, va: 0, vb1: 0.22, vb2: 0.12, vpp: 1.8, vc: 0, ve: 1.5, vk: 4, ca: 35, ph: 110, mg: 45, k: 170, fe: 2.5, na: 350, color: "#78350f" },
+      { id: "white_bread", icon: "🥖", label: "Батон", name: "Батон нарезной (70г)", kcal: 185, p: 5.5, f: 2, c: 36, fiber: 1.8, sugar: 3, water: 25, va: 0, vb1: 0.12, vb2: 0.06, vpp: 1.5, vc: 0, ve: 0.8, vk: 1, ca: 20, ph: 65, mg: 22, k: 95, fe: 1.2, na: 320, color: "#fde047" },
+
+      // Мясо, птица, субпродукты
+      { id: "beef_liver", icon: "🫀", label: "Печень", name: "Печень говяжья тушеная (100г)", kcal: 135, p: 20, f: 4, c: 4, fiber: 0, sugar: 0, water: 70, va: 8200, vb1: 0.3, vb2: 2.2, vpp: 13.5, vc: 28, ve: 1.2, vk: 80, ca: 10, ph: 340, mg: 25, k: 360, fe: 7.0, na: 90, color: "#991b1b" },
+      { id: "chicken_breast", icon: "🍗", label: "Куриное филе", name: "Грудка куриная запеченная (150г)", kcal: 220, p: 36, f: 5, c: 0, fiber: 0, sugar: 0, water: 95, va: 15, vb1: 0.14, vb2: 0.18, vpp: 14.0, vc: 1, ve: 0.5, vk: 12, ca: 18, ph: 330, mg: 42, k: 440, fe: 1.8, na: 110, color: "#f97316" },
+      { id: "beef", icon: "🥩", label: "Говядина", name: "Говядина тушеная постная (120г)", kcal: 240, p: 30, f: 12, c: 0, fiber: 0, sugar: 0, water: 72, va: 5, vb1: 0.1, vb2: 0.22, vpp: 7.5, vc: 0, ve: 0.6, vk: 6, ca: 12, ph: 240, mg: 28, k: 380, fe: 3.5, na: 80, color: "#b91c1c" },
+      { id: "eggs", icon: "🍳", label: "Яйца", name: "Яичница из 2 яиц (100г)", kcal: 158, p: 13, f: 11.5, c: 0.8, fiber: 0, sugar: 0.5, water: 74, va: 260, vb1: 0.09, vb2: 0.44, vpp: 2.4, vc: 0, ve: 2.0, vk: 9, ca: 55, ph: 215, mg: 15, k: 140, fe: 2.5, na: 140, color: "#fbbf24" },
+
+      // Рыба и морепродукты
+      { id: "salmon", icon: "🐟", label: "Лосось", name: "Лосось/Горбуша запеченная (120г)", kcal: 210, p: 25, f: 12, c: 0, fiber: 0, sugar: 0, water: 78, va: 40, vb1: 0.25, vb2: 0.2, vpp: 9.8, vc: 3, ve: 2.5, vk: 8, ca: 25, ph: 280, mg: 35, k: 490, fe: 1.1, na: 75, color: "#fb7185" },
+      { id: "cod", icon: "🐠", label: "Треска", name: "Треска на пару (150г)", kcal: 125, p: 27, f: 1, c: 0, fiber: 0, sugar: 0, water: 120, va: 12, vb1: 0.08, vb2: 0.1, vpp: 4.2, vc: 1, ve: 0.9, vk: 2, ca: 38, ph: 260, mg: 40, k: 460, fe: 0.8, na: 85, color: "#38bdf8" },
+
+      // Бобовые и орехи
+      { id: "lentils", icon: "🫘", label: "Чечевица", name: "Чечевица вареная (150г)", kcal: 175, p: 13, f: 1, c: 28, fiber: 8.5, sugar: 1, water: 100, va: 2, vb1: 0.28, vb2: 0.11, vpp: 2.1, vc: 3, ve: 0.4, vk: 5, ca: 32, ph: 210, mg: 55, k: 490, fe: 4.5, na: 6, color: "#a855f7" },
+      { id: "walnuts", icon: "🌰", label: "Грецкие орехи", name: "Грецкие орехи (30г)", kcal: 196, p: 4.5, f: 19.5, c: 3.5, fiber: 2.0, sugar: 0.8, water: 1.2, va: 2, vb1: 0.12, vb2: 0.04, vpp: 1.4, vc: 1.5, ve: 2.3, vk: 4.5, ca: 30, ph: 105, mg: 48, k: 135, fe: 0.9, na: 1, color: "#92400e" },
+
+      // Молочные продукты
+      { id: "curd", icon: "🥛", label: "Творог 5%", name: "Творог 5% (150г)", kcal: 180, p: 24, f: 7.5, c: 4.5, fiber: 0, sugar: 4.5, water: 110, va: 35, vb1: 0.06, vb2: 0.38, vpp: 4.5, vc: 0.5, ve: 0.4, vk: 2, ca: 240, ph: 330, mg: 34, k: 180, fe: 0.6, na: 60, color: "#60a5fa" },
+      { id: "cheese", icon: "🧀", label: "Сыр твердый", name: "Сыр Российский (40г)", kcal: 145, p: 10, f: 11.5, c: 0, fiber: 0, sugar: 0, water: 16, va: 110, vb1: 0.02, vb2: 0.18, vpp: 2.4, vc: 0, ve: 0.5, vk: 3, ca: 360, ph: 220, mg: 18, k: 40, fe: 0.4, na: 320, color: "#facc15" },
+      { id: "butter", icon: "🧈", label: "Сливочное масло", name: "Масло сливочное 82.5% (15г)", kcal: 112, p: 0.1, f: 12.4, c: 0.1, fiber: 0, sugar: 0, water: 2.4, va: 95, vb1: 0, vb2: 0.01, vpp: 0.1, vc: 0, ve: 0.3, vk: 2.5, ca: 3.5, ph: 4, mg: 1, k: 4, fe: 0.03, na: 2, color: "#fef08a" },
+      { id: "kefir", icon: "🍶", label: "Кефир 2.5%", name: "Кефир 2.5% (200 мл)", kcal: 106, p: 6, f: 5, c: 8, fiber: 0, sugar: 8, water: 175, va: 44, vb1: 0.06, vb2: 0.32, vpp: 1.6, vc: 1.4, ve: 0.2, vk: 3, ca: 240, ph: 190, mg: 28, k: 290, fe: 0.2, na: 100, color: "#bae6fd" },
+
+      // Овощи и зелень
+      { id: "broccoli", icon: "🥦", label: "Брокколи", name: "Брокколи отварная (150г)", kcal: 50, p: 4, f: 0.6, c: 8, fiber: 4.8, sugar: 2.5, water: 132, va: 110, vb1: 0.1, vb2: 0.18, vpp: 1.2, vc: 95, ve: 1.8, vk: 155, ca: 70, ph: 95, mg: 32, k: 450, fe: 1.2, na: 45, color: "#15803d" },
+      { id: "salad", icon: "🥗", label: "Овощной салат", name: "Салат (огурец, томат, зелень, масло) (200г)", kcal: 140, p: 2, f: 10, c: 8, fiber: 4.2, sugar: 3.5, water: 175, va: 180, vb1: 0.08, vb2: 0.09, vpp: 1.5, vc: 35, ve: 3.5, vk: 65, ca: 45, ph: 55, mg: 28, k: 380, fe: 1.4, na: 35, color: "#10b981" },
+      { id: "spinach", icon: "🥬", label: "Шпинат", name: "Шпинат свежий/припущенный (100г)", kcal: 23, p: 2.9, f: 0.4, c: 2.2, fiber: 2.2, sugar: 0.4, water: 91, va: 470, vb1: 0.08, vb2: 0.2, vpp: 0.9, vc: 28, ve: 2.0, vk: 480, ca: 99, ph: 49, mg: 79, k: 558, fe: 2.7, na: 79, color: "#047857" },
+      { id: "carrot", icon: "🥕", label: "Морковь", name: "Морковь свежая (100г)", kcal: 41, p: 1, f: 0.2, c: 8.8, fiber: 2.8, sugar: 5, water: 88, va: 2000, vb1: 0.06, vb2: 0.07, vpp: 1.1, vc: 5, ve: 0.6, vk: 13, ca: 33, ph: 35, mg: 12, k: 320, fe: 0.4, na: 69, color: "#ea580c" },
+      { id: "potato", icon: "🥔", label: "Картофель", name: "Картофель отварной в мундире (150г)", kcal: 130, p: 3, f: 0.2, c: 28, fiber: 3.2, sugar: 1.2, water: 115, va: 2, vb1: 0.16, vb2: 0.08, vpp: 2.2, vc: 20, ve: 0.1, vk: 3, ca: 18, ph: 85, mg: 35, k: 620, fe: 1.1, na: 8, color: "#ca8a04" },
+
+      // Фрукты и ягоды
+      { id: "apple", icon: "🍎", label: "Яблоко", name: "Яблоко свежее (180г)", kcal: 85, p: 0.7, f: 0.4, c: 20, fiber: 4.3, sugar: 15, water: 152, va: 8, vb1: 0.03, vb2: 0.03, vpp: 0.4, vc: 12, ve: 0.5, vk: 4, ca: 12, ph: 18, mg: 10, k: 210, fe: 0.4, na: 2, color: "#ef4444" },
+      { id: "banana", icon: "🍌", label: "Банан", name: "Банан свежий (120г)", kcal: 115, p: 1.5, f: 0.3, c: 26, fiber: 3.0, sugar: 16, water: 89, va: 4, vb1: 0.05, vb2: 0.06, vpp: 0.8, vc: 10, ve: 0.3, vk: 0.6, ca: 10, ph: 28, mg: 38, k: 430, fe: 0.5, na: 1, color: "#facc15" },
+      { id: "berries", icon: "🫐", label: "Ягоды", name: "Черника / Смородина свежая (100г)", kcal: 45, p: 1, f: 0.4, c: 8.5, fiber: 4.8, sugar: 7, water: 85, va: 15, vb1: 0.03, vb2: 0.04, vpp: 0.5, vc: 80, ve: 1.4, vk: 19, ca: 30, ph: 25, mg: 18, k: 230, fe: 1.2, na: 3, color: "#4f46e5" },
+      { id: "orange", icon: "🍊", label: "Апельсин", name: "Апельсин (150г)", kcal: 65, p: 1.3, f: 0.3, c: 13, fiber: 3.3, sugar: 12, water: 130, va: 18, vb1: 0.12, vb2: 0.06, vpp: 0.4, vc: 75, ve: 0.4, vk: 0, ca: 50, ph: 22, mg: 18, k: 280, fe: 0.4, na: 2, color: "#f97316" },
+
+      // Фастфуд, сладкое и напитки (анти-примеры)
+      { id: "burger", icon: "🍔", label: "Бургер", name: "Фастфуд-бургер стандартный (1 шт)", kcal: 520, p: 22, f: 28, c: 45, fiber: 2.1, sugar: 12, water: 90, va: 50, vb1: 0.2, vb2: 0.24, vpp: 5.5, vc: 2, ve: 1.8, vk: 14, ca: 120, ph: 190, mg: 32, k: 310, fe: 2.8, na: 980, color: "#dc2626" },
+      { id: "fries", icon: "🍟", label: "Картофель фри", name: "Картофель фри средний (110г)", kcal: 340, p: 4, f: 17, c: 42, fiber: 3.5, sugar: 0.5, water: 45, va: 0, vb1: 0.15, vb2: 0.05, vpp: 3.0, vc: 5, ve: 2.5, vk: 15, ca: 18, ph: 125, mg: 35, k: 580, fe: 1.0, na: 650, color: "#d97706" },
+      { id: "energy_drink", icon: "⚡", label: "Энергетик", name: "Банка энергетика (0.5 л)", kcal: 225, p: 0, f: 0, c: 55, fiber: 0, sugar: 55, water: 440, va: 0, vb1: 0, vb2: 3.2, vpp: 28.0, vc: 0, ve: 0, vk: 0, ca: 15, ph: 10, mg: 8, k: 25, fe: 0, na: 190, color: "#6366f1" },
+      { id: "cola", icon: "🥤", label: "Кола", name: "Газировка кола (0.5 л)", kcal: 210, p: 0, f: 0, c: 53, fiber: 0, sugar: 53, water: 445, va: 0, vb1: 0, vb2: 0, vpp: 0, vc: 0, ve: 0, vk: 0, ca: 10, ph: 60, mg: 4, k: 10, fe: 0.1, na: 45, color: "#7f1d1d" },
+      { id: "fitness_bar", icon: "🍫", label: "Батончик", name: "Злаковый батончик с сиропом (50г)", kcal: 210, p: 3, f: 6, c: 35, fiber: 2.0, sugar: 22, water: 5, va: 0, vb1: 0.08, vb2: 0.05, vpp: 0.9, vc: 0, ve: 1.1, vk: 2, ca: 30, ph: 65, mg: 25, k: 110, fe: 1.1, na: 110, color: "#ec4899" }
+    ];
+
+    let plate = [];
+
+    /* =========================================================================
+       2. DVD АНИМАЦИЯ НА ТАРЕЛКЕ
+       ========================================================================= */
+    const canvas = document.getElementById('plateCanvas');
+    const ctx = canvas.getContext('2d');
+    const plateHint = document.getElementById('plateHint');
+
+    let cWidth = 320;
+    let cHeight = 320;
+    let cRadius = 145;
+
+    function initCanvas() {
+      cWidth = canvas.parentElement.clientWidth;
+      cHeight = canvas.parentElement.clientHeight;
+      canvas.width = cWidth;
+      canvas.height = cHeight;
+      cRadius = (Math.min(cWidth, cHeight) / 2) - 8;
+    }
+    window.addEventListener('resize', initCanvas);
+    initCanvas();
+
+    class DVDItem {
+      constructor(food, plateId) {
+        this.food = food;
+        this.plateId = plateId;
+        this.radius = 24;
+        this.x = cWidth / 2 + (Math.random() - 0.5) * 40;
+        this.y = cHeight / 2 + (Math.random() - 0.5) * 40;
+        const speed = 0.75 + Math.random() * 0.35;
+        const angle = Math.random() * Math.PI * 2;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        const cx = cWidth / 2;
+        const cy = cHeight / 2;
+        const dx = this.x - cx;
+        const dy = this.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist + this.radius >= cRadius) {
+          const nx = dx / dist;
+          const ny = dy / dist;
+          const dot = this.vx * nx + this.vy * ny;
+          this.vx = this.vx - 2 * dot * nx;
+          this.vy = this.vy - 2 * dot * ny;
+          this.x = cx + nx * (cRadius - this.radius);
+          this.y = cy + ny * (cRadius - this.radius);
+        }
+      }
+
+      draw() {
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetY = 3;
+        ctx.fillStyle = this.food.color || '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.font = '16px "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.food.icon, this.x, this.y - 4);
+
+        ctx.font = 'bold 8px "Segoe UI", sans-serif';
+        ctx.fillStyle = '#0f172a';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.food.label, this.x, this.y + 12);
+      }
+    }
+
+    let dvdItems = [];
+
+    function renderDVDLoop() {
+      ctx.clearRect(0, 0, cWidth, cHeight);
+      const cx = cWidth / 2;
+      const cy = cHeight / 2;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, cRadius, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(71, 85, 105, 0.35)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.restore();
+
+      dvdItems.forEach(item => {
+        item.update();
+        item.draw();
+      });
+
+      requestAnimationFrame(renderDVDLoop);
+    }
+    renderDVDLoop();
+
+    /* =========================================================================
+       3. КАТАЛОГ И СОРТИРОВКА
+       ========================================================================= */
+    function renderCatalog(filterText = "") {
+      const container = document.getElementById('foodCatalog');
+      container.innerHTML = '';
+      const filtered = foodDB.filter(x => x.name.toLowerCase().includes(filterText.toLowerCase()));
+
+      filtered.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'food-card';
+        div.onclick = () => addToPlate(item);
+        div.innerHTML = `
+          <div class="food-info">
+            <span class="food-name">${item.icon} ${item.name}</span>
+            <span class="food-meta">${item.kcal} ккал | Б:${item.p}г Ж:${item.f}г У:${item.c}г</span>
+          </div>
+          <button class="btn-add">+</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function filterCatalog() {
+      const q = document.getElementById('searchInp').value;
+      renderCatalog(q);
+    }
+
+    function addToPlate(item) {
+      const plateId = Date.now() + Math.random();
+      plate.push({ ...item, plateId });
+      dvdItems.push(new DVDItem(item, plateId));
+      updateUI();
+    }
+
+    function removeFromPlate(plateId) {
+      plate = plate.filter(x => x.plateId !== plateId);
+      dvdItems = dvdItems.filter(x => x.plateId !== plateId);
+      updateUI();
+    }
+
+    function clearPlate() {
+      plate = [];
+      dvdItems = [];
+      document.getElementById('hintBox').style.display = 'none';
+      updateUI();
+    }
+
+    /* =========================================================================
+       4. РАСЧЁТ ВСЕХ НУТРИЕНТОВ
+       ========================================================================= */
+    function calcAllTotals() {
+      const t = {
+        kcal: 0, p: 0, f: 0, c: 0, fiber: 0, sugar: 0, water: 0,
+        va: 0, vb1: 0, vb2: 0, vpp: 0, vc: 0, ve: 0, vk: 0,
+        ca: 0, ph: 0, mg: 0, k: 0, fe: 0, na: 0
+      };
+
+      plate.forEach(x => {
+        t.kcal += x.kcal; t.p += x.p; t.f += x.f; t.c += x.c;
+        t.fiber += x.fiber; t.sugar += x.sugar; t.water += x.water;
+        t.va += x.va; t.vb1 += x.vb1; t.vb2 += x.vb2; t.vpp += x.vpp;
+        t.vc += x.vc; t.ve += x.ve; t.vk += x.vk;
+        t.ca += x.ca; t.ph += x.ph; t.mg += x.mg; t.k += x.k;
+        t.fe += x.fe; t.na += x.na;
+      });
+
+      const cKcal = t.c * 4;
+      const fKcal = t.f * 9;
+      t.cPct = t.kcal > 0 ? Math.round((cKcal / t.kcal) * 100) : 0;
+      t.fPct = t.kcal > 0 ? Math.round((fKcal / t.kcal) * 100) : 0;
+
+      return t;
+    }
+
+    function updateUI() {
+      const list = document.getElementById('plateItemsList');
+      list.innerHTML = '';
+      document.getElementById('itemsCount').textContent = `${plate.length} блюд`;
+
+      if (plate.length === 0) {
+        plateHint.style.display = 'block';
+      } else {
+        plateHint.style.display = 'none';
+        plate.forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'plate-item';
+          row.innerHTML = `
+            <span>${item.icon} ${item.name}</span>
+            <div>
+              <span style="color: var(--accent-gold); margin-right: 8px;">${item.kcal} ккал</span>
+              <button class="btn-remove" onclick="removeFromPlate(${item.plateId})">✕</button>
+            </div>
+          `;
+          list.appendChild(row);
+        });
+      }
+
+      const t = calcAllTotals();
+
+      // Макро
+      document.getElementById('txtKcal').textContent = `${t.kcal} / 2000 ккал`;
+      setBar('barKcal', (t.kcal / 2000) * 100, t.kcal > 2300 ? 'var(--red-warn)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtCarbs').textContent = `${t.cPct}% (${Math.round(t.c)} г)`;
+      setBar('barCarbs', t.cPct, (t.cPct >= 55 && t.cPct <= 65) ? 'var(--green-ok)' : (t.cPct > 65 || t.cPct < 45 ? 'var(--red-warn)' : 'var(--accent-gold)'));
+
+      document.getElementById('txtFat').textContent = `${t.fPct}% (${Math.round(t.f)} г)`;
+      setBar('barFat', t.fPct, (t.fPct >= 15 && t.fPct <= 30) ? 'var(--green-ok)' : 'var(--red-warn)');
+
+      document.getElementById('txtProt').textContent = `${Math.round(t.p)} г (цель 75-90г)`;
+      setBar('barProt', (t.p / 80) * 100, (t.p >= 70 && t.p <= 100) ? 'var(--green-ok)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtFiber').textContent = `${t.fiber.toFixed(1)} / 25 г`;
+      setBar('barFiber', (t.fiber / 25) * 100, t.fiber >= 25 ? 'var(--green-ok)' : 'var(--accent-gold)');
+
+      document.getElementById('txtSugar').textContent = `${t.sugar} г`;
+      setBar('barSugar', (t.sugar / 50) * 100, t.sugar > 50 ? 'var(--red-warn)' : 'var(--green-ok)');
+
+      // Витамины
+      document.getElementById('txtVitA').textContent = `${Math.round(t.va)} / 900 мкг`;
+      setBar('barVitA', (t.va / 900) * 100, t.va >= 900 ? 'var(--green-ok)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtVitB1').textContent = `${t.vb1.toFixed(2)} / 1.5 мг`;
+      setBar('barVitB1', (t.vb1 / 1.5) * 100, t.vb1 >= 1.5 ? 'var(--green-ok)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtVitB2').textContent = `${t.vb2.toFixed(2)} / 1.8 мг`;
+      setBar('barVitB2', (t.vb2 / 1.8) * 100, t.vb2 >= 1.8 ? 'var(--green-ok)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtVitPP').textContent = `${t.vpp.toFixed(1)} / 20 мг`;
+      setBar('barVitPP', (t.vpp / 20) * 100, t.vpp >= 20 ? 'var(--green-ok)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtVitC').textContent = `${Math.round(t.vc)} / 100 мг`;
+      setBar('barVitC', (t.vc / 100) * 100, t.vc >= 100 ? 'var(--green-ok)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtVitE').textContent = `${t.ve.toFixed(1)} / 15 мг`;
+      setBar('barVitE', (t.ve / 15) * 100, t.ve >= 15 ? 'var(--green-ok)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtVitK').textContent = `${Math.round(t.vk)} / 120 мкг`;
+      setBar('barVitK', (t.vk / 120) * 100, t.vk >= 120 ? 'var(--green-ok)' : 'var(--accent-cyan)');
+
+      // Минералы & Вода
+      document.getElementById('txtCa').textContent = `${Math.round(t.ca)} / 1000 мг`;
+      setBar('barCa', (t.ca / 1000) * 100, t.ca >= 1000 ? 'var(--green-ok)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtP').textContent = `${Math.round(t.ph)} / 800 мг`;
+      setBar('barP', (t.ph / 800) * 100, t.ph >= 800 ? 'var(--green-ok)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtMg').textContent = `${Math.round(t.mg)} / 400 мг`;
+      setBar('barMg', (t.mg / 400) * 100, t.mg >= 400 ? 'var(--green-ok)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtK').textContent = `${Math.round(t.k)} / 2500 мг`;
+      setBar('barK', (t.k / 2500) * 100, t.k >= 2500 ? 'var(--green-ok)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtFe').textContent = `${t.fe.toFixed(1)} / 15 мг`;
+      setBar('barFe', (t.fe / 15) * 100, t.fe >= 15 ? 'var(--green-ok)' : 'var(--accent-cyan)');
+
+      document.getElementById('txtNa').textContent = `${Math.round(t.na)} мг`;
+      setBar('barNa', (t.na / 2000) * 100, t.na > 2000 ? 'var(--red-warn)' : 'var(--green-ok)');
+
+      document.getElementById('txtWater').textContent = `${Math.round(t.water)} мл`;
+      setBar('barWater', (t.water / 1800) * 100, 'var(--accent-cyan)');
+
+      buildVerdict(t);
+    }
+
+    function setBar(id, percent, color) {
+      const bar = document.getElementById(id);
+      if (bar) {
+        bar.style.width = Math.min(Math.max(percent, 0), 100) + '%';
+        bar.style.backgroundColor = color;
+      }
+    }
+
+    function buildVerdict(t) {
+      const status = document.getElementById('verdictStatus');
+      const desc = document.getElementById('verdictText');
+
+      if (plate.length === 0) {
+        status.textContent = "Ожидание наполнения...";
+        status.style.color = "var(--accent-gold)";
+        desc.textContent = "Добавьте продукты на тарелку для старта анализа.";
+        return;
+      }
+
+      let issues = [];
+      if (t.sugar > 50) issues.push("избыток скрытого сахара (>50 г)");
+      if (t.na > 2000) issues.push("перегрузка натрием (>2000 мг)");
+      if (t.fiber < 20) issues.push("мало клетчатки (<20 г)");
+      if (t.ca < 600 && plate.length >= 3) issues.push("дефицит кальция (<600 мг)");
+      if (t.fe < 10 && plate.length >= 3) issues.push("дефицит железа (<10 мг)");
+      if (t.vc < 50 && plate.length >= 3) issues.push("недостаток витамина C");
+
+      if (issues.length === 0 && plate.length >= 4 && t.kcal >= 1650 && t.kcal <= 2250) {
+        status.textContent = "🏆 Образцовый рацион по нормам МР!";
+        status.style.color = "var(--green-ok)";
+        desc.textContent = "Рацион сбалансирован по калорийности, белкам, клетчатке и полностью закрывает потребности в ключевых витаминах и минералах.";
+      } else {
+        status.textContent = issues.length > 0 ? "⚠️ Есть зоны внимания" : "Набираем норму...";
+        status.style.color = issues.length > 0 ? "var(--red-warn)" : "var(--accent-gold)";
+        desc.textContent = issues.length > 0 ? `Обратите внимание: ${issues.join(', ')}.` : "Рацион наполняется, проверьте вкладки витаминов и минералов.";
+      }
+    }
+
+    /* =========================================================================
+       5. ВКЛАДКИ
+       ========================================================================= */
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+      if (tabName === 'macro') {
+        document.getElementById('tabBtnMacro').classList.add('active');
+        document.getElementById('tabMacro').classList.add('active');
+      } else if (tabName === 'vit') {
+        document.getElementById('tabBtnVit').classList.add('active');
+        document.getElementById('tabVit').classList.add('active');
+      } else if (tabName === 'min') {
+        document.getElementById('tabBtnMin').classList.add('active');
+        document.getElementById('tabMin').classList.add('active');
+      }
+    }
+
+    /* =========================================================================
+       6. КУЛДАУН И ПОДСКАЗКИ
+       ========================================================================= */
+    const cooldowns = {
+      need: { active: false, duration: 5000, btnId: 'btnHintNeed', overlayId: 'cdOverlayNeed', timerId: 'cdTimerNeed' },
+      excess: { active: false, duration: 5000, btnId: 'btnHintExcess', overlayId: 'cdOverlayExcess', timerId: 'cdTimerExcess' },
+      auto: { active: false, duration: 5000, btnId: 'btnHintAuto', overlayId: 'cdOverlayAuto', timerId: 'cdTimerAuto' }
+    };
+
+    function useHint(type) {
+      const cd = cooldowns[type];
+      if (cd.active) return;
+
+      const t = calcAllTotals();
+      const box = document.getElementById('hintBox');
+      let text = "";
+
+      if (type === 'need') {
+        if (plate.length === 0) {
+          text = "Тарелка пуста! Начните со сложных углеводов (овсянка, гречка) или полноценного белка (яйца, творог, курица).";
+        } else if (t.fe < 10) {
+          text = `💡 <strong>Мало железа!</strong> Сейчас всего ${t.fe.toFixed(1)} мг из 15 мг. Добавьте говяжью печень (7 мг), тушеную говядину или чечевицу.`;
+        } else if (t.ca < 600) {
+          text = `💡 <strong>Дефицит кальция!</strong> Набрано ${Math.round(t.ca)} мг из 1000 мг. Добавьте сыр (360 мг), творог (240 мг) или кефир.`;
+        } else if (t.vc < 70) {
+          text = `💡 <strong>Не хватает витамина C!</strong> Добавьте брокколи (95 мг), апельсин (75 мг) или свежие ягоды.`;
+        } else if (t.fiber < 20) {
+          text = `💡 <strong>Мало клетчатки (${t.fiber.toFixed(1)} г / 25 г)!</strong> Добавьте ржаной цельнозерновой хлеб или чечевицу.`;
+        } else {
+          text = "✅ Все базовые витамины и минералы близки к рекомендуемым суточным нормам!";
+        }
+      } else if (type === 'excess') {
+        if (t.sugar > 50) {
+          text = `⚠️ <strong>Избыток сахара (${t.sugar} г)!</strong> Виновники: энергетик (55 г), кола (53 г) или сладкий батончик (22 г). Удалите их!`;
+        } else if (t.na > 2000) {
+          text = `⚠️ <strong>Перебор натрия (${Math.round(t.na)} мг при лимите 2000 мг)!</strong> Бургер и картофель фри дают скрытую соль.`;
+        } else if (t.fPct > 35) {
+          text = `⚠️ <strong>Перекос по жирам (${t.fPct}% калорийности при норме до 30%)!</strong> Уменьшите жирные жареные блюда.`;
+        } else {
+          text = "✅ На тарелке нет опасных избытков сахара, натрия или трансжиров!";
+        }
+      } else if (type === 'auto') {
+        if (t.va < 500) {
+          text = "🎯 <strong>Рекомендация:</strong> Добавьте <em>«Печень говяжью»</em> или <em>«Морковь»</em> — они мгновенно покроют суточную норму витамина A.";
+        } else if (t.ca < 600) {
+          text = "🎯 <strong>Рекомендация:</strong> Добавьте <em>«Творог 5%»</em> или <em>«Сыр»</em> — идеальный биодоступный кальций и белок.";
+        } else if (t.k < 1500) {
+          text = "🎯 <strong>Рекомендация:</strong> Добавьте <em>«Картофель в мундире»</em> или <em>«Шпинат»</em> — рекордсмены по содержанию калия.";
+        } else {
+          text = "🎯 <strong>Тарелка почти идеальна:</strong> Добавьте <em>«Грецкие орехи»</em> для витамина E и магния!";
+        }
+      }
+
+      box.innerHTML = text;
+      box.style.display = 'block';
+
+      triggerCooldown(type);
+    }
+
+    function triggerCooldown(type) {
+      const cd = cooldowns[type];
+      cd.active = true;
+
+      const btn = document.getElementById(cd.btnId);
+      const overlay = document.getElementById(cd.overlayId);
+      const timer = document.getElementById(cd.timerId);
+
+      btn.classList.add('on-cooldown');
+
+      const startTime = performance.now();
+      const totalMs = cd.duration;
+
+      function updateCooldownFrame(currentTime) {
+        const elapsed = currentTime - startTime;
+        const remainingMs = Math.max(0, totalMs - elapsed);
+        const progress = elapsed / totalMs;
+
+        if (progress < 1) {
+          const angle = progress * 360;
+          overlay.style.setProperty('--cd-angle', `${angle}deg`);
+          timer.textContent = (remainingMs / 1000).toFixed(1);
+          requestAnimationFrame(updateCooldownFrame);
+        } else {
+          cd.active = false;
+          btn.classList.remove('on-cooldown');
+          overlay.style.removeProperty('--cd-angle');
+        }
+      }
+
+      requestAnimationFrame(updateCooldownFrame);
+    }
+
+    // Инициализация
+    renderCatalog();
+    updateUI();
+  </script>
+</body>
+</html>
