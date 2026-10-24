@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Пульт Генетика: Секвенирование ДНК</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@500;700;900&family=Inter:wght@400;600;700&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at 50% 20%, #111827 0%, #030712 100%);
+      color: #e2e8f0;
+      user-select: none;
+    }
+    .font-mono-tech {
+      font-family: 'Share Tech Mono', monospace;
+    }
+    .font-hud {
+      font-family: 'Orbitron', monospace;
+    }
+
+    /* Лабораторные кнопки пульта */
+    .lab-btn {
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      box-shadow: 0 4px 0 #020617, 0 5px 12px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.15);
+      transition: all 0.08s ease;
+    }
+    .lab-btn:hover:not(:disabled) {
+      filter: brightness(1.15);
+    }
+    .lab-btn:active:not(:disabled) {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #020617, 0 2px 4px rgba(0,0,0,0.6), inset 0 1px 2px rgba(0,0,0,0.4);
+    }
+    .lab-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      filter: grayscale(0.7);
+    }
+
+    /* Специфические кнопки со светодиодами */
+    .action-btn-green {
+      border: 1px solid #10b981;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.3), 0 4px 0 #064e3b;
+    }
+    .action-btn-blue {
+      border: 1px solid #06b6d4;
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.3), 0 4px 0 #0e7490;
+    }
+    .action-btn-amber {
+      border: 1px solid #f59e0b;
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.3), 0 4px 0 #b45309;
+    }
+
+    /* Эффект ЭЛТ/Сенсорного экрана */
+    .screen-crt {
+      background: radial-gradient(ellipse at center, #02201d 0%, #011111 80%, #000808 100%);
+      box-shadow: inset 0 0 25px rgba(16, 185, 129, 0.25), 0 0 15px rgba(0,0,0,0.8);
+      border: 2px solid #064e3b;
+      position: relative;
+    }
+    .screen-crt::after {
+      content: " ";
+      display: block;
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      z-index: 20;
+      pointer-events: none;
+      opacity: 0.3;
+    }
+
+    /* Стилизация радиоактивного геля */
+    .gel-board {
+      background: #090e17;
+      border: 2px solid #334155;
+      box-shadow: inset 0 0 20px #000;
+    }
+
+    /* Свечение ДНК полос */
+    .band-glow {
+      box-shadow: 0 0 8px #a855f7, 0 0 14px #a855f7;
+    }
+
+    /* Капилляр */
+    .capillary-tube {
+      background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.2), rgba(255,255,255,0.05));
+      border: 1px solid rgba(255,255,255,0.3);
+      position: relative;
+    }
+
+    /* Пульсирующие индикаторы */
+    @keyframes led-blink {
+      0%, 100% { opacity: 1; filter: drop-shadow(0 0 6px #10b981); }
+      50% { opacity: 0.3; filter: none; }
+    }
+    .led-active {
+      animation: led-blink 1.2s infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-2 md:p-6 flex flex-col justify-between">
+
+  <!-- ВЕРХНЯЯ ПАНЕЛЬ СТАТУСА -->
+  <header class="max-w-7xl mx-auto w-full mb-4 bg-slate-900/90 border border-slate-700/80 rounded-2xl p-4 shadow-2xl backdrop-blur">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-12 h-12 rounded-xl bg-cyan-950 border border-cyan-400 flex items-center justify-center text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+          <i class="fa-solid fa-dna text-2xl animate-pulse"></i>
+        </div>
+        <div>
+          <h1 class="text-xl md:text-2xl font-hud font-bold tracking-wider text-cyan-300">GENE-ROBOTIC CONTROLLER</h1>
+          <p class="text-xs text-slate-400 font-mono-tech">РОБОТИЗИРОВАННЫЙ КОМПЛЕКС АНАЛИЗА НУКЛЕИНОВЫХ КИСЛОТ v3.4</p>
+        </div>
+      </div>
+
+      <!-- Выбор технологии секвенирования -->
+      <div class="flex items-center bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+        <button id="mode-sanger-btn" onclick="switchMethod('sanger')" class="px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all flex items-center gap-2 bg-gradient-to-r from-purple-700 to-indigo-700 text-white shadow-lg shadow-purple-900/40">
+          <i class="fa-solid fa-flask"></i> 1. Электрофорез в геле (Сэнгер)
+        </button>
+        <button id="mode-auto-btn" onclick="switchMethod('auto')" class="px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all flex items-center gap-2 text-slate-400 hover:text-white">
+          <i class="fa-solid fa-microchip"></i> 2. Автоматическое (Капилляр + Лазер)
+        </button>
+      </div>
+
+      <!-- Звук, Помощь и Рестарт -->
+      <div class="flex items-center gap-2 md:gap-3">
+        <button onclick="openHelpModal()" id="help-btn" class="lab-btn px-3 py-2 rounded-xl text-xs font-hud font-bold text-cyan-300 border border-cyan-500/50 flex items-center gap-1.5 shadow-[0_0_12px_rgba(6,182,212,0.3)] hover:brightness-125">
+          <i class="fa-solid fa-circle-question text-cyan-400"></i> Как играть
+        </button>
+        <button onclick="toggleSound()" id="sound-btn" class="p-2.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-cyan-400">
+          <i class="fa-solid fa-volume-high"></i>
+        </button>
+        <button onclick="resetExperiment()" class="px-3 py-2 rounded-lg bg-red-950/60 border border-red-700/60 text-red-300 hover:bg-red-900/80 text-xs font-mono-tech flex items-center gap-1.5">
+          <i class="fa-solid fa-rotate-left"></i> Сброс
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ОСНОВНАЯ ЗОНА: ЛАБОРАТОРИЯ + ПУЛЬТ РОБОТА-МАНИПУЛЯТОРА -->
+  <main class="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1">
+    
+    <!-- ЛЕВАЯ КОЛОНКА (7 колонок): ВИЗУАЛЬНЫЙ ТЕРМИНАЛ ПРОЦЕССА -->
+    <div class="lg:col-span-7 flex flex-col gap-4">
+      
+      <!-- Экран статуса и анимации -->
+      <div class="screen-crt rounded-2xl p-4 flex flex-col h-[460px] overflow-hidden border border-emerald-600/40">
+        <div class="flex justify-between items-center border-b border-emerald-500/20 pb-2 z-10">
+          <div class="flex items-center gap-2 text-emerald-400 text-xs font-mono-tech tracking-widest">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block led-active"></span>
+            <span id="current-stage-title">ЭТАП 1: ПОДГОТОВКА ОБРАЗЦА И РЕАКТИВОВ</span>
+          </div>
+          <div class="text-[11px] font-mono-tech text-emerald-500/80" id="tech-badge">МЕТОД СЭНГЕРА (РАДИОАКТИВНЫЙ ddNTP)</div>
+        </div>
+
+        <!-- Холст/Визуализатор текущей фазы -->
+        <div id="visual-screen-content" class="relative flex-1 flex flex-col justify-center items-center p-2 z-10">
+          
+          <!-- Режим 1: Классический Гель Электрофорез -->
+          <div id="sanger-gel-view" class="w-full h-full flex flex-col justify-between items-center hidden">
+            <div class="text-xs font-mono-tech text-purple-300 bg-purple-950/70 px-3 py-1 rounded-full border border-purple-800">
+              Катод (-) Подача образца в лунки &rarr; Миграция к Аноду (+)
+            </div>
+
+            <!-- Гелевая пластина -->
+            <div class="w-full max-w-md h-[320px] gel-board rounded-xl p-3 flex flex-col relative my-2">
+              <!-- Лунки -->
+              <div class="grid grid-cols-4 gap-4 pb-2 border-b border-slate-700 text-center font-mono-tech font-bold text-sm">
+                <div class="text-emerald-400">ddA</div>
+                <div class="text-blue-400">ddC</div>
+                <div class="text-amber-400">ddG</div>
+                <div class="text-red-400">ddT</div>
+              </div>
+
+              <!-- Дорожки разделения ДНК -->
+              <div class="relative flex-1 grid grid-cols-4 gap-4 px-2 overflow-hidden" id="gel-lanes">
+                <div id="lane-A" class="h-full relative border-r border-slate-800/60"></div>
+                <div id="lane-C" class="h-full relative border-r border-slate-800/60"></div>
+                <div id="lane-G" class="h-full relative border-r border-slate-800/60"></div>
+                <div id="lane-T" class="h-full relative"></div>
+              </div>
+
+              <!-- Линейка нуклеотидов -->
+              <div class="absolute right-1 top-10 bottom-2 flex flex-col justify-between text-[9px] font-mono-tech text-slate-500">
+                <span>Длинные (медленнее)</span>
+                <span>&#8595; Миграция</span>
+                <span>Короткие (быстрее)</span>
+              </div>
+            </div>
+
+            <div class="text-[11px] font-mono-tech text-slate-400">
+              Полосы разделены по молекулярной массе с точностью до 1 нуклеотида!
+            </div>
+          </div>
+
+          <!-- Режим 2: Автоматический капиллярный секвенатор -->
+          <div id="auto-sequencer-view" class="w-full h-full flex flex-col justify-between items-center">
+            
+            <!-- Интерактивный Капилляр и Лазерный Блок -->
+            <div class="w-full bg-slate-950/80 border border-cyan-800/60 rounded-xl p-3 mb-2 flex flex-col items-center">
+              <div class="flex justify-between w-full text-[11px] font-mono-tech text-cyan-400 mb-1">
+                <span>ПОЛИМЕРНЫЙ КАПИЛЛЯР (350 В/см)</span>
+                <span id="laser-status" class="text-emerald-400"><i class="fa-solid fa-circle-dot animate-pulse"></i> ЛАЗЕР 488 нм АКТИВЕН</span>
+              </div>
+
+              <div class="w-full h-12 capillary-tube rounded-full flex items-center px-4 overflow-hidden relative">
+                <!-- Оптический детектор с лазером -->
+                <div class="absolute left-3/4 -top-1 bottom-0 w-8 bg-cyan-400/20 border-x-2 border-cyan-400 flex flex-col items-center justify-center z-10">
+                  <div class="w-1.5 h-full bg-cyan-300 animate-pulse shadow-[0_0_12px_#22d3ee]"></div>
+                </div>
+
+                <!-- Движущиеся меченые фрагменты в капилляре -->
+                <div id="capillary-stream" class="w-full h-full relative flex items-center">
+                  <!-- Генерируются программно -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Экран Хроматограммы (4 флуоресцентных канала) -->
+            <div class="w-full flex-1 bg-black/90 border border-slate-800 rounded-xl p-2 flex flex-col relative overflow-hidden">
+              <div class="flex justify-between text-[10px] font-mono-tech mb-1 px-2 border-b border-slate-800">
+                <span class="text-slate-400">ЭЛЕКТРОФОРЕГРАММА / ХРОМАТОГРАММА</span>
+                <div class="flex gap-3">
+                  <span class="text-green-400 font-bold">■ A (Зеленый)</span>
+                  <span class="text-blue-400 font-bold">■ C (Синий)</span>
+                  <span class="text-yellow-400 font-bold">■ G (Желтый)</span>
+                  <span class="text-red-400 font-bold">■ T (Красный)</span>
+                </div>
+              </div>
+
+              <!-- Канвас графика пиков -->
+              <canvas id="chromatogramCanvas" class="w-full flex-1"></canvas>
+            </div>
+
+          </div>
+
+          <!-- Общий блок текстовых подсказок в реальном времени -->
+          <div id="screen-info-prompt" class="w-full mt-2 bg-slate-900/90 border border-emerald-500/40 p-2.5 rounded-lg text-emerald-300 font-mono-tech text-xs flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-terminal text-emerald-400"></i>
+              <span id="prompt-text">Готов к работе. Выберите операцию на пульте манипулятора.</span>
+            </div>
+            <span id="progress-percent" class="font-bold text-emerald-400">0%</span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ЗОНА РАСШИФРОВКИ И ЧТЕНИЯ ПОСЛЕДОВАТЕЛЬНОСТИ (Мини-игра секвенирования) -->
+      <div class="bg-slate-900/90 border border-slate-700 rounded-2xl p-4 shadow-xl">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-cyan-500"></span>
+            <h2 class="text-sm font-hud font-bold text-cyan-200">БЛОК ВЕРИФИКАЦИИ ДНК (5' &rarr; 3')</h2>
+          </div>
+          <div class="text-xs font-mono-tech text-slate-400">
+            Определено нуклеотидов: <span id="read-counter" class="text-cyan-400 font-bold">0 / 10</span>
+          </div>
+        </div>
+
+        <!-- Полоса прочитанной цепочки -->
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between overflow-x-auto gap-2 min-h-[58px]">
+          <div class="flex items-center gap-1.5 font-mono-tech text-lg" id="sequence-display">
+            <span class="text-slate-600">5'-</span>
+            <span class="text-slate-500 italic text-xs">ожидание прочтения с геля / детектора...</span>
+          </div>
+          <button id="validate-btn" onclick="checkFinalSequence()" disabled class="lab-btn px-4 py-1.5 rounded-lg text-xs font-bold text-cyan-300 border border-cyan-700/50">
+            Проверить сиквенс
+          </button>
+        </div>
+
+        <!-- Кнопки ввода нуклеотида (для ручного считывания с геля или спектрограммы) -->
+        <div class="grid grid-cols-4 gap-2 mt-3" id="manual-reader-buttons">
+          <button onclick="inputNucleotide('A')" class="lab-btn py-2 rounded-lg text-sm font-bold text-emerald-400 border-b-2 border-emerald-500 hover:bg-emerald-950/40">
+            A (Аденин)
+          </button>
+          <button onclick="inputNucleotide('C')" class="lab-btn py-2 rounded-lg text-sm font-bold text-blue-400 border-b-2 border-blue-500 hover:bg-blue-950/40">
+            C (Цитозин)
+          </button>
+          <button onclick="inputNucleotide('G')" class="lab-btn py-2 rounded-lg text-sm font-bold text-amber-400 border-b-2 border-amber-500 hover:bg-amber-950/40">
+            G (Гуанин)
+          </button>
+          <button onclick="inputNucleotide('T')" class="lab-btn py-2 rounded-lg text-sm font-bold text-red-400 border-b-2 border-red-500 hover:bg-red-950/40">
+            T (Тимин)
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ПРАВАЯ КОЛОНКА (5 колонок): ПУЛЬТ УПРАВЛЕНИЯ РОБОТОМ-МАНИПУЛЯТОРОМ -->
+    <div class="lg:col-span-5 flex flex-col gap-4">
+      
+      <div class="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border-2 border-slate-700 rounded-3xl p-5 shadow-2xl relative">
+        <!-- Металлическая плашка пульта -->
+        <div class="flex justify-between items-center border-b-2 border-slate-700/80 pb-3 mb-4">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-gamepad text-cyan-400 text-lg"></i>
+            <span class="font-hud font-bold text-sm tracking-wider text-slate-200">ПУЛЬТ МАНИПУЛЯТОРА</span>
+          </div>
+          <span class="text-[10px] font-mono-tech px-2.5 py-1 rounded bg-slate-800 text-cyan-300 border border-slate-600">MANIPULATOR ARM: ONLINE</span>
+        </div>
+
+        <!-- 4 Пошаговых этапа секвенирования (кнопки с подсветкой) -->
+        <div class="space-y-3 mb-5">
+          <p class="text-xs font-mono-tech text-slate-400 uppercase tracking-wider mb-1">Последовательность технологического протокола:</p>
+
+          <!-- Этап 1 -->
+          <div class="p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between" id="step-card-1">
+            <div class="flex items-center gap-3">
+              <span id="badge-1" class="w-7 h-7 rounded-lg bg-cyan-900/60 border border-cyan-500 text-cyan-300 flex items-center justify-center text-xs font-bold font-mono-tech">01</span>
+              <div>
+                <h4 class="text-xs font-bold text-slate-200">Выделение ДНК и денатурация</h4>
+                <p class="text-[10px] text-slate-400 font-mono-tech" id="desc-step-1">Лизис клеток, очистка, плавление при 95°C</p>
+              </div>
+            </div>
+            <button id="btn-step-1" onclick="executeStep(1)" class="lab-btn action-btn-blue px-3 py-2 rounded-xl text-xs font-bold text-cyan-200 flex items-center gap-1.5">
+              <i class="fa-solid fa-microscope"></i> Старт
+            </button>
+          </div>
+
+          <!-- Этап 2 -->
+          <div class="p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between" id="step-card-2">
+            <div class="flex items-center gap-3">
+              <span id="badge-2" class="w-7 h-7 rounded-lg bg-slate-800 border border-slate-600 text-slate-400 flex items-center justify-center text-xs font-bold font-mono-tech">02</span>
+              <div>
+                <h4 class="text-xs font-bold text-slate-200">Отжиг праймера и синтез</h4>
+                <p class="text-[10px] text-slate-400 font-mono-tech" id="desc-step-2">ДНК-полимераза, праймер и нуклеотиды</p>
+              </div>
+            </div>
+            <button id="btn-step-2" onclick="executeStep(2)" disabled class="lab-btn px-3 py-2 rounded-xl text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-vial-circle-check"></i> Синтез
+            </button>
+          </div>
+
+          <!-- Этап 3 -->
+          <div class="p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between" id="step-card-3">
+            <div class="flex items-center gap-3">
+              <span id="badge-3" class="w-7 h-7 rounded-lg bg-slate-800 border border-slate-600 text-slate-400 flex items-center justify-center text-xs font-bold font-mono-tech">03</span>
+              <div>
+                <h4 class="text-xs font-bold text-slate-200">Внесение терминаторов (ддНТФ)</h4>
+                <p class="text-[10px] text-slate-400 font-mono-tech" id="desc-step-3">Обрыв синтезируемой цепи ddNTP</p>
+              </div>
+            </div>
+            <button id="btn-step-3" onclick="executeStep(3)" disabled class="lab-btn px-3 py-2 rounded-xl text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-hand-holding-droplet"></i> Дозировка
+            </button>
+          </div>
+
+          <!-- Этап 4 -->
+          <div class="p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between" id="step-card-4">
+            <div class="flex items-center gap-3">
+              <span id="badge-4" class="w-7 h-7 rounded-lg bg-slate-800 border border-slate-600 text-slate-400 flex items-center justify-center text-xs font-bold font-mono-tech">04</span>
+              <div>
+                <h4 class="text-xs font-bold text-slate-200">Электрофорез и детекция</h4>
+                <p class="text-[10px] text-slate-400 font-mono-tech" id="desc-step-4">Разделение по длине с шагом в 1 нуклеотид</p>
+              </div>
+            </div>
+            <button id="btn-step-4" onclick="executeStep(4)" disabled class="lab-btn px-3 py-2 rounded-xl text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-bolt"></i> Разгон
+            </button>
+          </div>
+
+        </div>
+
+        <!-- ИНТЕРАКТИВНЫЙ БЛОК МАНИПУЛЯТОРА (Джойстик-дозатор) -->
+        <div class="bg-slate-950/90 border border-slate-800 rounded-2xl p-4">
+          <div class="flex justify-between items-center mb-3">
+            <span class="text-xs font-bold font-hud text-slate-300">МАНИПУЛЯТОР-ДОЗАТОР (ПИПЕТОРАМА)</span>
+            <span class="text-[10px] font-mono-tech text-amber-400" id="pipette-vol">ОБЪЕМ: 2.5 мкл</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 items-center">
+            <!-- Джойстик позиционирования -->
+            <div class="col-span-2 grid grid-cols-3 gap-2 text-center">
+              <div></div>
+              <button onclick="manipulatorMove('up')" class="lab-btn p-3 rounded-xl text-slate-300 border border-slate-700 active:bg-cyan-950">
+                <i class="fa-solid fa-chevron-up"></i>
+              </button>
+              <div></div>
+              <button onclick="manipulatorMove('left')" class="lab-btn p-3 rounded-xl text-slate-300 border border-slate-700 active:bg-cyan-950">
+                <i class="fa-solid fa-chevron-left"></i>
+              </button>
+              <button onclick="manipulatorDispense()" id="dispense-center-btn" class="lab-btn action-btn-green p-3 rounded-xl text-emerald-300 font-bold text-xs">
+                ВПРЫСК
+              </button>
+              <button onclick="manipulatorMove('right')" class="lab-btn p-3 rounded-xl text-slate-300 border border-slate-700 active:bg-cyan-950">
+                <i class="fa-solid fa-chevron-right"></i>
+              </button>
+              <div></div>
+              <button onclick="manipulatorMove('down')" class="lab-btn p-3 rounded-xl text-slate-300 border border-slate-700 active:bg-cyan-950">
+                <i class="fa-solid fa-chevron-down"></i>
+              </button>
+              <div></div>
+            </div>
+
+            <!-- Регулятор напряжения / скорости потока -->
+            <div class="flex flex-col items-center justify-between h-full bg-slate-900 border border-slate-800 rounded-xl p-2.5">
+              <span class="text-[9px] font-mono-tech text-slate-400">ПОЛЕ / НАПРЯЖЕНИЕ</span>
+              <div class="w-4 h-24 bg-slate-950 rounded-full border border-slate-700 p-0.5 flex flex-col justify-end">
+                <div id="voltage-meter" class="w-full h-1/2 bg-gradient-to-t from-emerald-500 via-yellow-400 to-red-500 rounded-full transition-all"></div>
+              </div>
+              <span class="text-[10px] font-bold font-mono-tech text-cyan-300" id="voltage-readout">1500 V</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Нижняя строка инженерии -->
+        <div class="mt-4 flex items-center justify-between text-[10px] font-mono-tech text-slate-500">
+          <span>СЕНСОРНЫЙ КОНТАКТ: ОК</span>
+          <span>ОБРАЗЕЦ: ДНК-МАТРИЦА pUC19</span>
+          <span>БУФЕР: TBE 1X</span>
+        </div>
+
+      </div>
+
+      <!-- КРАТКАЯ НАУЧНАЯ СПРАВКА ТЕКУЩЕГО МЕТОДА -->
+      <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 text-xs font-mono-tech">
+        <h5 class="text-cyan-400 font-bold mb-1 flex items-center gap-1.5" id="theory-title">
+          <i class="fa-solid fa-graduation-cap"></i> Научный принцип: Метод Сэнгера
+        </h5>
+        <p class="text-slate-300 leading-relaxed" id="theory-desc">
+          В 4 отдельные пробирки добавляются ДНК-матрица, праймер, полимераза, смесь всех 4 обычных dNTP и один из модифицированных 2',3'-дидезоксинуклеотидов (ddNTP: A, C, G или T). У ddNTP отсутствует 3'-OH группа, что блокирует образование фосфодиэфирной связи и останавливает синтез. В геле фрагменты разделяются строго по размеру.
+        </p>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТА ЭКСПЕРИМЕНТА -->
+  <div id="result-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border-2 border-cyan-500 rounded-3xl max-w-lg w-full p-6 shadow-[0_0_50px_rgba(6,182,212,0.4)] text-center relative">
+      <div class="w-16 h-16 rounded-2xl bg-cyan-950 border border-cyan-400 text-cyan-400 mx-auto flex items-center justify-center text-3xl mb-3 shadow-[0_0_20px_rgba(6,182,212,0.5)]">
+        <i class="fa-solid fa-award"></i>
+      </div>
+      <h3 class="text-xl font-hud font-bold text-white mb-2" id="modal-title">СЕКВЕНИРОВАНИЕ УСПЕШНО ЗАВЕРШЕНО!</h3>
+      <p class="text-xs font-mono-tech text-slate-300 mb-4" id="modal-text">
+        Вы точно прочитали генетическую последовательность исследуемого локуса.
+      </p>
+
+      <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 mb-4 font-mono-tech">
+        <div class="text-xs text-slate-400">ЦЕЛЕВАЯ ПОСЛЕДОВАТЕЛЬНОСТЬ (5' &rarr; 3'):</div>
+        <div class="text-lg font-bold text-emerald-400 tracking-widest mt-1" id="modal-seq">TACGCTGACT</div>
+      </div>
+
+      <div class="flex justify-center gap-3">
+        <button onclick="closeModalAndNext()" class="lab-btn action-btn-blue px-6 py-2.5 rounded-xl font-bold text-sm text-cyan-200">
+          Сменить метод секвенирования
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ИНТЕРАКТИВНОЕ ОКНО «КАК ИГРАТЬ» (РУКОВОДСТВО ОПЕРАТОРА) -->
+  <div id="help-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 md:p-6 hidden">
+    <div class="bg-slate-900 border-2 border-cyan-500/80 rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col shadow-[0_0_60px_rgba(6,182,212,0.35)] overflow-hidden">
+      
+      <!-- Шапка модального окна -->
+      <div class="p-4 md:p-5 bg-gradient-to-r from-slate-950 via-slate-900 to-cyan-950 border-b border-cyan-500/30 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-cyan-950 border border-cyan-400 text-cyan-400 flex items-center justify-center text-lg shadow-[0_0_12px_rgba(6,182,212,0.4)]">
+            <i class="fa-solid fa-book-journal-whills"></i>
+          </div>
+          <div>
+            <h3 class="text-base md:text-lg font-hud font-bold text-white tracking-wider">РУКОВОДСТВО ОПЕРАТОРА-ГЕНЕТИКА</h3>
+            <p class="text-[11px] font-mono-tech text-cyan-300/80">Инструкция по секвенированию и управлению роботом-манипулятором</p>
+          </div>
+        </div>
+        <button onclick="closeHelpModal()" class="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-red-950/60 hover:border-red-500 flex items-center justify-center transition-all">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Вкладки тем руководства -->
+      <div class="flex bg-slate-950/90 border-b border-slate-800 px-3 pt-2 gap-1.5 overflow-x-auto font-mono-tech text-xs">
+        <button id="tab-btn-overview" onclick="showHelpTab('overview')" class="px-3.5 py-2 rounded-t-lg bg-cyan-950/60 text-cyan-300 border-t-2 border-cyan-400 font-bold transition-all whitespace-nowrap">
+          <i class="fa-solid fa-gamepad mr-1"></i> 1. Управление пультом
+        </button>
+        <button id="tab-btn-sanger" onclick="showHelpTab('sanger')" class="px-3.5 py-2 rounded-t-lg text-slate-400 hover:text-slate-200 transition-all whitespace-nowrap">
+          <i class="fa-solid fa-flask mr-1"></i> 2. Метод Сэнгера (ПААГ)
+        </button>
+        <button id="tab-btn-auto" onclick="showHelpTab('auto')" class="px-3.5 py-2 rounded-t-lg text-slate-400 hover:text-slate-200 transition-all whitespace-nowrap">
+          <i class="fa-solid fa-microchip mr-1"></i> 3. Автоматическое (Лазер)
+        </button>
+        <button id="tab-btn-decoding" onclick="showHelpTab('decoding')" class="px-3.5 py-2 rounded-t-lg text-slate-400 hover:text-slate-200 transition-all whitespace-nowrap">
+          <i class="fa-solid fa-key mr-1"></i> 4. Расшифровка сиквенса
+        </button>
+      </div>
+
+      <!-- Содержимое вкладок -->
+      <div class="p-5 md:p-6 overflow-y-auto flex-1 font-mono-tech text-xs space-y-4 text-slate-300 leading-relaxed">
+        
+        <!-- Вкладка 1: Пульт управления -->
+        <div id="help-content-overview" class="space-y-4">
+          <div class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800">
+            <h4 class="text-sm font-hud font-bold text-cyan-300 mb-1 flex items-center gap-2">
+              <i class="fa-solid fa-sliders text-cyan-400"></i> Как проходить протокол исследования
+            </h4>
+            <p>
+              Вы управляете автоматизированным лабораторным комплексом. Ваша цель — подготовить образец ДНК, провести реакцию обрыва цепей, разделить фрагменты электрофорезом и расшифровать целевой генетический сиквенс (10 нуклеотидов).
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+              <span class="text-cyan-400 font-bold block mb-1">Шаги протокола (01 - 04)</span>
+              Нажимайте активные кнопки на пульте строго по порядку:
+              <ul class="list-disc pl-4 mt-1 text-slate-400 space-y-1">
+                <li><strong class="text-slate-300">01 Денатурация:</strong> расплетание ДНК при 95°C.</li>
+                <li><strong class="text-slate-300">02 Синтез:</strong> посадка праймера и полимеразы.</li>
+                <li><strong class="text-slate-300">03 Дозировка:</strong> внесение терминаторов ddNTP.</li>
+                <li><strong class="text-slate-300">04 Разгон:</strong> подача поля 1500 V и детекция.</li>
+              </ul>
+            </div>
+
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+              <span class="text-emerald-400 font-bold block mb-1">Джойстик и Дозатор</span>
+              Используйте крестовину для точного позиционирования микроманипулятора над планшетом/капилляром. Кнопка <strong class="text-emerald-300">«ВПРЫСК»</strong> осуществляет дозирование реактива (2.5 мкл) и помогает завершить этап 03.
+            </div>
+          </div>
+        </div>
+
+        <!-- Вкладка 2: Классический метод Сэнгера -->
+        <div id="help-content-sanger" class="space-y-4 hidden">
+          <div class="p-3.5 rounded-xl bg-purple-950/40 border border-purple-800/80">
+            <h4 class="text-sm font-hud font-bold text-purple-300 mb-1 flex items-center gap-2">
+              <i class="fa-solid fa-atom text-purple-400"></i> Принцип терминации и ПААГ гель
+            </h4>
+            <p>
+              Основан на синтезе комплементарной нити с использованием дезоксирибонуклеотидов (dNTP) и небольшого количества модифицированных <strong>дидезоксинуклеотидов (ddNTP)</strong>, у которых нет 3'-OH группы. Встраивание ddNTP терминально останавливает синтез.
+            </p>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <div class="font-bold text-amber-300">4 отдельные пробирки и 4 дорожки:</div>
+            <p>Реакции идут раздельно для каждого терминатора: <span class="text-emerald-400">ddATP</span>, <span class="text-blue-400">ddCTP</span>, <span class="text-amber-400">ddGTP</span>, <span class="text-red-400">ddTTP</span>.</p>
+            <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-700 text-cyan-300">
+              <i class="fa-solid fa-triangle-exclamation mr-1 text-yellow-400"></i> <strong>Золотое правило чтения геля:</strong> Читайте полосы <strong>СНИЗУ ВВЕРХ (от 5' к 3')</strong>! Самые легкие/короткие фрагменты преодолевают гель быстрее всего и оказываются в самом низу.
+            </div>
+          </div>
+        </div>
+
+        <!-- Вкладка 3: Автоматический метод -->
+        <div id="help-content-auto" class="space-y-4 hidden">
+          <div class="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-800/80">
+            <h4 class="text-sm font-hud font-bold text-cyan-300 mb-1 flex items-center gap-2">
+              <i class="fa-solid fa-bolt text-cyan-400"></i> Флуоресцентная метка и Капиллярный электрофорез
+            </h4>
+            <p>
+              В автоматическом секвенаторе все 4 типа ddNTP помечены флуоресцентными красителями разного цвета и смешаны в <strong>ОДНОЙ</strong> пробирке.
+            </p>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
+            <div class="p-2 rounded-lg bg-slate-950 border border-emerald-500/60 text-emerald-400 font-bold">ddA (Зеленый)</div>
+            <div class="p-2 rounded-lg bg-slate-950 border border-blue-500/60 text-blue-400 font-bold">ddC (Синий)</div>
+            <div class="p-2 rounded-lg bg-slate-950 border border-yellow-500/60 text-yellow-400 font-bold">ddG (Желтый)</div>
+            <div class="p-2 rounded-lg bg-slate-950 border border-red-500/60 text-red-400 font-bold">ddT (Красный)</div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+            ДНК-фрагменты мигрируют через узкий капилляр. На выходе лазер возбуждает краситель, оптический датчик фиксирует длину волны и компьютер строит спектрограмму пиков слева направо.
+          </div>
+        </div>
+
+        <!-- Вкладка 4: Декодирование -->
+        <div id="help-content-decoding" class="space-y-4 hidden">
+          <div class="p-3.5 rounded-xl bg-slate-950/90 border border-slate-800">
+            <h4 class="text-sm font-hud font-bold text-cyan-300 mb-2 flex items-center gap-2">
+              <i class="fa-solid fa-dna text-cyan-400"></i> Как собрать и подтвердить сиквенс:
+            </h4>
+            <ol class="list-decimal pl-5 space-y-2 text-slate-300">
+              <li>Дождитесь завершения электрофореза (Шаг 04).</li>
+              <li>Для <strong>Геля Сэнгера:</strong> найдите самую нижнюю полосу, посмотрите в какой она колонке (A, C, G или T) и нажмите соответствующую кнопку нуклеотида. Затем поднимайтесь на 1 уровень выше и так до самого верха (всего 10 нуклеотидов).</li>
+              <li>Для <strong>Автомата:</strong> считывайте цветные пики на графике слева направо по порядку их появления.</li>
+              <li>Если ошиблись — нажмите иконку удаления <i class="fa-solid fa-delete-left text-red-400"></i> в строке цепочки.</li>
+              <li>Когда набрано 10/10 нуклеотидов, загорится кнопка <strong class="text-cyan-300">«Проверить сиквенс»</strong>!</li>
+            </ol>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Нижняя панель модалки -->
+      <div class="p-4 bg-slate-950 border-t border-slate-800 flex justify-between items-center">
+        <span class="text-[11px] font-mono-tech text-slate-500 hidden sm:inline">Подсказка: клавиша ESC закрывает руководство</span>
+        <button onclick="closeHelpModal()" class="lab-btn action-btn-blue px-6 py-2 rounded-xl text-xs font-hud font-bold text-cyan-200 ml-auto">
+          ПОНЯТНО, В ЛАБОРАТОРИЮ!
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <footer class="max-w-7xl mx-auto w-full text-center mt-3 text-slate-500 text-[11px] font-mono-tech">
+    Лабораторный тренажер генетика • Разделение макромолекул в электрическом поле • Обрыв цепи терминаторами ddNTP
+  </footer>
+
+  <script>
+    /* =========================================================
+       AUDIO FX (Синтез на Web Audio API, без сторонних файлов)
+       ========================================================= */
+    let audioCtx = null;
+    let soundEnabled = true;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playTone(freq, type = 'sine', duration = 0.15, vol = 0.1) {
+      if (!soundEnabled) return;
+      try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {
+        // audio restricted before click
+      }
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      const btn = document.getElementById('sound-btn');
+      btn.innerHTML = soundEnabled ? '<i class="fa-solid fa-volume-high"></i>' : '<i class="fa-solid fa-volume-xmark"></i>';
+      if (soundEnabled) playTone(540, 'triangle', 0.1);
+    }
+
+    /* =========================================================
+       СОСТОЯНИЕ ИССЛЕДОВАНИЯ И ГЕНЕТИЧЕСКИЕ ДАННЫЕ
+       ========================================================= */
+    // Загаданная ДНК матрица для чтения (5' к 3')
+    const TARGET_SEQUENCES = {
+      sanger: ["A", "C", "T", "G", "A", "G", "A", "T", "G", "C"], // 10 нт для геля
+      auto:   ["T", "G", "A", "G", "T", "C", "T", "A", "C", "G"]  // 10 нт для капилляра
+    };
+
+    let currentMethod = 'auto'; // 'sanger' | 'auto'
+    let currentStep = 0; // 0..4
+    let userSequence = [];
+    let isElectrophoresisRunning = false;
+    let autoScanInterval = null;
+
+    // Спектр цветов для автоматического секвенирования (стандарт ABI)
+    const NUC_COLORS = {
+      'A': '#22c55e', // Зеленый
+      'C': '#3b82f6', // Синий
+      'G': '#eab308', // Желтый / черный
+      'T': '#ef4444'  // Красный
+    };
+
+    // Переключение метода (Сэнгер на геле vs Автоматический с капилляром)
+    function switchMethod(method) {
+      currentMethod = method;
+      playTone(480, 'sine', 0.2);
+
+      const sangerBtn = document.getElementById('mode-sanger-btn');
+      const autoBtn = document.getElementById('mode-auto-btn');
+      const sangerView = document.getElementById('sanger-gel-view');
+      const autoView = document.getElementById('auto-sequencer-view');
+      const techBadge = document.getElementById('tech-badge');
+      const theoryTitle = document.getElementById('theory-title');
+      const theoryDesc = document.getElementById('theory-desc');
+
+      if (method === 'sanger') {
+        sangerBtn.className = "px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all flex items-center gap-2 bg-gradient-to-r from-purple-700 to-indigo-700 text-white shadow-lg shadow-purple-900/40";
+        autoBtn.className = "px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all flex items-center gap-2 text-slate-400 hover:text-white";
+        
+        sangerView.classList.remove('hidden');
+        autoView.classList.add('hidden');
+        techBadge.innerText = "МЕТОД СЭНГЕРА (4 РАЗДЕЛЬНЫЕ РЕАКЦИИ В ПААГ ГЕЛЕ)";
+        
+        theoryTitle.innerHTML = '<i class="fa-solid fa-graduation-cap"></i> Научный принцип: Метод Сэнгера в ПААГ';
+        theoryDesc.innerHTML = 'Используются 4 разные пробирки (для каждого ddNTP: ddATP, ddCTP, ddGTP, ddTTP). В каждой образуется набор фрагментов разной длины, оканчивающихся на данный нуклеотид. После электрофореза на рентгеновской пленке читают снизу вверх (от самых коротких к длинным = от 5\' к 3\').';
+      } else {
+        autoBtn.className = "px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all flex items-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-900/40";
+        sangerBtn.className = "px-4 py-2 rounded-lg text-xs md:text-sm font-semibold transition-all flex items-center gap-2 text-slate-400 hover:text-white";
+        
+        autoView.classList.remove('hidden');
+        sangerView.classList.add('hidden');
+        techBadge.innerText = "АВТОМАТИЧЕСКИЙ КАПИЛЛЯР (4 ФЛУОРОФОРА + ЛАЗЕР)";
+
+        theoryTitle.innerHTML = '<i class="fa-solid fa-microchip"></i> Автоматическое капиллярное секвенирование';
+        theoryDesc.innerHTML = 'Все 4 ddNTP метятся разными флуоресцентными красителями (Зеленый - А, Синий - C, Желтый - G, Красный - T) и смешиваются в <b>ОДНОЙ</b> пробирке! Фрагменты бегут через тонкий капилляр. На выходе лазер возбуждает метки, а фотодетектор строит электрофореграмму (пики) автоматически.';
+      }
+
+      resetExperiment();
+    }
+
+    /* =========================================================
+       ШАГИ ТЕХНОЛОГИЧЕСКОГО ПРОТОКОЛА
+       ========================================================= */
+    function executeStep(stepIndex) {
+      if (stepIndex !== currentStep + 1 && currentStep !== 0 && stepIndex !== 1) return;
+      playTone(600 + stepIndex * 80, 'triangle', 0.15);
+
+      currentStep = stepIndex;
+      updateControlBoardUI();
+
+      const prompt = document.getElementById('prompt-text');
+      const progress = document.getElementById('progress-percent');
+      const stageTitle = document.getElementById('current-stage-title');
+
+      if (stepIndex === 1) {
+        stageTitle.innerText = "ЭТАП 1: ВЫДЕЛЕНИЕ ДНК И ДЕНАТУРАЦИЯ";
+        prompt.innerText = "ДНК выделена методом экстракции и нагрета до 95°C. Двойная спираль разделена на одиночные цепи-мишени.";
+        progress.innerText = "25%";
+        playTone(320, 'sine', 0.4);
+      } else if (stepIndex === 2) {
+        stageTitle.innerText = "ЭТАП 2: ОТЖИГ ПРАЙМЕРА И ПОЛИМЕРАЗА";
+        prompt.innerText = "Температура снижена до 55°C. Праймер связался с матрицей. Taq/ДНК-полимераза готова начать элонгацию.";
+        progress.innerText = "50%";
+      } else if (stepIndex === 3) {
+        stageTitle.innerText = "ЭТАП 3: ДОЗИРОВАНИЕ ДНТФ И ТЕРМИНАТОРОВ (ddNTP)";
+        if (currentMethod === 'sanger') {
+          prompt.innerText = "Манипулятор разложил образцы в 4 пробирки с обычными dNTP и добавил в каждую отдельный терминатор: ddA, ddC, ddG, ddT!";
+        } else {
+          prompt.innerText = "Манипулятор внес смесь 4 флуоресцентных ддНТФ в единую реакционную пробирку. Цепи случайным образом обрываются на терминаторах.";
+        }
+        progress.innerText = "75%";
+      } else if (stepIndex === 4) {
+        stageTitle.innerText = "ЭТАП 4: ЭЛЕКТРОФОРЕЗ И ДЕТЕКЦИЯ СИГНАЛОВ";
+        prompt.innerText = "Высокое напряжение подано! Фрагменты мигрируют от катода к аноду. Расшифруйте результат!";
+        progress.innerText = "100%";
+        startElectrophoresis();
+      }
+    }
+
+    function updateControlBoardUI() {
+      for (let i = 1; i <= 4; i++) {
+        const btn = document.getElementById(`btn-step-${i}`);
+        const card = document.getElementById(`step-card-${i}`);
+        const badge = document.getElementById(`badge-${i}`);
+
+        if (i < currentStep) {
+          // Выполнен
+          btn.disabled = true;
+          btn.className = "lab-btn px-3 py-2 rounded-xl text-xs font-bold text-emerald-400 border border-emerald-500/40";
+          btn.innerHTML = '<i class="fa-solid fa-check"></i> Готово';
+          card.classList.add('border-emerald-500/50');
+          badge.className = "w-7 h-7 rounded-lg bg-emerald-950 border border-emerald-500 text-emerald-400 flex items-center justify-center text-xs font-bold font-mono-tech";
+        } else if (i === currentStep + 1) {
+          // Следующий доступный
+          btn.disabled = false;
+          btn.className = "lab-btn action-btn-blue px-3 py-2 rounded-xl text-xs font-bold text-cyan-200 flex items-center gap-1.5";
+          card.classList.remove('border-emerald-500/50');
+        } else if (i === currentStep) {
+          // Текущий активный
+          btn.disabled = true;
+          btn.className = "lab-btn action-btn-green px-3 py-2 rounded-xl text-xs font-bold text-emerald-200 flex items-center gap-1.5";
+          btn.innerHTML = '<i class="fa-solid fa-gear fa-spin"></i> В процессе';
+        } else {
+          // Заблокирован
+          btn.disabled = true;
+          btn.className = "lab-btn px-3 py-2 rounded-xl text-xs font-bold text-slate-500";
+        }
+      }
+    }
+
+    /* =========================================================
+       ЗАПУСК И ВИЗУАЛИЗАЦИЯ ЭЛЕКТРОФОРЕЗА
+       ========================================================= */
+    function startElectrophoresis() {
+      isElectrophoresisRunning = true;
+      playTone(220, 'sawtooth', 0.8, 0.15);
+
+      if (currentMethod === 'sanger') {
+        renderSangerGel();
+      } else {
+        renderAutoChromatogram();
+      }
+    }
+
+    // Отрисовка полос в полиакриламидном геле
+    function renderSangerGel() {
+      const targetSeq = TARGET_SEQUENCES.sanger;
+      // Очистить дорожки
+      ['A', 'C', 'G', 'T'].forEach(nuc => {
+        document.getElementById(`lane-${nuc}`).innerHTML = '';
+      });
+
+      // Полосы располагаются: снизу вверх (1-й нуклеотид самый легкий - мигрирует дальше всех вниз)
+      targetSeq.forEach((nuc, index) => {
+        // Длина от 1 до 10. Чем меньше индекс, тем дальше вниз ушла полоса (100% - index * delta)
+        const lane = document.getElementById(`lane-${nuc}`);
+        const band = document.createElement('div');
+        
+        // Позиция: 0й (первый с 5' конца) - в самом низу (например 86%), последний вверху (12%)
+        const bottomPercent = 12 + index * 8.0; 
+        
+        band.className = "absolute left-1 right-1 h-2 rounded bg-purple-300 band-glow opacity-0 transition-all duration-1000";
+        band.style.bottom = `${bottomPercent}%`;
+        band.title = `Позиция ${index + 1}: полоса ${nuc}`;
+        
+        lane.appendChild(band);
+
+        // Плавное проявление имитации электрофореза
+        setTimeout(() => {
+          band.style.opacity = "1";
+          playTone(400 + index * 50, 'sine', 0.1, 0.04);
+        }, (index + 1) * 250);
+      });
+
+      document.getElementById('prompt-text').innerText = 
+        "Полосы в ПААГ геле проявились! Считывайте снизу вверх (от меньших фрагментов к большим, 5' -> 3') и нажимайте кнопки A, C, G, T.";
+    }
+
+    // Отрисовка капилляра и хроматограммы на Canvas
+    let chromatogramProgress = 0;
+    function renderAutoChromatogram() {
+      const canvas = document.getElementById('chromatogramCanvas');
+      const ctx = canvas.getContext('2d');
+      const targetSeq = TARGET_SEQUENCES.auto;
+
+      // Установка четких размеров канваса
+      canvas.width = canvas.parentElement.clientWidth;
+      canvas.height = canvas.parentElement.clientHeight - 25;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      chromatogramProgress = 0;
+
+      if (autoScanInterval) clearInterval(autoScanInterval);
+
+      // Генерация потока флуоресцентных молекул в капилляре
+      const capillary = document.getElementById('capillary-stream');
+      capillary.innerHTML = '';
+
+      targetSeq.forEach((nuc, idx) => {
+        const dot = document.createElement('div');
+        dot.className = "absolute w-4 h-4 rounded-full border border-white/60 transition-all duration-700";
+        dot.style.backgroundColor = NUC_COLORS[nuc];
+        dot.style.boxShadow = `0 0 10px ${NUC_COLORS[nuc]}`;
+        dot.style.left = `${(idx / targetSeq.length) * 80}%`;
+        capillary.appendChild(dot);
+      });
+
+      // Пошаговое построение пиков
+      const totalPoints = targetSeq.length;
+      let currentPeakIdx = 0;
+
+      autoScanInterval = setInterval(() => {
+        if (currentPeakIdx >= totalPoints) {
+          clearInterval(autoScanInterval);
+          document.getElementById('prompt-text').innerText = 
+            "Лазерный детектор построил хроматограмму! Считайте последовательность пиков слева направо (A-зеленый, C-синий, G-желтый, T-красный).";
+          return;
+        }
+
+        drawChromatogramPeak(ctx, canvas, currentPeakIdx, targetSeq[currentPeakIdx], totalPoints);
+        playTone(500 + currentPeakIdx * 60, 'triangle', 0.1, 0.05);
+        currentPeakIdx++;
+      }, 400);
+    }
+
+    function drawChromatogramPeak(ctx, canvas, index, nuc, total) {
+      const w = canvas.width;
+      const h = canvas.height;
+      const stepX = w / (total + 1);
+      const centerX = stepX * (index + 1);
+      const peakHeight = h * 0.75;
+      const baseY = h - 15;
+
+      ctx.strokeStyle = NUC_COLORS[nuc];
+      ctx.lineWidth = 3;
+      ctx.fillStyle = NUC_COLORS[nuc] + "22";
+
+      ctx.beginPath();
+      ctx.moveTo(centerX - stepX * 0.6, baseY);
+      ctx.quadraticCurveTo(centerX, baseY - peakHeight, centerX + stepX * 0.6, baseY);
+      ctx.stroke();
+      ctx.fill();
+
+      // Подпись нуклеотида под пиком
+      ctx.fillStyle = NUC_COLORS[nuc];
+      ctx.font = "bold 12px 'Orbitron', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(nuc, centerX, baseY + 12);
+    }
+
+    /* =========================================================
+       МИНИ-ИГРА: РУЧНОЙ ВВОД И ПРОВЕРКА СИКВЕНСА
+       ========================================================= */
+    function inputNucleotide(nuc) {
+      if (userSequence.length >= 10) return;
+      playTone(700, 'sine', 0.08);
+
+      userSequence.push(nuc);
+      updateSequenceDisplay();
+    }
+
+    function updateSequenceDisplay() {
+      const display = document.getElementById('sequence-display');
+      const counter = document.getElementById('read-counter');
+      const validateBtn = document.getElementById('validate-btn');
+
+      if (userSequence.length === 0) {
+        display.innerHTML = `<span class="text-slate-600">5'-</span><span class="text-slate-500 italic text-xs">ожидание прочтения с геля / детектора...</span>`;
+      } else {
+        let html = `<span class="text-slate-400 font-bold">5'-</span>`;
+        userSequence.forEach((nuc) => {
+          const colorClass = 
+            nuc === 'A' ? 'text-emerald-400 border-emerald-500' :
+            nuc === 'C' ? 'text-blue-400 border-blue-500' :
+            nuc === 'G' ? 'text-amber-400 border-amber-500' : 'text-red-400 border-red-500';
+
+          html += `<span class="px-2 py-0.5 rounded bg-slate-900 border ${colorClass} font-bold font-hud">${nuc}</span>`;
+        });
+        html += `<span class="text-slate-400 font-bold">-3'</span>`;
+        
+        // Кнопка отмены последнего символа
+        html += `<button onclick="popNucleotide()" class="ml-2 text-xs text-slate-500 hover:text-red-400"><i class="fa-solid fa-delete-left"></i></button>`;
+        display.innerHTML = html;
+      }
+
+      counter.innerText = `${userSequence.length} / 10`;
+      validateBtn.disabled = userSequence.length !== 10;
+    }
+
+    function popNucleotide() {
+      userSequence.pop();
+      playTone(300, 'square', 0.08);
+      updateSequenceDisplay();
+    }
+
+    function checkFinalSequence() {
+      const target = TARGET_SEQUENCES[currentMethod];
+      const isCorrect = userSequence.every((val, index) => val === target[index]);
+
+      if (isCorrect) {
+        playTone(880, 'sine', 0.3);
+        setTimeout(() => playTone(1100, 'sine', 0.4), 180);
+        showResultModal(true);
+      } else {
+        playTone(180, 'sawtooth', 0.4, 0.2);
+        document.getElementById('prompt-text').innerText = 
+          "Ошибка в сиквенсе! Внимательно сверьте полосы снизу вверх (для геля) или хроматографические пики слева направо. Нажмите сброс цепочки.";
+      }
+    }
+
+    function showResultModal(success) {
+      const modal = document.getElementById('result-modal');
+      const title = document.getElementById('modal-title');
+      const text = document.getElementById('modal-text');
+      const seqDisplay = document.getElementById('modal-seq');
+
+      seqDisplay.innerText = userSequence.join(' - ');
+      modal.classList.remove('hidden');
+    }
+
+    function closeModalAndNext() {
+      document.getElementById('result-modal').classList.add('hidden');
+      // Предложить другой метод
+      if (currentMethod === 'sanger') {
+        switchMethod('auto');
+      } else {
+        switchMethod('sanger');
+      }
+    }
+
+    /* =========================================================
+       МОДАЛЬНОЕ ОКНО «КАК ИГРАТЬ»
+       ========================================================= */
+    function openHelpModal() {
+      playTone(520, 'triangle', 0.12);
+      document.getElementById('help-modal').classList.remove('hidden');
+    }
+
+    function closeHelpModal() {
+      playTone(380, 'sine', 0.08);
+      document.getElementById('help-modal').classList.add('hidden');
+    }
+
+    function showHelpTab(tabKey) {
+      playTone(620, 'sine', 0.06);
+      const tabs = ['overview', 'sanger', 'auto', 'decoding'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        const content = document.getElementById(`help-content-${t}`);
+        if (t === tabKey) {
+          btn.className = "px-3.5 py-2 rounded-t-lg bg-cyan-950/60 text-cyan-300 border-t-2 border-cyan-400 font-bold transition-all whitespace-nowrap";
+          content.classList.remove('hidden');
+        } else {
+          btn.className = "px-3.5 py-2 rounded-t-lg text-slate-400 hover:text-slate-200 transition-all whitespace-nowrap";
+          content.classList.add('hidden');
+        }
+      });
+    }
+
+    // Горячая клавиша ESC для закрытия окон помощи
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const helpModal = document.getElementById('help-modal');
+        const resModal = document.getElementById('result-modal');
+        if (!helpModal.classList.contains('hidden')) closeHelpModal();
+        if (!resModal.classList.contains('hidden')) resModal.classList.add('hidden');
+      }
+    });
+
+    /* =========================================================
+       МАНИПУЛЯТОР-ДОЗАТОР (ИНТЕРАКТИВНЫЕ ДЕЙСТВИЯ)
+       ========================================================= */
+    let armPosition = { x: 0, y: 0 };
+    function manipulatorMove(direction) {
+      playTone(280, 'sine', 0.05);
+      const prompt = document.getElementById('prompt-text');
+      prompt.innerText = `Манипулятор смещен: ${direction.toUpperCase()}. Координаты микропозиционера откалиброваны.`;
+    }
+
+    function manipulatorDispense() {
+      playTone(900, 'sine', 0.15);
+      const prompt = document.getElementById('prompt-text');
+      prompt.innerText = "Впрыск реакционной смеси выполнен манипулятором в микролунку точно по протоколу!";
+
+      // Если мы на шаге 3, автоматически активируем возможность перейти к шагу 4
+      if (currentStep === 2) {
+        executeStep(3);
+      }
+    }
+
+    /* =========================================================
+       СБРОС ЭКСПЕРИМЕНТА
+       ========================================================= */
+    function resetExperiment() {
+      currentStep = 0;
+      userSequence = [];
+      isElectrophoresisRunning = false;
+      if (autoScanInterval) clearInterval(autoScanInterval);
+
+      // Очистить гель
+      ['A', 'C', 'G', 'T'].forEach(nuc => {
+        const lane = document.getElementById(`lane-${nuc}`);
+        if (lane) lane.innerHTML = '';
+      });
+
+      // Очистить канвас
+      const canvas = document.getElementById('chromatogramCanvas');
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+
+      const stream = document.getElementById('capillary-stream');
+      if (stream) stream.innerHTML = '';
+
+      document.getElementById('current-stage-title').innerText = "ЭТАП 1: ПОДГОТОВКА ОБРАЗЦА И РЕАКТИВОВ";
+      document.getElementById('prompt-text').innerText = "Система сброшена в исходное состояние. Начните с Этапа 01 на пульте манипулятора.";
+      document.getElementById('progress-percent').innerText = "0%";
+      updateSequenceDisplay();
+      updateControlBoardUI();
+    }
+
+    // Инициализация при загрузке
+    window.onload = function() {
+      updateControlBoardUI();
+      // Адаптивный ресайз канваса при изменении размера окна
+      window.addEventListener('resize', () => {
+        if (currentMethod === 'auto' && currentStep === 4) {
+          renderAutoChromatogram();
+        }
+      });
+    };
+  </script>
+</body>
+</html>
