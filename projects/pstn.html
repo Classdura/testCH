@@ -1,0 +1,2066 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Школа «Здоровое питание» — КемГМУ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-warm: #FAF8F5;
+      --card-bg: #FFFFFF;
+      --border-soft: #E5E0D8;
+      --border-shadow: #D4CEC3;
+      --green-main: #46A302;
+      --green-dark: #347B00;
+      --green-light: #ECFCCB;
+      --amber-main: #F59E0B;
+      --amber-dark: #D97706;
+      --amber-light: #FEF3C7;
+      --coral-main: #DC2626;
+      --coral-dark: #B91C1C;
+      --coral-light: #FEE2E2;
+      --blue-main: #0284C7;
+      --blue-dark: #0369A1;
+      --blue-light: #E0F2FE;
+    }
+
+    body {
+      background-color: var(--bg-warm);
+      color: #1F2937;
+      font-family: 'Rubik', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, .font-display {
+      font-family: 'Nunito', sans-serif;
+    }
+
+    /* Tactile 3D Cards & Buttons (Duolingo-inspired but clean & academic) */
+    .tactile-card {
+      background: #FFFFFF;
+      border: 2px solid #E5E0D8;
+      border-bottom-width: 5px;
+      border-radius: 20px;
+      transition: transform 0.12s ease, border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .tactile-btn {
+      border: 2px solid transparent;
+      border-bottom-width: 4px;
+      border-radius: 16px;
+      font-family: 'Nunito', sans-serif;
+      font-weight: 800;
+      transition: all 0.1s ease;
+      user-select: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tactile-btn:active:not(:disabled) {
+      transform: translateY(2px);
+      border-bottom-width: 2px;
+    }
+    .tactile-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .tactile-btn-green {
+      background-color: #4CAF50;
+      border-color: #388E3C;
+      border-bottom-color: #2E7D32;
+      color: #FFFFFF;
+    }
+    .tactile-btn-green:hover:not(:disabled) {
+      background-color: #43A047;
+    }
+
+    .tactile-btn-amber {
+      background-color: #F59E0B;
+      border-color: #D97706;
+      border-bottom-color: #B45309;
+      color: #FFFFFF;
+    }
+    .tactile-btn-amber:hover:not(:disabled) {
+      background-color: #EAB308;
+    }
+
+    .tactile-btn-coral {
+      background-color: #EF4444;
+      border-color: #DC2626;
+      border-bottom-color: #B91C1C;
+      color: #FFFFFF;
+    }
+
+    .tactile-btn-neutral {
+      background-color: #FFFFFF;
+      border-color: #E5E0D8;
+      border-bottom-color: #CFC8BC;
+      color: #374151;
+    }
+    .tactile-btn-neutral:hover:not(:disabled) {
+      background-color: #F9F6F0;
+      border-color: #D6CFC2;
+      border-bottom-color: #BFB6A8;
+    }
+
+    /* Option Choice Button */
+    .option-card {
+      background-color: #FFFFFF;
+      border: 2px solid #E5E0D8;
+      border-bottom-width: 4px;
+      border-bottom-color: #D0C9BC;
+      border-radius: 16px;
+      transition: all 0.12s ease;
+      cursor: pointer;
+    }
+    .option-card:hover:not(.locked) {
+      background-color: #FBF9F5;
+      border-color: #C7B299;
+      transform: translateY(-1px);
+    }
+    .option-card:active:not(.locked) {
+      transform: translateY(2px);
+      border-bottom-width: 2px;
+    }
+    .option-card.selected {
+      background-color: #EFF6FF;
+      border-color: #38BDF8;
+      border-bottom-color: #0284C7;
+      color: #0369A1;
+    }
+    .option-card.correct {
+      background-color: #ECFDF5;
+      border-color: #34D399;
+      border-bottom-color: #059669;
+      color: #065F46;
+    }
+    .option-card.wrong {
+      background-color: #FEF2F2;
+      border-color: #F87171;
+      border-bottom-color: #DC2626;
+      color: #991B1B;
+    }
+
+    /* Pair Colors for Matching */
+    .pair-color-0 { background-color: #ECFDF5 !important; border-color: #10B981 !important; border-bottom-color: #047857 !important; color: #065F46 !important; }
+    .pair-color-1 { background-color: #EFF6FF !important; border-color: #3B82F6 !important; border-bottom-color: #1D4ED8 !important; color: #1E40AF !important; }
+    .pair-color-2 { background-color: #FFFBEB !important; border-color: #F59E0B !important; border-bottom-color: #B45309 !important; color: #92400E !important; }
+    .pair-color-3 { background-color: #F5F3FF !important; border-color: #8B5CF6 !important; border-bottom-color: #6D28D9 !important; color: #5B21B6 !important; }
+
+    .pair-badge-0 { background-color: #10B981; color: white; }
+    .pair-badge-1 { background-color: #3B82F6; color: white; }
+    .pair-badge-2 { background-color: #F59E0B; color: white; }
+    .pair-badge-3 { background-color: #8B5CF6; color: white; }
+
+    /* Animations */
+    @keyframes popIn {
+      0% { transform: scale(0.95); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-pop {
+      animation: popIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes pulseAmber {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.35); }
+      50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+    }
+    .mistake-banner-pulse {
+      animation: pulseAmber 2s infinite;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #FAF8F5; }
+    ::-webkit-scrollbar-thumb { background: #D4CEC3; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #B8B0A2; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+  <!-- TOP NAVIGATION / INSTITUTION BAR -->
+  <header id="main-header" class="bg-white border-b-2 border-[#E5E0D8] sticky top-0 z-30">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3 cursor-pointer" onclick="returnToMenu()">
+        <!-- Emblem Icon -->
+        <div class="w-11 h-11 rounded-2xl bg-[#ECFDF5] border-2 border-[#A7F3D0] border-b-4 border-b-[#34D399] flex items-center justify-center shrink-0">
+          <svg class="w-6 h-6 text-[#059669]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z"/>
+            <path d="M10 2c1 .5 2 2 2 5"/>
+          </svg>
+        </div>
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-[#059669] block">ФГБОУ ВО КемГМУ Минздрава России</span>
+          <h1 class="text-lg sm:text-xl font-black text-gray-800 leading-tight">Школа «Здоровое питание»</h1>
+        </div>
+      </div>
+
+      <!-- Stats / Progress Pills -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <div class="px-3 py-1.5 rounded-xl bg-[#FFFBEB] border-2 border-[#FDE68A] flex items-center gap-1.5" title="Заработанные очки знаний">
+          <svg class="w-5 h-5 text-[#F59E0B]" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+          </svg>
+          <span id="header-xp" class="font-display font-extrabold text-[#B45309] text-sm">0 XP</span>
+        </div>
+
+        <div class="px-3 py-1.5 rounded-xl bg-[#ECFDF5] border-2 border-[#A7F3D0] flex items-center gap-1.5" title="Пройдено модулей">
+          <svg class="w-5 h-5 text-[#059669]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span id="header-completed" class="font-display font-extrabold text-[#065F46] text-sm">0 / 3</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="flex-1 max-w-4xl w-full mx-auto px-4 py-6 sm:py-8">
+
+    <!-- ==================== VIEW 1: MAIN MENU ==================== -->
+    <section id="view-menu" class="space-y-8 animate-pop">
+      <!-- Hero Banner -->
+      <div class="tactile-card p-6 sm:p-8 bg-gradient-to-br from-white via-[#FBFDF9] to-[#ECFDF5] relative overflow-hidden">
+        <div class="relative z-10 max-w-2xl">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#DCFCE7] text-[#166534] font-display font-extrabold text-xs uppercase tracking-wider mb-3">
+            <span>🎓 Факультатив для группы обучающихся 10, 11 классов</span>
+          </div>
+          <h2 class="text-2xl sm:text-4xl font-black text-gray-900 tracking-tight mb-2">
+            Школа «Здоровое питание»
+          </h2>
+          <p class="text-sm sm:text-base font-medium text-gray-600 mb-4">
+            ФГБОУ ВО КемГМУ Минздрава России • Интерактивная образовательная платформа с правом на ошибку и умной отработкой сложных тем.
+          </p>
+          <div class="flex flex-wrap gap-2.5 text-xs font-semibold text-gray-600">
+            <span class="px-3 py-1.5 rounded-xl bg-white border border-[#E5E0D8] flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#4CAF50]"></span> Выбор 1 ответа и соотнесение пар 1-к-1
+            </span>
+            <span class="px-3 py-1.5 rounded-xl bg-white border border-[#E5E0D8] flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></span> Понятный режим «Работа над ошибками»
+            </span>
+          </div>
+        </div>
+
+        <!-- Subtle Decorative Medical/Nutrition SVG in Corner -->
+        <svg class="w-40 h-40 text-[#10B981]/10 absolute -right-6 -bottom-6 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+        </svg>
+      </div>
+
+      <!-- Modules Path Section -->
+      <div class="space-y-5">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xl font-black text-gray-800 flex items-center gap-2">
+            <span>Учебные модули и тесты</span>
+          </h3>
+          <span class="text-xs font-semibold text-gray-500">Выберите модуль для старта</span>
+        </div>
+
+        <!-- Dynamic Module Cards Container -->
+        <div id="modules-list" class="space-y-5"></div>
+      </div>
+
+      <!-- Bonus Interactive Mitochondrial Engineer Game Card -->
+      <div class="tactile-card p-6 bg-gradient-to-r from-[#FFFBEB] via-white to-[#FEF3C7] border-[#FDE68A]">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+          <div class="flex items-start gap-4">
+            <div class="w-16 h-16 rounded-2xl bg-[#FEF3C7] border-2 border-[#F59E0B] border-b-4 border-b-[#D97706] flex items-center justify-center shrink-0 shadow-sm">
+              <!-- Mitochondria / Wrench SVG -->
+              <svg class="w-9 h-9 text-[#D97706]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+            </div>
+            <div>
+              <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#FDE68A] text-[#92400E] text-xs font-extrabold uppercase mb-1">
+                Практический симулятор по материалам Темы 3
+              </div>
+              <h4 class="text-xl font-black text-gray-900">Бригада «Молекулярный инженер митохондрий»</h4>
+              <p class="text-sm text-gray-600 mt-1">
+                Клетка столкнулась с энергетическим кризисом! Диагностируйте 4 поломки дыхательной цепи и подберите верные микронутриенты из пула ресурсов (остерегайтесь ложных карточек!).
+              </p>
+            </div>
+          </div>
+          <button onclick="startMitoGame()" class="tactile-btn tactile-btn-amber px-6 py-3.5 text-sm sm:text-base shrink-0 w-full md:w-auto">
+            Запустить ремонт клетки ⚡
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 2: ACTIVE QUIZ ==================== -->
+    <section id="view-quiz" class="hidden space-y-5 animate-pop">
+      <!-- Top Progress & Exit Bar -->
+      <div class="tactile-card p-4 sm:p-5">
+        <div class="flex items-center gap-3 sm:gap-4">
+          <button onclick="returnToMenu()" class="w-10 h-10 rounded-xl border-2 border-[#E5E0D8] hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition shrink-0" title="Выйти в меню">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+
+          <!-- Progress Bar -->
+          <div class="flex-1">
+            <div class="flex items-center justify-between text-xs font-bold mb-1.5">
+              <span id="quiz-module-title" class="text-gray-600 truncate max-w-[220px] sm:max-w-md">Модуль 1</span>
+              <span id="quiz-progress-text" class="text-gray-700 font-display font-extrabold">Вопрос 1 из 10</span>
+            </div>
+            <div class="w-full h-3.5 bg-[#EFECE6] rounded-full overflow-hidden p-0.5 border border-[#E5E0D8]">
+              <div id="quiz-progress-bar" class="h-full bg-[#4CAF50] rounded-full transition-all duration-300 relative" style="width: 10%">
+                <div class="h-1 bg-white/30 rounded-full mx-1 mt-0.5"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Pill: Variant or Mistake Counter -->
+          <div id="quiz-variant-pill" class="px-3 py-1.5 rounded-xl bg-gray-100 border border-[#E5E0D8] text-xs font-extrabold text-gray-700 shrink-0">
+            В-1
+          </div>
+        </div>
+
+        <!-- MISTAKE REVIEW PROMINENT BANNER (Hidden during normal run, shown during mistake review) -->
+        <div id="mistake-review-banner" class="hidden mt-4 p-3.5 rounded-2xl bg-[#FFFBEB] border-2 border-[#F59E0B] mistake-banner-pulse">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-[#F59E0B] text-white flex items-center justify-center shrink-0 font-black">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+              </div>
+              <div>
+                <div class="text-xs font-black uppercase tracking-wider text-[#B45309]">
+                  Внимание: ведётся работа над ошибками
+                </div>
+                <div class="text-xs sm:text-sm font-medium text-[#92400E]">
+                  Ответьте правильно на вопросы, в которых была допущена неточность, чтобы завершить модуль.
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 self-end sm:self-center shrink-0">
+              <span id="mistake-remaining-badge" class="px-3 py-1.5 rounded-xl bg-[#F59E0B] text-white font-display font-black text-xs sm:text-sm shadow-sm">
+                Осталось исправить: 2 из 2
+              </span>
+              <button onclick="finishQuizNow()" class="px-2.5 py-1.5 rounded-xl bg-white border border-[#F59E0B] text-[#B45309] hover:bg-[#FEF3C7] text-xs font-bold transition" title="Завершить тест без исправления оставшихся ошибок">
+                Завершить
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Question Card -->
+      <div id="question-container" class="tactile-card p-5 sm:p-8 space-y-6">
+        <!-- Format Badge & Question Header -->
+        <div class="space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span id="question-type-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#EFF6FF] text-[#1D4ED8] font-display font-extrabold text-xs uppercase tracking-wide">
+              Формат 1 • Выберите один вариант ответа
+            </span>
+            <span id="question-mistake-tag" class="hidden inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#FEF3C7] text-[#B45309] font-display font-extrabold text-xs">
+              🔄 Повтор вопроса (исправление ошибки)
+            </span>
+          </div>
+          <h2 id="question-text" class="text-lg sm:text-2xl font-extrabold text-gray-900 leading-snug pt-1">
+            Текст вопроса
+          </h2>
+          <p id="question-helper" class="text-xs sm:text-sm text-gray-500 font-medium"></p>
+        </div>
+
+        <!-- Interactive Area (Single Choice OR Matching 1-to-1) -->
+        <div id="question-interactive-area" class="space-y-3"></div>
+      </div>
+
+      <!-- Action / Feedback Bar -->
+      <div id="quiz-action-bar" class="tactile-card p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all">
+        <!-- Left Feedback Status -->
+        <div id="feedback-box" class="flex-1 w-full">
+          <div id="feedback-idle" class="text-xs sm:text-sm text-gray-500 font-medium flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-gray-300"></span>
+            <span id="feedback-idle-text">Выберите ответ и нажмите «Проверить»</span>
+          </div>
+
+          <div id="feedback-result" class="hidden rounded-xl p-3.5 border-2">
+            <div class="flex items-start gap-3">
+              <div id="feedback-icon" class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-black text-white mt-0.5">
+                ✓
+              </div>
+              <div class="space-y-1">
+                <div id="feedback-title" class="font-display font-black text-base">Отлично! Верный ответ</div>
+                <p id="feedback-explanation" class="text-xs sm:text-sm leading-relaxed"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Button (Check OR Next) -->
+        <div class="w-full sm:w-auto shrink-0 flex items-center gap-2">
+          <button id="btn-reset-matching" onclick="resetCurrentMatching()" class="hidden tactile-btn tactile-btn-neutral px-4 py-3.5 text-sm">
+            Сбросить пары
+          </button>
+          <button id="btn-check-answer" onclick="checkCurrentAnswer()" disabled class="tactile-btn tactile-btn-green px-8 py-3.5 text-base w-full sm:w-auto">
+            Проверить ответ
+          </button>
+          <button id="btn-next-question" onclick="nextQuestion()" class="hidden tactile-btn tactile-btn-green px-8 py-3.5 text-base w-full sm:w-auto">
+            Далее →
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 3: RESULTS SCREEN ==================== -->
+    <section id="view-results" class="hidden space-y-6 animate-pop">
+      <div class="tactile-card p-6 sm:p-10 text-center space-y-6">
+        <div id="results-badge-icon" class="w-20 h-20 mx-auto rounded-3xl bg-[#ECFDF5] border-2 border-[#34D399] border-b-4 border-b-[#059669] flex items-center justify-center text-4xl">
+          🏆
+        </div>
+
+        <div class="space-y-2 max-w-xl mx-auto">
+          <span id="results-subtitle" class="text-xs font-extrabold uppercase tracking-wider text-[#059669] px-3 py-1 rounded-full bg-[#ECFDF5]">
+            Модуль завершён
+          </span>
+          <h2 id="results-title" class="text-2xl sm:text-3xl font-black text-gray-900">
+            Отличная работа!
+          </h2>
+          <p id="results-description" class="text-sm sm:text-base text-gray-600">
+            Вы успешно прошли все вопросы модуля и разобрали допущенные ошибки.
+          </p>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
+          <div class="p-4 rounded-2xl bg-[#ECFDF5] border-2 border-[#A7F3D0]">
+            <div class="text-xs font-bold uppercase text-[#047857]">С первой попытки</div>
+            <div id="res-stat-first-try" class="text-2xl sm:text-3xl font-black text-[#065F46] mt-1">9 / 10</div>
+          </div>
+          <div class="p-4 rounded-2xl bg-[#FFFBEB] border-2 border-[#FDE68A]">
+            <div class="text-xs font-bold uppercase text-[#B45309]">Исправлено ошибок</div>
+            <div id="res-stat-fixed" class="text-2xl sm:text-3xl font-black text-[#92400E] mt-1">1</div>
+          </div>
+          <div class="p-4 rounded-2xl bg-[#EFF6FF] border-2 border-[#BFDBFE]">
+            <div class="text-xs font-bold uppercase text-[#1D4ED8]">Начислено опыта</div>
+            <div id="res-stat-xp" class="text-2xl sm:text-3xl font-black text-[#1E40AF] mt-1">+100 XP</div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <button id="btn-retry-mistakes-only" onclick="startMistakesOnlyFromResults()" class="hidden tactile-btn tactile-btn-amber px-6 py-3.5 text-sm sm:text-base">
+            🔄 Перерешать только вопросы с ошибками (<span id="retry-mistakes-count">0</span>)
+          </button>
+          <button onclick="restartCurrentModule()" class="tactile-btn tactile-btn-neutral px-6 py-3.5 text-sm sm:text-base">
+            Пройти модуль заново
+          </button>
+          <button onclick="returnToMenu()" class="tactile-btn tactile-btn-green px-7 py-3.5 text-sm sm:text-base">
+            На главную страницу
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 4: BONUS MITOCHONDRIA GAME ==================== -->
+    <section id="view-mito-game" class="hidden space-y-6 animate-pop">
+      <div class="tactile-card p-5 sm:p-6 bg-gradient-to-r from-[#FFFBEB] to-white border-[#FDE68A]">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <button onclick="returnToMenu()" class="w-10 h-10 rounded-xl border-2 border-[#E5E0D8] bg-white hover:bg-gray-100 flex items-center justify-center text-gray-600">
+              ←
+            </button>
+            <div>
+              <span class="text-xs font-extrabold uppercase text-[#B45309]">Командный тренажёр • Тема 3</span>
+              <h2 class="text-xl sm:text-2xl font-black text-gray-900">Молекулярный ремонт митохондрии</h2>
+            </div>
+          </div>
+          <div id="mito-score-pill" class="px-3.5 py-1.5 rounded-xl bg-[#FEF3C7] border border-[#F59E0B] text-[#92400E] font-display font-black text-xs sm:text-sm">
+            Устранено поломок: 0 / 4
+          </div>
+        </div>
+      </div>
+
+      <!-- Mitochondria Pathway Chain Diagram -->
+      <div class="tactile-card p-5 sm:p-6 space-y-4">
+        <div class="text-xs font-bold uppercase tracking-wider text-gray-500">
+          Схема энергетического конвейера клетки (нажмите на карточку поломки ниже и подберите микронутриент):
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-5 gap-2.5 text-center text-xs font-bold">
+          <div class="p-3 rounded-xl bg-gray-50 border-2 border-gray-200 text-gray-700">
+            1. Гликолиз<br><span class="text-[11px] font-normal text-gray-500">Глюкоза → Пируват</span>
+          </div>
+          <div class="p-3 rounded-xl bg-[#FFFBEB] border-2 border-[#FCD34D] text-gray-800">
+            2. Пируватдегидрогеназа<br><span class="text-[11px] font-normal text-[#B45309]">Пируват → Ацетил-КоА</span>
+          </div>
+          <div class="p-3 rounded-xl bg-[#ECFDF5] border-2 border-[#6EE7B7] text-gray-800">
+            3. Цикл Кребса (ЦТК)<br><span class="text-[11px] font-normal text-[#047857]">Окисление субстратов</span>
+          </div>
+          <div class="p-3 rounded-xl bg-[#EFF6FF] border-2 border-[#93C5FD] text-gray-800">
+            4. Дыхательная цепь<br><span class="text-[11px] font-normal text-[#1D4ED8]">Перенос электронов</span>
+          </div>
+          <div class="p-3 rounded-xl bg-[#F5F3FF] border-2 border-[#C4B5FD] text-gray-800">
+            5. АТФ-синтаза<br><span class="text-[11px] font-normal text-[#6D28D9]">Выработка АТФ</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Breakdown Cards & Resource Pool -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left 7 Cols: 4 Breakdown Cases -->
+        <div class="lg:col-span-7 space-y-3">
+          <h3 class="font-display font-black text-base text-gray-800">
+            1. Выберите карточку «Поломка» для диагностики:
+          </h3>
+          <div id="mito-breakdowns-list" class="space-y-3"></div>
+        </div>
+
+        <!-- Right 5 Cols: Resource Cards (including decoys) -->
+        <div class="lg:col-span-5 space-y-3">
+          <h3 class="font-display font-black text-base text-gray-800">
+            2. Нажмите на нужный «Ресурс» со стола:
+          </h3>
+          <p class="text-xs text-gray-500">
+            Внимание: среди карточек есть «ложные» ресурсы, не относящиеся к выбранной поломке!
+          </p>
+          <div id="mito-resources-list" class="grid grid-cols-2 gap-2.5"></div>
+          <div id="mito-feedback" class="hidden p-4 rounded-2xl border-2 text-xs sm:text-sm font-medium"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t-2 border-[#E5E0D8] bg-white py-4 px-4 mt-12">
+    <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500 gap-2">
+      <div>Школа «Здоровое питание» • ФГБОУ ВО КемГМУ Минздрава России</div>
+      <div>Факультатив для группы обучающихся 10, 11 классов</div>
+    </div>
+  </footer>
+
+  <!-- APPLICATION LOGIC & QUESTION BANK -->
+  <script>
+    /*************************************************************************
+     * 1. ПОЛНАЯ БАЗА ВОПРОСОВ ИЗ ДОКУМЕНТА (ТЕСТЫ Т-1, Т-2, Т-3)
+     * Все задания приведены к двум интерактивным форматам:
+     * - 'single': выбор одного варианта ответа
+     * - 'matching': интерактивное соотнесение блоков 1-к-1
+     *************************************************************************/
+    const MODULES_DATA = [
+      {
+        id: 'test1',
+        number: 1,
+        title: 'Основы нутрициологии и гигиены питания',
+        subtitle: 'Понятия нутрициологии, диетологии, гигиены питания, уровни доказательности и рацион школьников',
+        totalInBank: 20,
+        questionsPerRun: 10,
+        hasVariants: true,
+        accentColor: '#10B981',
+        bgLight: '#ECFDF5',
+        borderLight: '#A7F3D0',
+        // Тематическая SVG иконка (Яблоко, лист и медицинская чаша)
+        iconSvg: `
+          <svg class="w-9 h-9 text-[#059669]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z"/>
+            <path d="M10 2c1 .5 2 2 2 5"/>
+            <path d="M12 11v6"/>
+            <path d="M9 14h6"/>
+          </svg>
+        `,
+        variants: {
+          v1: [
+            {
+              id: 't1_v1_q1',
+              type: 'single',
+              question: 'Какой термин наиболее точно отражает науку, изучающую функциональные и метаболические аспекты взаимодействия питательных веществ с организмом человека?',
+              options: ['Диетология', 'Гигиена питания', 'Нутрициология', 'Кулинария'],
+              correctIndex: 2,
+              explanation: 'Нутрициология — наука, изучающая функциональные, метаболические, гигиенические и клинические аспекты взаимодействия питательных веществ (нутриентов) с организмом.'
+            },
+            {
+              id: 't1_v1_q2',
+              type: 'single',
+              question: 'В чём ключевое отличие диетологии от нутрициологии?',
+              options: [
+                'Диетология не использует научные методы',
+                'Диетология направлена на индивидуализацию и рационализацию питания, часто при заболеваниях, тогда как нутрициология изучает питание комплексно',
+                'Нутрициология занимается только спортивным питанием',
+                'Диетология изучает только химический состав продуктов'
+              ],
+              correctIndex: 1,
+              explanation: 'Диетология — прикладная медицинская дисциплина об организации лечебного и рационального питания (особенно при патологиях), а нутрициология комплексно изучает процессы питания.'
+            },
+            {
+              id: 't1_v1_q3',
+              type: 'single',
+              question: 'Какой уровень доказательности соответствует данным, полученным в мета-анализах рандомизированных клинических исследований (РКИ)?',
+              options: ['Уровень С', 'Уровень В', 'Уровень А', 'Уровень D'],
+              correctIndex: 2,
+              explanation: 'Уровень А — наивысший уровень доказательности в медицине, опирающийся на качественные мета-анализы и систематические обзоры РКИ.'
+            },
+            {
+              id: 't1_v1_q4',
+              type: 'single',
+              question: 'Что из перечисленного НЕ относится к компетенции нутрициолога без медицинского образования?',
+              options: [
+                'Составление сбалансированного рациона для здорового человека',
+                'Помощь в изменении пищевых привычек',
+                'Назначение лечебной диеты при диагностированном заболевании',
+                'Консультирование по вопросам бюджетного здорового питания'
+              ],
+              correctIndex: 2,
+              explanation: 'Назначать лечебную диету при заболевании имеет право только врач (врач-диетолог или лечащий врач).'
+            },
+            {
+              id: 't1_v1_q5',
+              type: 'single',
+              question: 'Какое соотношение белков, жиров и углеводов (Б:Ж:У) по массе считается ориентировочным для рационального питания школьников?',
+              options: ['1 : 2 : 3', '1 : 1 : 4', '1 : 1 : 1', '2 : 1 : 2'],
+              correctIndex: 1,
+              explanation: 'Классическая формула сбалансированного питания школьников по массе белков, жиров и углеводов составляет 1 : 1 : 4.'
+            },
+            {
+              id: 't1_v1_q6',
+              type: 'single',
+              question: 'Для учащихся 14–18 лет ориентировочная суточная энергетическая ценность рациона составляет:',
+              options: ['1800–2000 ккал', '2100–2300 ккал', 'до 2800–3000 ккал', '3500–4000 ккал'],
+              correctIndex: 2,
+              explanation: 'В период активного роста в 14–18 лет суточная потребность в энергии у старшеклассников достигает 2800–3000 ккал.'
+            },
+            {
+              id: 't1_v1_q7',
+              type: 'matching',
+              question: 'Соотнесите дисциплину и её основную задачу:',
+              pairs: [
+                { left: '1. Нутрициология', right: 'Б. Изучение метаболических и гигиенических аспектов питания' },
+                { left: '2. Диетология', right: 'А. Организация лечебного питания при заболеваниях' },
+                { left: '3. Гигиена питания', right: 'В. Санитарно-эпидемиологический контроль питания населения' }
+              ],
+              explanation: 'Ключ: 1 — Б (нутрициология), 2 — А (диетология), 3 — В (гигиена питания).'
+            },
+            {
+              id: 't1_v1_q8',
+              type: 'single',
+              question: 'В доказательной медицине характер питания, физическая активность, качество сна, управление стрессом и отказ от табака/алкоголя — это самостоятельные факторы профилактики. Что из перечисленного к ним НЕ относится?',
+              options: [
+                'Характер питания и уровень физической активности',
+                'Качество сна и управление стрессом',
+                'Цвет волос',
+                'Отказ от табака и алкоголя'
+              ],
+              correctIndex: 2,
+              explanation: 'Самостоятельные модифицируемые факторы профилактики: питание (а), физическая активность (б), сон (в), управление стрессом (д), отказ от табака и алкоголя (е). Цвет волос (г) фактором профилактики не является.'
+            },
+            {
+              id: 't1_v1_q9',
+              type: 'matching',
+              question: 'Установите соответствие между утверждением и его вероятным уровнем доказательности:',
+              pairs: [
+                { left: '1. «Диета с высоким содержанием клетчатки снижает риск ССЗ» (мета-анализы РКИ)', right: 'Б. Уровень А' },
+                { left: '2. «Этот суперфуд ускоряет метаболизм» (на основании отзывов блогеров)', right: 'А. Уровень С' },
+                { left: '3. «Ограничение добавленного сахара до 10% калорийности рекомендуется ВОЗ» (консенсус экспертов)', right: 'В. Уровень Б (или экспертный консенсус)' }
+              ],
+              explanation: 'Ключ: 1 — Б (Уровень А, мета-анализы РКИ), 2 — А (Уровень С, единичные мнения/отзывы), 3 — В (Уровень Б / консенсус экспертов ВОЗ).'
+            },
+            {
+              id: 't1_v1_q10',
+              type: 'single',
+              question: 'Мясо, рыба, яйца и молочные продукты являются источниками полноценного белка. Какой продукт из списка НЕ содержит полноценного белка?',
+              options: [
+                'Мясо и рыба',
+                'Яйца',
+                'Сахар',
+                'Молочные продукты'
+              ],
+              correctIndex: 2,
+              explanation: 'Мясо (а), рыба (б), яйца (в) и молочные продукты (д) содержат все незаменимые аминокислоты в оптимальном соотношении. Сахар (г) — это чистый углевод (сахароза), не содержащий белка.'
+            }
+          ],
+          v2: [
+            {
+              id: 't1_v2_q1',
+              type: 'single',
+              question: 'Гигиена питания — это прежде всего:',
+              options: [
+                'Наука о вкусовых качествах пищи',
+                'Отрасль медицины, изучающая санитарно-эпидемиологические аспекты питания',
+                'Раздел кулинарии',
+                'Метод лечения ожирения'
+              ],
+              correctIndex: 1,
+              explanation: 'Гигиена питания изучает проблемы полноценного и безопасного в санитарно-эпидемиологическом отношении питания здорового человека.'
+            },
+            {
+              id: 't1_v2_q2',
+              type: 'single',
+              question: 'Почему нутрициология считается комплексной наукой?',
+              options: [
+                'Она изучает только химический состав пищи',
+                'Она объединяет знания о физиологии, биохимии, гигиене и клинических аспектах питания',
+                'Она занимается только диетами для спортсменов',
+                'Она отрицает доказательную медицину'
+              ],
+              correctIndex: 1,
+              explanation: 'Нутрициология находится на стыке биохимии, физиологии, гигиены питания и клинической медицины.'
+            },
+            {
+              id: 't1_v2_q3',
+              type: 'single',
+              question: 'Уровень доказательности «С» означает, что утверждение основано главным образом на:',
+              options: [
+                'Мета-анализах РКИ',
+                'Мнениях экспертов или немногочисленных исследованиях',
+                'Одном крупном РКИ',
+                'Лабораторных экспериментах на клетках'
+              ],
+              correctIndex: 1,
+              explanation: 'Уровень С соответствует данным небольших нерандомизированных исследований, описанию отдельных случаев или мнению экспертов.'
+            },
+            {
+              id: 't1_v2_q4',
+              type: 'single',
+              question: 'В чём отличие рациона здорового человека от лечебной диеты?',
+              options: [
+                'Лечебная диета всегда менее калорийна',
+                'Лечебная диета назначается при патологии и требует медицинского контроля',
+                'Рацион здорового человека не учитывает нутриенты',
+                'Лечебная диета запрещена для подростков'
+              ],
+              correctIndex: 1,
+              explanation: 'Лечебная диета — это метод терапии при конкретном диагнозе, требующий контроля врача.'
+            },
+            {
+              id: 't1_v2_q5',
+              type: 'single',
+              question: 'Какая доля белков в рационе школьника должна поступать из продуктов животного происхождения (согласно гигиеническим рекомендациям)?',
+              options: ['Не менее 20%', 'Не менее 40%', 'Не менее 60%', '100%'],
+              correctIndex: 2,
+              explanation: 'Для растущего организма школьника не менее 60% суточной нормы белка должны составлять полноценные животные белки.'
+            },
+            {
+              id: 't1_v2_q6',
+              type: 'single',
+              question: 'Что из перечисленного является примером высокой «нутриентной плотности»?',
+              options: [
+                'Высокая калорийность при низком содержании витаминов',
+                'Высокое содержание полезных нутриентов на единицу калорийности',
+                'Наличие большого количества сахара',
+                'Отсутствие клетчатки'
+              ],
+              correctIndex: 1,
+              explanation: 'Нутриентная плотность — это концентрация незаменимых микро- и макронутриентов (витаминов, минералов, белка) в расчёте на 1 ккал продукта.'
+            },
+            {
+              id: 't1_v2_q7',
+              type: 'matching',
+              question: 'Соотнесите понятие и его определение:',
+              pairs: [
+                { left: '1. Рациональное питание', right: 'А. Питание, обеспечивающее энергетический баланс и физиологические потребности без превышения нормы' },
+                { left: '2. Метаболизм', right: 'Б. Совокупность химических реакций, обеспечивающих жизнедеятельность' },
+                { left: '3. Нутриент', right: 'В. Биологически значимое вещество, поступающее с пищей' }
+              ],
+              explanation: 'Ключ: 1 — А (рациональное питание), 2 — Б (метаболизм), 3 — В (нутриент).'
+            },
+            {
+              id: 't1_v2_q8',
+              type: 'single',
+              question: 'Выберите верный перечень признаков, характерных для доказательного подхода в нутрициологии:',
+              options: [
+                'Опора на РКИ и мета-анализы, учёт систематических обзоров, проверка гипотез на больших выборках',
+                'Использование только личного опыта и ссылка на авторитет блогера',
+                'Применение диет на основании отзывов в социальных сетях',
+                'Отказ от статистической проверки гипотез'
+              ],
+              correctIndex: 0,
+              explanation: 'Доказательная нутрициология опирается на РКИ и мета-анализы (а), систематические обзоры (в) и проверку гипотез на больших выборках (г).'
+            },
+            {
+              id: 't1_v2_q9',
+              type: 'matching',
+              question: 'Соотнесите утверждение с уровнем доказательности:',
+              pairs: [
+                { left: '1. «Замена насыщенных жиров ненасыщенными снижает риск СС событий» (подтверждено мета-анализами)', right: 'Б. Уровень А' },
+                { left: '2. «Этот БАД повышает иммунитет» (единичное исследование на 10 человек)', right: 'А. Уровень С' },
+                { left: '3. «Витамин D важен для здоровья костей» (общее экспертное согласие, физиологические данные)', right: 'В. Уровень Б' }
+              ],
+              explanation: 'Мета-анализы дают высший Уровень А (Б). Общее экспертное согласие и физиологические данные — Уровень Б (В), а единичное исследование на 10 человек — низкий Уровень С (А).'
+            },
+            {
+              id: 't1_v2_q10',
+              type: 'single',
+              question: 'Какие продукты следует ограничивать в рационе для снижения потребления добавленного сахара и соли?',
+              options: [
+                'Свежие овощи и орехи без соли',
+                'Кондитерские изделия, колбасные изделия и сладкие газированные напитки',
+                'Зелень, ягоды и несолёные бобовые',
+                'Цельнозерновые крупы и питьевую воду'
+              ],
+              correctIndex: 1,
+              explanation: 'Кондитерские изделия (а), колбасные изделия (б) и сладкие газированные напитки (г) — главные источники избыточного добавленного сахара и скрытой соли.'
+            }
+          ]
+        }
+      },
+      {
+        id: 'test2',
+        number: 2,
+        title: 'Макронутриенты, обмен веществ и гликирование',
+        subtitle: 'Ацетил-КоА, гликолиз, β-окисление, дезаминирование, стадии гликирования (AGEs) и функциональные источники',
+        totalInBank: 9,
+        questionsPerRun: 9,
+        hasVariants: false,
+        accentColor: '#0284C7',
+        bgLight: '#EFF6FF',
+        borderLight: '#BFDBFE',
+        // Тематическая SVG иконка (Молекула / ДНК и энергия обмена веществ)
+        iconSvg: `
+          <svg class="w-9 h-9 text-[#0284C7]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="6" cy="6" r="3"/>
+            <circle cx="18" cy="6" r="3"/>
+            <circle cx="12" cy="18" r="3"/>
+            <line x1="8.6" y1="7.5" x2="10.5" y2="15.3"/>
+            <line x1="15.4" y1="7.5" x2="13.5" y2="15.3"/>
+            <line x1="9" y1="6" x2="15" y2="6"/>
+          </svg>
+        `,
+        variants: {
+          v1: [
+            {
+              id: 't2_q1',
+              type: 'single',
+              question: 'В какой общий промежуточный продукт превращаются углеродные скелеты белков, жиров и углеводов перед входом в цикл Кребса?',
+              options: ['Глюкоза', 'Ацетил-КоА', 'Пируват', 'Глицерин'],
+              correctIndex: 1,
+              explanation: 'Ацетил-КоА — центральный узел обмена веществ, в который сходятся пути распада моносахаридов, жирных кислот и аминокислот перед циклом Кребса.'
+            },
+            {
+              id: 't2_q2',
+              type: 'single',
+              question: 'Что такое гликирование белка?',
+              options: [
+                'Ферментативное присоединение фосфатной группы',
+                'Присоединение сахара к аминогруппе белка без участия ферментов',
+                'Расщепление белка в желудке',
+                'Синтез белка на рибосоме'
+              ],
+              correctIndex: 1,
+              explanation: 'Гликирование (реакция Майяра in vivo) — это неферментативное связывание молекулы восстанавливающего сахара с свободной аминогруппой белка.'
+            },
+            {
+              id: 't2_q3',
+              type: 'single',
+              question: 'Почему конечные продукты гликирования (AGEs) способствуют старению тканей?',
+              options: [
+                'Они ускоряют синтез АТФ',
+                'Они образуют сшивки между белками, нарушая их структуру и функцию',
+                'Они растворяют коллаген',
+                'Они заменяют воду в клетке'
+              ],
+              correctIndex: 1,
+              explanation: 'AGEs формируют жёсткие поперечные «сшивки» в долгоживущих белках (например, в коллагене сосудов и кожи), снижая эластичность тканей и нарушая их функцию.'
+            },
+            {
+              id: 't2_q4',
+              type: 'single',
+              question: 'Какой растительный источник богат α-линоленовой кислотой (ALA, омега-3)?',
+              options: ['Сахарная свекла', 'Льняное масло', 'Белый рис', 'Картофель'],
+              correctIndex: 1,
+              explanation: 'Льняное масло — один из богатейших растительных источников незаменимой полиненасыщенной α-линоленовой жирной кислоты (ALA).'
+            },
+            {
+              id: 't2_q5',
+              type: 'single',
+              question: 'Что такое резистентный крахмал?',
+              options: [
+                'Крахмал, который мгновенно расщепляется до глюкозы',
+                'Крахмал, устойчивый к перевариванию в тонком кишечнике и ферментируемый микрофлорой',
+                'Крахмал, синтезированный искусственно',
+                'Крахмал, содержащийся только в мясе'
+              ],
+              correctIndex: 1,
+              explanation: 'Резистентный крахмал не расщепляется амилазами в тонкой кишке, а поступает в толстый кишечник, где служит пребиотиком для полезной микробиоты.'
+            },
+            {
+              id: 't2_q6',
+              type: 'matching',
+              question: 'Соотнесите макронутриент и его основную роль в организме:',
+              pairs: [
+                { left: '1. Углеводы', right: 'А) Быстрое топливо для клеток' },
+                { left: '2. Жиры', right: 'В) Запас энергии и материал для мембран клеток' },
+                { left: '3. Белки', right: 'Б) Ферменты, гормоны, строительство тканей' }
+              ],
+              explanation: 'Ключ: 1 — А (углеводы — быстрое топливо), 2 — В (жиры — резерв энергии и фосфолипиды мембран), 3 — Б (белки — пластическая, каталитическая и регуляторная функции).'
+            },
+            {
+              id: 't2_q7',
+              type: 'matching',
+              question: 'Соотнесите молекулу или процесс с путём обмена, к которому он относится:',
+              pairs: [
+                { left: '1. Гликолиз', right: 'Б) Обмен углеводов' },
+                { left: '2. β-окисление', right: 'В) Обмен жиров' },
+                { left: '3. Дезаминирование', right: 'А) Обмен белков' }
+              ],
+              explanation: 'Ключ: 1 — Б (гликолиз расщепляет глюкозу), 2 — В (β-окисление расщепляет жирные кислоты), 3 — А (дезаминирование отщепляет аминогруппу от аминокислот).'
+            },
+            {
+              id: 't2_q8',
+              type: 'matching',
+              question: 'Соотнесите стадию гликирования с тем, что на ней происходит:',
+              pairs: [
+                { left: '1. Основание Шиффа', right: 'Б) Нестабильное первое соединение сахара с аминогруппой' },
+                { left: '2. Продукт Амадори', right: 'В) Более устойчивая перегруппировка первичного продукта' },
+                { left: '3. AGEs', right: 'А) Стабильные «сшивки» между белками, накапливаются годами' }
+              ],
+              explanation: 'Ключ: 1 — Б (Основание Шиффа — быстрое обратимое соединение), 2 — В (Продукт Амадори — более стабильный промежуточный продукт), 3 — А (AGEs — необратимые сшивки).'
+            },
+            {
+              id: 't2_q9',
+              type: 'matching',
+              question: 'Соотнесите новый (функциональный) источник макронутриента с тем, что он даёт:',
+              pairs: [
+                { left: '1. Листовой белковый концентрат (люцерна, клевер)', right: 'В) Альтернативный белок' },
+                { left: '2. Льняное масло', right: 'Б) α-линоленовая кислота (ALA)' },
+                { left: '3. Сорта риса с изменённой структурой крахмала', right: 'А) Резистентный крахмал и клетчатка' }
+              ],
+              explanation: 'Ключ: 1 — В (концентрат трав даёт альтернативный белок), 2 — Б (льняное масло даёт ALA), 3 — А (селекционные сорта риса богаты резистентным крахмалом).'
+            }
+          ]
+        }
+      },
+      {
+        id: 'test3',
+        number: 3,
+        title: 'Микронутриенты и дыхательная цепь митохондрий',
+        subtitle: 'Коферменты витаминов группы B (ТПФ, ФАД, НАД⁺, КоА), роль железа и магния в синтезе АТФ',
+        totalInBank: 20,
+        questionsPerRun: 10,
+        hasVariants: true,
+        accentColor: '#8B5CF6',
+        bgLight: '#F5F3FF',
+        borderLight: '#DDD6FE',
+        // Тематическая SVG иконка (Митохондрия и молния АТФ)
+        iconSvg: `
+          <svg class="w-9 h-9 text-[#7C3AED]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="6" width="20" height="12" rx="6"/>
+            <path d="M6 12h2l2-3 2 6 2-3h4"/>
+          </svg>
+        `,
+        variants: {
+          v1: [
+            {
+              id: 't3_v1_q1',
+              type: 'single',
+              question: 'Коферментной формой какого витамина является тиаминпирофосфат (ТПФ), необходимый для работы пируватдегидрогеназы?',
+              options: ['Витамин B2', 'Витамин B1', 'Витамин B3', 'Витамин B12'],
+              correctIndex: 1,
+              explanation: 'Тиаминпирофосфат (ТПФ) образуется из витамина B1 (тиамина) и необходим для окислительного декарбоксилирования пирувата.'
+            },
+            {
+              id: 't3_v1_q2',
+              type: 'single',
+              question: 'Дефицит какого микроэлемента напрямую снижает концентрацию цитохромов в дыхательной цепи митохондрий?',
+              options: ['Магний', 'Кальций', 'Железо', 'Цинк'],
+              correctIndex: 2,
+              explanation: 'Железо (Fe) входит в состав гемовых групп цитохромов и железосерных кластеров дыхательной цепи.'
+            },
+            {
+              id: 't3_v1_q3',
+              type: 'single',
+              question: 'Какие три витамина группы B непосредственно участвуют в работе дыхательной цепи или цикла Кребса в качестве предшественников коферментов (ТПФ, ФАД/ФМН, НАД⁺)?',
+              options: [
+                'Витамин B1, Витамин B2 и Витамин B3',
+                'Витамин B1, Витамин C и Витамин B12',
+                'Витамин B2, Витамин C и Витамин D',
+                'Только Витамин C и Витамин B12'
+              ],
+              correctIndex: 0,
+              explanation: 'Верная тройка по ключу (а, б, г): Витамин B1 (кофермент ТПФ), Витамин B2 (ФАД и ФМН) и Витамин B3 (НАД⁺).'
+            },
+            {
+              id: 't3_v1_q4',
+              type: 'matching',
+              question: 'Установите соответствие между микронутриентом и его ролью в энергетическом обмене:',
+              pairs: [
+                { left: '1. Магний (Mg²⁺)', right: 'Б) Активирует АТФ-синтазу и дегидрогеназы цикла Кребса' },
+                { left: '2. Железо (Fe)', right: 'А) Входит в состав гемовых групп цитохромов дыхательной цепи' },
+                { left: '3. Витамин B3 (ниацин)', right: 'В) Является предшественником НАД⁺, переносчика протонов и электронов' },
+                { left: '4. Витамин B1 (тиамин)', right: 'Г) Кофермент пируватдегидрогеназы, связывающей гликолиз с ЦТК' }
+              ],
+              explanation: 'Ключ: 1 — Б (магний), 2 — А (железо), 3 — В (витамин B3), 4 — Г (витамин B1).'
+            },
+            {
+              id: 't3_v1_q5',
+              type: 'single',
+              question: 'Почему дефицит витамина B12 приводит к нарушению работы митохондриальной АТФ-синтазы, даже если сам витамин B12 не входит в состав дыхательной цепи?',
+              options: [
+                'Из-за нехватки кофактора аденозилкобаламина снижается активность метилмалонил-КоА-мутазы, накапливается метилмалоновая кислота, которая ингибирует АТФ-синтазу',
+                'Витамин B12 напрямую переносит кислород через мембрану митохондрии',
+                'При дефиците B12 глюкоза полностью распадается ещё в ротовой полости',
+                'Витамин B12 заменяет собой молекулы АТФ в цитоплазме'
+              ],
+              correctIndex: 0,
+              explanation: 'Цепочка: дефицит B12 → нехватка аденозилкобаламина → сбой метилмалонил-КоА-мутазы → накопление метилмалоновой кислоты → ингибирование АТФ-синтазы → падение синтеза АТФ.'
+            },
+            {
+              id: 't3_v1_q6',
+              type: 'single',
+              question: 'ФАД и ФМН — это коферментные формы витамина:',
+              options: ['Витамин B1', 'Витамин B2', 'Витамин B5', 'Витамин B6'],
+              correctIndex: 1,
+              explanation: 'Флавинадениндинуклеотид (ФАД) и флавинмононуклеотид (ФМН) синтезируются из рибофлавина (витамина B2).'
+            },
+            {
+              id: 't3_v1_q7',
+              type: 'single',
+              question: 'Какое последствие для клетки имеет дефицит магния?',
+              options: [
+                'Увеличение концентрации цитохромов',
+                'Снижение активности АТФ-синтазы',
+                'Повышение эффективности гликолиза',
+                'Снижение накопления лактата'
+              ],
+              correctIndex: 1,
+              explanation: 'Ионы Mg²⁺ необходимы для активации митохондриальной АТФ-синтазы и стабилизации молекулы Mg-АТФ.'
+            },
+            {
+              id: 't3_v1_q8',
+              type: 'single',
+              question: 'Почему железо называют «структурным компонентом дыхательной цепи», а не только компонентом гемоглобина?',
+              options: [
+                'Оно входит в состав гемовых цитохромов (b, c, c₁, a, a₃) дыхательной цепи, а его дефицит снижает концентрацию цитохромов и дыхательную способность митохондрий',
+                'Оно формирует билипидную оболочку ядра клетки',
+                'Оно расщепляет крахмал в просвете тонкого кишечника',
+                'Оно превращает молочную кислоту в белки'
+              ],
+              correctIndex: 0,
+              explanation: 'Аргументы: (1) железо входит в гем цитохромов (b, c, c₁, a, a₃) дыхательной цепи; (2) его дефицит снижает концентрацию цитохромов и транспорт электронов в митохондриях.'
+            },
+            {
+              id: 't3_v1_q9',
+              type: 'matching',
+              question: 'Расположите события в правильной последовательности (от Шага 1 до Шага 4), описывающей блокировку выработки энергии при дефиците витамина B1:',
+              pairs: [
+                { left: '1. Шаг 1 (Первичный сбой)', right: 'Б) Нарушение работы пируватдегидрогеназы' },
+                { left: '2. Шаг 2', right: 'А) Снижение образования ацетил-КоА' },
+                { left: '3. Шаг 3', right: 'В) Уменьшение поступления субстратов в цикл Кребса' },
+                { left: '4. Шаг 4 (Финальный итог)', right: 'Г) Падение синтеза АТФ' }
+              ],
+              explanation: 'Правильная последовательность (Б → А → В → Г): сбой пируватдегидрогеназы (Б) → меньше ацетил-КоА (А) → голодание цикла Кребса (В) → падение синтеза АТФ (Г).'
+            },
+            {
+              id: 't3_v1_q10',
+              type: 'single',
+              question: 'Кофермент A (КоА) синтезируется из витамина:',
+              options: ['Витамин B1', 'Витамин B2', 'Витамин B5', 'Витамин B7'],
+              correctIndex: 2,
+              explanation: 'Предшественником кофермента А (КоА) является пантотеновая кислота — витамин B5.'
+            }
+          ],
+          v2: [
+            {
+              id: 't3_v2_q1',
+              type: 'single',
+              question: 'Из какого витамина синтезируется НАД⁺ — ключевой переносчик протонов и электронов в дыхательной цепи?',
+              options: ['Витамин B1', 'Витамин B2', 'Витамин B3', 'Витамин B12'],
+              correctIndex: 2,
+              explanation: 'Никотинамидадениндинуклеотид (НАД⁺) синтезируется из ниацина (витамина B3 / PP).'
+            },
+            {
+              id: 't3_v2_q2',
+              type: 'single',
+              question: 'Метилмалоновая кислота, накапливающаяся при дефиците витамина B12, ингибирует:',
+              options: [
+                'Пируватдегидрогеназу',
+                'Митохондриальную АТФ-синтазу',
+                'Цитохромоксидазу',
+                'Гексокиназу'
+              ],
+              correctIndex: 1,
+              explanation: 'Избыток метилмалоновой кислоты подавляет работу митохондриальной АТФ-синтазы, снижая выработку энергии.'
+            },
+            {
+              id: 't3_v2_q3',
+              type: 'single',
+              question: 'Какие два последствия для клетки имеет дефицит магния?',
+              options: [
+                'Снижение активности АТФ-синтазы и нарушение работы дегидрогеназ цикла Кребса',
+                'Увеличение концентрации цитохромов и повышение эффективности гликолиза',
+                'Избыточный синтез гемоглобина и ускорение цикла Кребса',
+                'Повышение выработки АТФ без участия кислорода'
+              ],
+              correctIndex: 0,
+              explanation: 'По ключу (а, в): дефицит Mg²⁺ ведёт к снижению активности АТФ-синтазы и нарушению работы дегидрогеназ цикла Кребса.'
+            },
+            {
+              id: 't3_v2_q4',
+              type: 'matching',
+              question: 'Установите соответствие между витамином и его коферментной формой / ролью:',
+              pairs: [
+                { left: '1. Витамин B1', right: 'Б) Тиаминпирофосфат (ТПФ) — кофермент пируватдегидрогеназы' },
+                { left: '2. Витамин B2', right: 'А) ФАД и ФМН — коферменты дыхательной цепи' },
+                { left: '3. Витамин B5', right: 'Г) Предшественник кофермента A (КоА)' },
+                { left: '4. Витамин B12', right: 'В) Аденозилкобаламин — кофактор метилмалонил-КоА-мутазы' }
+              ],
+              explanation: 'Ключ: 1 — Б (B1 → ТПФ), 2 — А (B2 → ФАД и ФМН), 3 — Г (B5 → КоА), 4 — В (B12 → аденозилкобаламин).'
+            },
+            {
+              id: 't3_v2_q5',
+              type: 'single',
+              question: 'Как дефицит железа блокирует выработку энергии на уровне митохондрий?',
+              options: [
+                'Железо входит в состав гемовых цитохромов и Fe-S кластеров дыхательной цепи; при дефиците снижается концентрация цитохромов, нарушается перенос электронов и падает синтез АТФ',
+                'Железо расщепляет липиды в желудке без участия желчи',
+                'При дефиците железа блокируется поступление воды в клетку',
+                'Железо заменяет собой витамин B1 в пируватдегидрогеназе'
+              ],
+              correctIndex: 0,
+              explanation: 'Без железа не формируются гем цитохромов и железосерные (Fe-S) кластеры, что прерывает перенос электронов в дыхательной цепи митохондрий.'
+            },
+            {
+              id: 't3_v2_q6',
+              type: 'single',
+              question: 'Кофермент A (КоА) необходим для работы:',
+              options: [
+                'Только гликолиза',
+                'Пируватдегидрогеназного комплекса и β-окисления жирных кислот',
+                'Только дыхательной цепи',
+                'Только цикла Кребса'
+              ],
+              correctIndex: 1,
+              explanation: 'Кофермент А участвует как в образовании ацетил-КоА в пируватдегидрогеназном комплексе, так и в активации и β-окислении жирных кислот.'
+            },
+            {
+              id: 't3_v2_q7',
+              type: 'single',
+              question: 'Биотин (витамин B7) является коферментом:',
+              options: ['Карбоксилаз', 'Дегидрогеназ', 'Киназ', 'Мутаз'],
+              correctIndex: 0,
+              explanation: 'Биотин (B7) служит коферментом карбоксилаз (например, пируваткарбоксилазы и ацетил-КоА-карбоксилазы).'
+            },
+            {
+              id: 't3_v2_q8',
+              type: 'single',
+              question: 'Почему магний (Mg²⁺) необходим для биологической активности энергетического обмена и синтеза АТФ?',
+              options: [
+                'Mg²⁺ активирует митохондриальную АТФ-синтазу и дегидрогеназы цикла Кребса (а также образует активный комплекс Mg-АТФ)',
+                'Магний входит в состав гема вместо железа',
+                'Магний является единственным переносчиком кислорода в крови',
+                'Магний не участвует в работе митохондрий'
+              ],
+              correctIndex: 0,
+              explanation: 'Два ключевых аргумента: (1) Mg²⁺ активирует митохондриальную АТФ-синтазу; (2) магний активирует ферменты-дегидрогеназы цикла Кребса и стабилизирует АТФ.'
+            },
+            {
+              id: 't3_v2_q9',
+              type: 'matching',
+              question: 'Расположите события в правильной последовательности (от Шага 1 до Шага 4), описывающей последствия дефицита железа для митохондрии:',
+              pairs: [
+                { left: '1. Шаг 1 (Первопричина)', right: 'Г) Дефицит железа в клетке' },
+                { left: '2. Шаг 2', right: 'А) Снижение концентрации цитохромов' },
+                { left: '3. Шаг 3', right: 'Б) Нарушение переноса электронов по дыхательной цепи' },
+                { left: '4. Шаг 4 (Финальный итог)', right: 'В) Падение синтеза АТФ' }
+              ],
+              explanation: 'Последовательность по ключу (Г → А → Б → В): дефицит железа в клетке (Г) → снижение цитохромов (А) → сбой переноса электронов (Б) → падение синтеза АТФ (В).'
+            },
+            {
+              id: 't3_v2_q10',
+              type: 'single',
+              question: 'Дефицит какого витамина приводит к накоплению пирувата и лактата из-за нарушения работы пируватдегидрогеназы?',
+              options: ['Витамин B1', 'Витамин B2', 'Витамин B12', 'Витамин B7'],
+              correctIndex: 0,
+              explanation: 'При нехватке витамина B1 (тиамина) пируват не может превратиться в ацетил-КоА и восстанавливается в лактат (молочную кислоту).'
+            }
+          ]
+        }
+      }
+    ];
+
+    /*************************************************************************
+     * 2. ДАННЫЕ ДЛЯ БОНУС-ИГРЫ «МОЛЕКУЛЯРНЫЙ ИНЖЕНЕР МИТОХОНДРИЙ»
+     *************************************************************************/
+    const MITO_BREAKDOWNS = [
+      {
+        id: 'card_a',
+        code: 'Карточка А',
+        stage: 'Этап 2: Пируватдегидрогеназный комплекс',
+        symptom: '«В рационе не хватает витамина B1. Пируват не превращается в ацетил-КоА, цикл Кребса не получает субстрат».',
+        clinical: 'У пациента накапливаются пируват и лактат, быстрая мышечная утомляемость.',
+        correctResource: 'Тиамин (B1)',
+        foodSource: 'Цельнозерновые продукты, бобовые, семена подсолнечника, свинина',
+        explanation: 'Верно! Тиаминпирофосфат (ТПФ из витамина B1) — кофермент пируватдегидрогеназы. Без него пируват не превращается в ацетил-КоА.'
+      },
+      {
+        id: 'card_b',
+        code: 'Карточка Б',
+        stage: 'Этап 4: Дыхательная цепь митохондрий',
+        symptom: '«В клетке дефицит микроэлемента. Цитохромы дыхательной цепи (b, c, c₁, a, a₃) не функционируют».',
+        clinical: 'Клинический кейс: У подростка повышенная утомляемость, мышечная слабость, бледность. Анализы показали низкий ферритин.',
+        correctResource: 'Железо',
+        foodSource: 'Красное мясо, печень, чечевица, фасоль, гречка',
+        explanation: 'Точно! Железо входит в состав гема цитохромов и Fe-S кластеров дыхательной цепи. Его приём восстановит транспорт электронов!'
+      },
+      {
+        id: 'card_c',
+        code: 'Карточка В',
+        stage: 'Этап 3 и 5: Дегидрогеназы ЦТК и АТФ-синтаза',
+        symptom: '«Концентрация ионов снижена. Митохондриальная АТФ-синтаза и дегидрогеназы цикла Кребса не активируются».',
+        clinical: 'Мышечные спазмы, снижение синтеза биологически активной формы Mg-АТФ.',
+        correctResource: 'Магний',
+        foodSource: 'Орехи (миндаль, кешью), тыквенные семечки, шпинат, тёмный шоколад',
+        explanation: 'Блестяще! Ионы Mg²⁺ активируют АТФ-синтазу и дегидрогеназы цикла Кребса, стабилизируя молекулу АТФ.'
+      },
+      {
+        id: 'card_d',
+        code: 'Карточка Г',
+        stage: 'Этап 5: Блокировка АТФ-синтазы метаболитом',
+        symptom: '«В митохондриях накапливается метилмалоновая кислота, которая ингибирует АТФ-синтазу из-за сбоя метилмалонил-КоА-мутазы».',
+        clinical: 'Снижение синтеза АТФ на фоне нехватки кофактора аденозилкобаламина.',
+        correctResource: 'Кобаламин (B12)',
+        foodSource: 'Говяжья печень, рыба, морепродукты, мясо, сыр, яйца',
+        explanation: 'Отлично! Аденозилкобаламин (из витамина B12) нужен метилмалонил-КоА-мутазе, чтобы метилмалоновая кислота не накапливалась и не блокировала АТФ-синтазу.'
+      }
+    ];
+
+    const MITO_RESOURCES = [
+      'Тиамин (B1)',
+      'Рибофлавин (B2)',
+      'Ниацин (B3)',
+      'Пантотеновая кислота (B5)',
+      'Биотин (B7)',
+      'Кобаламин (B12)',
+      'Фолат',
+      'Железо',
+      'Магний',
+      'Цинк',
+      'Кальций'
+    ];
+
+    /*************************************************************************
+     * 3. СОСТОЯНИЕ ПРИЛОЖЕНИЯ (STATE)
+     *************************************************************************/
+    const appState = {
+      xp: 0,
+      moduleProgress: {
+        test1: { completed: false, bestScore: null, lastMistakes: [], selectedVariantMode: 'random' },
+        test2: { completed: false, bestScore: null, lastMistakes: [], selectedVariantMode: 'v1' },
+        test3: { completed: false, bestScore: null, lastMistakes: [], selectedVariantMode: 'random' }
+      },
+      activeQuiz: null,
+      mitoGame: {
+        selectedBreakdownId: 'card_a',
+        solvedIds: []
+      }
+    };
+
+    /*************************************************************************
+     * 4. ИНИЦИАЛИЗАЦИЯ И ГЛАВНОЕ МЕНЮ
+     *************************************************************************/
+    function initApp() {
+      renderHeaderStats();
+      renderMainMenu();
+    }
+
+    function renderHeaderStats() {
+      document.getElementById('header-xp').textContent = `${appState.xp} XP`;
+      const completedCount = Object.values(appState.moduleProgress).filter(m => m.completed).length;
+      document.getElementById('header-completed').textContent = `${completedCount} / 3`;
+    }
+
+    function setVariantMode(moduleId, mode, event) {
+      if (event) event.stopPropagation();
+      appState.moduleProgress[moduleId].selectedVariantMode = mode;
+      renderMainMenu();
+    }
+
+    function renderMainMenu() {
+      const container = document.getElementById('modules-list');
+      container.innerHTML = '';
+
+      MODULES_DATA.forEach(mod => {
+        const prog = appState.moduleProgress[mod.id];
+        const hasSavedMistakes = prog.lastMistakes && prog.lastMistakes.length > 0;
+
+        const variantSelectorHtml = mod.hasVariants ? `
+          <div class="flex flex-wrap items-center gap-1.5 pt-2">
+            <span class="text-xs font-bold text-gray-500 mr-1">Выбор варианта:</span>
+            <button onclick="setVariantMode('${mod.id}', 'random', event)"
+              class="px-2.5 py-1 rounded-lg text-xs font-extrabold border transition ${prog.selectedVariantMode === 'random' ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'}">
+              🎲 Случайный (10 вопр.)
+            </button>
+            <button onclick="setVariantMode('${mod.id}', 'v1', event)"
+              class="px-2.5 py-1 rounded-lg text-xs font-extrabold border transition ${prog.selectedVariantMode === 'v1' ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'}">
+              Вариант 1 (10 вопр.)
+            </button>
+            <button onclick="setVariantMode('${mod.id}', 'v2', event)"
+              class="px-2.5 py-1 rounded-lg text-xs font-extrabold border transition ${prog.selectedVariantMode === 'v2' ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'}">
+              Вариант 2 (10 вопр.)
+            </button>
+          </div>
+        ` : `
+          <div class="flex items-center gap-2 pt-2">
+            <span class="px-2.5 py-1 rounded-lg bg-gray-100 border border-gray-200 text-xs font-extrabold text-gray-700">
+              Единый вариант • 9 вопросов (5 выбор ответа + 4 соотнесение)
+            </span>
+          </div>
+        `;
+
+        const statusBadge = prog.completed
+          ? `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#DCFCE7] text-[#166534] text-xs font-extrabold">✓ Пройден (${prog.bestScore}%)</span>`
+          : `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 text-xs font-bold">Не пройден</span>`;
+
+        const mistakeQuickBtn = hasSavedMistakes ? `
+          <button onclick="startModuleQuiz('${mod.id}', true)" class="tactile-btn tactile-btn-amber px-4 py-3 text-xs sm:text-sm w-full sm:w-auto">
+            🔄 Работа над ошибками (${prog.lastMistakes.length})
+          </button>
+        ` : '';
+
+        const card = document.createElement('div');
+        card.className = 'tactile-card p-5 sm:p-6 hover:border-[#C7B299] transition';
+        card.innerHTML = `
+          <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+            <div class="flex items-start gap-4 flex-1">
+              <!-- Thematic Module Icon Button -->
+              <div onclick="startModuleQuiz('${mod.id}', false)" class="w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 cursor-pointer border-2 border-b-4 transition transform hover:scale-105"
+                   style="background-color: ${mod.bgLight}; border-color: ${mod.borderLight}; border-bottom-color: ${mod.accentColor};"
+                   title="Нажмите, чтобы начать Тест ${mod.number}">
+                ${mod.iconSvg}
+              </div>
+
+              <div class="space-y-1.5 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="text-xs font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md"
+                        style="background-color: ${mod.bgLight}; color: ${mod.accentColor};">
+                    Тест ${mod.number} • В базе: ${mod.totalInBank} вопр.
+                  </span>
+                  ${statusBadge}
+                </div>
+
+                <h4 class="text-lg sm:text-xl font-black text-gray-900 leading-snug">
+                  ${mod.title}
+                </h4>
+
+                <p class="text-xs sm:text-sm text-gray-600">
+                  ${mod.subtitle}
+                </p>
+
+                ${variantSelectorHtml}
+              </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row md:flex-col lg:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto shrink-0">
+              ${mistakeQuickBtn}
+              <button onclick="startModuleQuiz('${mod.id}', false)" class="tactile-btn tactile-btn-green px-6 py-3.5 text-sm sm:text-base w-full sm:w-auto">
+                Начать тест →
+              </button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    /*************************************************************************
+     * 5. ЗАПУСК И ЛОГИКА ТЕСТИРОВАНИЯ + РАБОТА НАД ОШИБКАМИ
+     *************************************************************************/
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function startModuleQuiz(moduleId, onlySavedMistakes = false) {
+      const mod = MODULES_DATA.find(m => m.id === moduleId);
+      const prog = appState.moduleProgress[moduleId];
+
+      let chosenVariantKey = 'v1';
+      let variantLabel = 'Единый вариант';
+
+      if (mod.hasVariants) {
+        if (prog.selectedVariantMode === 'random') {
+          chosenVariantKey = Math.random() < 0.5 ? 'v1' : 'v2';
+          variantLabel = chosenVariantKey === 'v1' ? 'Вариант 1 (Случайный)' : 'Вариант 2 (Случайный)';
+        } else if (prog.selectedVariantMode === 'v2') {
+          chosenVariantKey = 'v2';
+          variantLabel = 'Вариант 2';
+        } else {
+          chosenVariantKey = 'v1';
+          variantLabel = 'Вариант 1';
+        }
+      }
+
+      let sourceQuestions = [];
+      let isMistakeReviewPhase = false;
+
+      if (onlySavedMistakes && prog.lastMistakes && prog.lastMistakes.length > 0) {
+        sourceQuestions = prog.lastMistakes.map(q => JSON.parse(JSON.stringify(q)));
+        isMistakeReviewPhase = true;
+        variantLabel = 'Работа над ошибками';
+      } else {
+        sourceQuestions = mod.variants[chosenVariantKey].map(q => JSON.parse(JSON.stringify(q)));
+      }
+
+      appState.activeQuiz = {
+        moduleId: mod.id,
+        moduleNumber: mod.number,
+        moduleTitle: mod.title,
+        variantLabel,
+        // Очередь основного прохождения
+        mainQueue: sourceQuestions,
+        currentIndex: 0,
+        // Очередь вопросов, где ученик допустил ошибку
+        mistakesQueue: isMistakeReviewPhase ? [...sourceQuestions] : [],
+        // Находимся ли мы сейчас в фазе «Работа над ошибками»
+        inMistakePhase: isMistakeReviewPhase,
+        initialMistakesCount: isMistakeReviewPhase ? sourceQuestions.length : 0,
+        // Статистика
+        totalInitialQuestions: sourceQuestions.length,
+        firstTryCorrectCount: 0,
+        fixedMistakesCount: 0,
+        everMissedQuestionsMap: {}, // сохраняем вопросы, где была ошибка хотя бы раз
+        // Текущее состояние интерактивного ответа
+        currentQuestion: null,
+        selectedSingleOption: null,
+        matchingState: {
+          selectedLeftIndex: null,
+          shuffledRightOptions: [],
+          // Карта: leftIndex -> rightShuffledIndex
+          userPairs: {}
+        },
+        isAnswerChecked: false
+      };
+
+      // Переключаем экран
+      showView('view-quiz');
+      loadCurrentQuestion();
+    }
+
+    function loadCurrentQuestion() {
+      const quiz = appState.activeQuiz;
+      if (!quiz) return;
+
+      quiz.isAnswerChecked = false;
+      quiz.selectedSingleOption = null;
+      quiz.matchingState.selectedLeftIndex = null;
+      quiz.matchingState.userPairs = {};
+
+      // Определяем текущий вопрос в зависимости от фазы (основной тест ИЛИ работа над ошибками)
+      if (!quiz.inMistakePhase) {
+        if (quiz.currentIndex < quiz.mainQueue.length) {
+          quiz.currentQuestion = quiz.mainQueue[quiz.currentIndex];
+        } else {
+          // Основная очередь вопросов закончилась! Проверяем, есть ли ошибки для отработки
+          if (quiz.mistakesQueue.length > 0) {
+            quiz.inMistakePhase = true;
+            quiz.initialMistakesCount = quiz.mistakesQueue.length;
+            quiz.currentQuestion = quiz.mistakesQueue[0];
+          } else {
+            finishQuizNow();
+            return;
+          }
+        }
+      } else {
+        // Мы в режиме «Работа над ошибками»
+        if (quiz.mistakesQueue.length > 0) {
+          quiz.currentQuestion = quiz.mistakesQueue[0];
+        } else {
+          finishQuizNow();
+          return;
+        }
+      }
+
+      // Если вопрос типа matching — перемешиваем правый столбец
+      if (quiz.currentQuestion.type === 'matching') {
+        const rightItems = quiz.currentQuestion.pairs.map((p, idx) => ({
+          originalPairIndex: idx,
+          text: p.right
+        }));
+        quiz.matchingState.shuffledRightOptions = shuffleArray(rightItems);
+      }
+
+      renderQuizUI();
+    }
+
+    function renderQuizUI() {
+      const quiz = appState.activeQuiz;
+      const q = quiz.currentQuestion;
+
+      // Заголовок и плашка варианта
+      document.getElementById('quiz-module-title').textContent = `Тест ${quiz.moduleNumber}: ${quiz.moduleTitle}`;
+      document.getElementById('quiz-variant-pill').textContent = quiz.variantLabel;
+
+      const mistakeBanner = document.getElementById('mistake-review-banner');
+      const mistakeTag = document.getElementById('question-mistake-tag');
+      const progressBar = document.getElementById('quiz-progress-bar');
+
+      if (!quiz.inMistakePhase) {
+        mistakeBanner.classList.add('hidden');
+        mistakeTag.classList.add('hidden');
+        progressBar.className = 'h-full bg-[#4CAF50] rounded-full transition-all duration-300 relative';
+
+        const currentNum = quiz.currentIndex + 1;
+        const totalNum = quiz.mainQueue.length;
+        document.getElementById('quiz-progress-text').textContent = `Вопрос ${currentNum} из ${totalNum}`;
+        const pct = Math.max(8, Math.round((currentNum / totalNum) * 100));
+        progressBar.style.width = `${pct}%`;
+      } else {
+        // ЯВНАЯ ИНДИКАЦИЯ РЕЖИМА «РАБОТА НАД ОШИБКАМИ»
+        mistakeBanner.classList.remove('hidden');
+        mistakeTag.classList.remove('hidden');
+        progressBar.className = 'h-full bg-[#F59E0B] rounded-full transition-all duration-300 relative';
+
+        const remaining = quiz.mistakesQueue.length;
+        const totalMistakes = quiz.initialMistakesCount;
+        const solvedMistakes = totalMistakes - remaining;
+
+        document.getElementById('quiz-progress-text').textContent = `Работа над ошибками • Осталось: ${remaining}`;
+        document.getElementById('mistake-remaining-badge').textContent = `Осталось исправить: ${remaining} из ${totalMistakes}`;
+
+        const pct = Math.max(12, Math.round(((solvedMistakes + 0.5) / totalMistakes) * 100));
+        progressBar.style.width = `${pct}%`;
+      }
+
+      // Тип вопроса и текст
+      const typeBadge = document.getElementById('question-type-badge');
+      const helperText = document.getElementById('question-helper');
+
+      if (q.type === 'single') {
+        typeBadge.textContent = 'Формат 1 • Выберите один правильный ответ';
+        typeBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#EFF6FF] text-[#1D4ED8] font-display font-extrabold text-xs uppercase tracking-wide';
+        helperText.textContent = 'Нажмите на карточку с верным утверждением и нажмите кнопку «Проверить ответ».';
+      } else {
+        typeBadge.textContent = 'Формат 2 • Соотнесите блоки 1-к-1';
+        typeBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#F5F3FF] text-[#6D28D9] font-display font-extrabold text-xs uppercase tracking-wide';
+        helperText.textContent = 'Нажмите на элемент в левом столбце, а затем на подходящий блок справа, чтобы связать их цветной парой. Чтобы отменить пару — нажмите на неё ещё раз.';
+      }
+
+      document.getElementById('question-text').textContent = q.question;
+
+      // Рендер интерактивной зоны
+      renderInteractiveQuestionArea();
+
+      // Сброс нижней панели действий
+      document.getElementById('feedback-idle').classList.remove('hidden');
+      document.getElementById('feedback-result').classList.add('hidden');
+      document.getElementById('btn-check-answer').classList.remove('hidden');
+      document.getElementById('btn-next-question').classList.add('hidden');
+      updateCheckButtonState();
+    }
+
+    function renderInteractiveQuestionArea() {
+      const quiz = appState.activeQuiz;
+      const q = quiz.currentQuestion;
+      const area = document.getElementById('question-interactive-area');
+      area.innerHTML = '';
+
+      const resetMatchingBtn = document.getElementById('btn-reset-matching');
+
+      if (q.type === 'single') {
+        resetMatchingBtn.classList.add('hidden');
+        const letters = ['А', 'Б', 'В', 'Г'];
+        const list = document.createElement('div');
+        list.className = 'grid grid-cols-1 gap-3';
+
+        q.options.forEach((optText, idx) => {
+          const isSelected = quiz.selectedSingleOption === idx;
+          let stateClass = '';
+          let badgeClass = 'bg-gray-100 text-gray-700 border-gray-200';
+
+          if (!quiz.isAnswerChecked) {
+            if (isSelected) {
+              stateClass = 'selected';
+              badgeClass = 'bg-[#0284C7] text-white border-[#0284C7]';
+            }
+          } else {
+            if (idx === q.correctIndex) {
+              stateClass = 'correct locked';
+              badgeClass = 'bg-[#059669] text-white border-[#059669]';
+            } else if (isSelected && idx !== q.correctIndex) {
+              stateClass = 'wrong locked';
+              badgeClass = 'bg-[#DC2626] text-white border-[#DC2626]';
+            } else {
+              stateClass = 'locked opacity-60';
+            }
+          }
+
+          const btn = document.createElement('div');
+          btn.className = `option-card p-4 flex items-center gap-3.5 ${stateClass}`;
+          btn.onclick = () => selectSingleOption(idx);
+          btn.innerHTML = `
+            <span class="w-8 h-8 rounded-xl border font-display font-black text-sm flex items-center justify-center shrink-0 ${badgeClass}">
+              ${letters[idx] || idx + 1}
+            </span>
+            <span class="text-sm sm:text-base font-semibold leading-snug flex-1">${optText}</span>
+          `;
+          list.appendChild(btn);
+        });
+
+        area.appendChild(list);
+      } else if (q.type === 'matching') {
+        // Показываем кнопку сброса пар, если ответ ещё не проверен и хотя бы 1 пара связана
+        const pairedCount = Object.keys(quiz.matchingState.userPairs).length;
+        if (!quiz.isAnswerChecked && pairedCount > 0) {
+          resetMatchingBtn.classList.remove('hidden');
+        } else {
+          resetMatchingBtn.classList.add('hidden');
+        }
+
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-4 items-start';
+
+        // Левая колонка (Понятия / Шаги 1..N)
+        const leftCol = document.createElement('div');
+        leftCol.className = 'space-y-3';
+        leftCol.innerHTML = `<div class="text-xs font-extrabold uppercase tracking-wider text-gray-500 px-1">1. Элементы (нажмите для выбора):</div>`;
+
+        q.pairs.forEach((pair, leftIdx) => {
+          const isCurrentlySelected = quiz.matchingState.selectedLeftIndex === leftIdx;
+          const pairedRightIdx = quiz.matchingState.userPairs[leftIdx];
+          const isPaired = pairedRightIdx !== undefined;
+
+          let cardClass = 'option-card p-3.5 sm:p-4 flex items-center justify-between gap-3';
+          let pairChipHtml = '';
+
+          if (!quiz.isAnswerChecked) {
+            if (isCurrentlySelected) {
+              cardClass += ' selected ring-2 ring-[#38BDF8]';
+            } else if (isPaired) {
+              cardClass += ` pair-color-${leftIdx % 4}`;
+              pairChipHtml = `<span class="px-2.5 py-1 rounded-lg text-xs font-black pair-badge-${leftIdx % 4} shrink-0">Пара #${leftIdx + 1} ✕</span>`;
+            }
+          } else {
+            // Проверка правильности конкретной пары
+            const rightObj = quiz.matchingState.shuffledRightOptions[pairedRightIdx];
+            const isPairCorrect = rightObj && rightObj.originalPairIndex === leftIdx;
+            cardClass += isPairCorrect ? ' correct locked' : ' wrong locked';
+            pairChipHtml = `<span class="px-2.5 py-1 rounded-lg text-xs font-black ${isPairCorrect ? 'bg-[#059669] text-white' : 'bg-[#DC2626] text-white'} shrink-0">${isPairCorrect ? '✓ Верно' : '✕ Ошибка'}</span>`;
+          }
+
+          const item = document.createElement('div');
+          item.className = cardClass;
+          item.onclick = () => handleLeftMatchingClick(leftIdx);
+          item.innerHTML = `
+            <span class="text-xs sm:text-sm font-bold leading-snug">${pair.left}</span>
+            ${pairChipHtml}
+          `;
+          leftCol.appendChild(item);
+        });
+
+        // Правая колонка (Варианты ответов)
+        const rightCol = document.createElement('div');
+        rightCol.className = 'space-y-3';
+        rightCol.innerHTML = `<div class="text-xs font-extrabold uppercase tracking-wider text-gray-500 px-1">2. Соответствия (нажмите для привязки):</div>`;
+
+        quiz.matchingState.shuffledRightOptions.forEach((rightOpt, rightIdx) => {
+          // Ищем, привязан ли этот правый блок к какому-либо левому
+          let linkedLeftIdx = null;
+          for (const [lIdx, rIdx] of Object.entries(quiz.matchingState.userPairs)) {
+            if (Number(rIdx) === rightIdx) {
+              linkedLeftIdx = Number(lIdx);
+              break;
+            }
+          }
+
+          let cardClass = 'option-card p-3.5 sm:p-4 flex items-center justify-between gap-3';
+          let badgeHtml = '';
+
+          if (!quiz.isAnswerChecked) {
+            if (linkedLeftIdx !== null) {
+              cardClass += ` pair-color-${linkedLeftIdx % 4}`;
+              badgeHtml = `<span class="px-2.5 py-1 rounded-lg text-xs font-black pair-badge-${linkedLeftIdx % 4} shrink-0">← к #${linkedLeftIdx + 1}</span>`;
+            }
+          } else {
+            const isPairCorrect = linkedLeftIdx !== null && rightOpt.originalPairIndex === linkedLeftIdx;
+            cardClass += isPairCorrect ? ' correct locked' : ' wrong locked';
+            badgeHtml = `<span class="px-2.5 py-1 rounded-lg text-xs font-black ${isPairCorrect ? 'bg-[#059669] text-white' : 'bg-[#DC2626] text-white'} shrink-0">к #${(linkedLeftIdx !== null ? linkedLeftIdx + 1 : '?')}</span>`;
+          }
+
+          const item = document.createElement('div');
+          item.className = cardClass;
+          item.onclick = () => handleRightMatchingClick(rightIdx);
+          item.innerHTML = `
+            <span class="text-xs sm:text-sm font-medium leading-snug">${rightOpt.text}</span>
+            ${badgeHtml}
+          `;
+          rightCol.appendChild(item);
+        });
+
+        grid.appendChild(leftCol);
+        grid.appendChild(rightCol);
+        area.appendChild(grid);
+      }
+    }
+
+    function selectSingleOption(idx) {
+      const quiz = appState.activeQuiz;
+      if (!quiz || quiz.isAnswerChecked) return;
+      quiz.selectedSingleOption = idx;
+      renderInteractiveQuestionArea();
+      updateCheckButtonState();
+    }
+
+    function handleLeftMatchingClick(leftIdx) {
+      const quiz = appState.activeQuiz;
+      if (!quiz || quiz.isAnswerChecked) return;
+
+      // Если этот левый блок уже соединён — клик по нему разъединяет пару, чтобы было легко исправить
+      if (quiz.matchingState.userPairs[leftIdx] !== undefined) {
+        delete quiz.matchingState.userPairs[leftIdx];
+        quiz.matchingState.selectedLeftIndex = leftIdx;
+      } else if (quiz.matchingState.selectedLeftIndex === leftIdx) {
+        quiz.matchingState.selectedLeftIndex = null;
+      } else {
+        quiz.matchingState.selectedLeftIndex = leftIdx;
+      }
+
+      renderInteractiveQuestionArea();
+      updateCheckButtonState();
+    }
+
+    function handleRightMatchingClick(rightIdx) {
+      const quiz = appState.activeQuiz;
+      if (!quiz || quiz.isAnswerChecked) return;
+
+      // Проверяем, занят ли уже этот правый элемент
+      let existingLeftOwner = null;
+      for (const [lIdx, rIdx] of Object.entries(quiz.matchingState.userPairs)) {
+        if (Number(rIdx) === rightIdx) {
+          existingLeftOwner = Number(lIdx);
+          break;
+        }
+      }
+
+      // Если у пользователя не выбран активный левый блок, но он кликнул на уже соединённый правый — разъединяем пару
+      if (quiz.matchingState.selectedLeftIndex === null) {
+        if (existingLeftOwner !== null) {
+          delete quiz.matchingState.userPairs[existingLeftOwner];
+          quiz.matchingState.selectedLeftIndex = existingLeftOwner;
+        } else {
+          // Автоматически берём первый свободный левый элемент для удобства!
+          const totalPairs = quiz.currentQuestion.pairs.length;
+          for (let i = 0; i < totalPairs; i++) {
+            if (quiz.matchingState.userPairs[i] === undefined) {
+              quiz.matchingState.userPairs[i] = rightIdx;
+              break;
+            }
+          }
+        }
+      } else {
+        // Есть выбранный левый элемент: привязываем его к этому правому
+        if (existingLeftOwner !== null) {
+          delete quiz.matchingState.userPairs[existingLeftOwner];
+        }
+        quiz.matchingState.userPairs[quiz.matchingState.selectedLeftIndex] = rightIdx;
+
+        // Автоматически переключаем фокус на следующий несвязанный левый элемент
+        const totalPairs = quiz.currentQuestion.pairs.length;
+        let nextUnpaired = null;
+        for (let i = 0; i < totalPairs; i++) {
+          if (quiz.matchingState.userPairs[i] === undefined) {
+            nextUnpaired = i;
+            break;
+          }
+        }
+        quiz.matchingState.selectedLeftIndex = nextUnpaired;
+      }
+
+      renderInteractiveQuestionArea();
+      updateCheckButtonState();
+    }
+
+    function resetCurrentMatching() {
+      const quiz = appState.activeQuiz;
+      if (!quiz || quiz.isAnswerChecked) return;
+      quiz.matchingState.userPairs = {};
+      quiz.matchingState.selectedLeftIndex = 0;
+      renderInteractiveQuestionArea();
+      updateCheckButtonState();
+    }
+
+    function updateCheckButtonState() {
+      const quiz = appState.activeQuiz;
+      const btnCheck = document.getElementById('btn-check-answer');
+      const idleText = document.getElementById('feedback-idle-text');
+
+      if (!quiz) return;
+
+      if (quiz.currentQuestion.type === 'single') {
+        const ready = quiz.selectedSingleOption !== null;
+        btnCheck.disabled = !ready;
+        idleText.textContent = ready
+          ? 'Ответ выбран! Нажмите «Проверить ответ».'
+          : 'Выберите один из вариантов ответа.';
+      } else {
+        const totalPairs = quiz.currentQuestion.pairs.length;
+        const currentPaired = Object.keys(quiz.matchingState.userPairs).length;
+        const ready = currentPaired === totalPairs;
+        btnCheck.disabled = !ready;
+        idleText.textContent = ready
+          ? 'Все пары составлены! Нажмите «Проверить ответ».'
+          : `Соединено пар: ${currentPaired} из ${totalPairs}`;
+      }
+    }
+
+    function checkCurrentAnswer() {
+      const quiz = appState.activeQuiz;
+      if (!quiz || quiz.isAnswerChecked) return;
+
+      quiz.isAnswerChecked = true;
+      const q = quiz.currentQuestion;
+      let isCorrect = false;
+
+      if (q.type === 'single') {
+        isCorrect = quiz.selectedSingleOption === q.correctIndex;
+      } else if (q.type === 'matching') {
+        isCorrect = q.pairs.every((_, leftIdx) => {
+          const rIdx = quiz.matchingState.userPairs[leftIdx];
+          const rightObj = quiz.matchingState.shuffledRightOptions[rIdx];
+          return rightObj && rightObj.originalPairIndex === leftIdx;
+        });
+      }
+
+      // Обработка очередей и статистики
+      if (!quiz.inMistakePhase) {
+        if (isCorrect) {
+          quiz.firstTryCorrectCount++;
+          appState.xp += 10;
+        } else {
+          // Добавляем в очередь «Работа над ошибками»
+          quiz.mistakesQueue.push(JSON.parse(JSON.stringify(q)));
+          quiz.everMissedQuestionsMap[q.id] = JSON.parse(JSON.stringify(q));
+        }
+      } else {
+        // Мы находимся в режиме «Работа над ошибками»
+        if (isCorrect) {
+          // Убираем исправленный вопрос из начала очереди ошибок!
+          quiz.mistakesQueue.shift();
+          quiz.fixedMistakesCount++;
+          appState.xp += 5;
+        } else {
+          // Если снова ошибся — перемещаем вопрос в конец очереди ошибок, но показываем правильный ответ
+          const missedAgain = quiz.mistakesQueue.shift();
+          quiz.mistakesQueue.push(missedAgain);
+        }
+      }
+
+      renderHeaderStats();
+      renderInteractiveQuestionArea();
+      showFeedbackBanner(isCorrect, q.explanation);
+    }
+
+    function showFeedbackBanner(isCorrect, explanationText) {
+      document.getElementById('feedback-idle').classList.add('hidden');
+      const resBox = document.getElementById('feedback-result');
+      const icon = document.getElementById('feedback-icon');
+      const title = document.getElementById('feedback-title');
+      const expl = document.getElementById('feedback-explanation');
+
+      resBox.classList.remove('hidden');
+
+      const quiz = appState.activeQuiz;
+
+      if (isCorrect) {
+        resBox.className = 'rounded-2xl p-4 border-2 bg-[#ECFDF5] border-[#34D399] text-[#065F46]';
+        icon.className = 'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-black text-white bg-[#059669]';
+        icon.textContent = '✓';
+        title.textContent = quiz.inMistakePhase
+          ? `Ошибка исправлена! Осталось исправить: ${quiz.mistakesQueue.length}`
+          : 'Верно! Отличная работа';
+      } else {
+        resBox.className = 'rounded-2xl p-4 border-2 bg-[#FEF2F2] border-[#F87171] text-[#991B1B]';
+        icon.className = 'w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-black text-white bg-[#DC2626]';
+        icon.textContent = '✕';
+        title.textContent = quiz.inMistakePhase
+          ? 'Не совсем так — мы разберём этот вопрос ещё раз в работе над ошибками'
+          : 'Допущена ошибка — вопрос добавлен в блок «Работа над ошибками»';
+      }
+
+      expl.textContent = explanationText;
+
+      document.getElementById('btn-check-answer').classList.add('hidden');
+      const nextBtn = document.getElementById('btn-next-question');
+      nextBtn.classList.remove('hidden');
+      nextBtn.className = isCorrect
+        ? 'tactile-btn tactile-btn-green px-8 py-3.5 text-base w-full sm:w-auto'
+        : 'tactile-btn tactile-btn-amber px-8 py-3.5 text-base w-full sm:w-auto';
+    }
+
+    function nextQuestion() {
+      const quiz = appState.activeQuiz;
+      if (!quiz) return;
+
+      if (!quiz.inMistakePhase) {
+        quiz.currentIndex++;
+      }
+      loadCurrentQuestion();
+    }
+
+    function finishQuizNow() {
+      const quiz = appState.activeQuiz;
+      if (!quiz) return;
+
+      const prog = appState.moduleProgress[quiz.moduleId];
+      const totalQ = quiz.totalInitialQuestions;
+      const pct = Math.round((quiz.firstTryCorrectCount / totalQ) * 100);
+
+      prog.completed = true;
+      prog.bestScore = prog.bestScore !== null ? Math.max(prog.bestScore, pct) : pct;
+
+      // Сохраняем список вопросов, в которых была ошибка в этом прохождении, чтобы их можно было перерешать отдельно
+      const missedList = Object.values(quiz.everMissedQuestionsMap);
+      prog.lastMistakes = missedList;
+
+      renderHeaderStats();
+
+      // Заполняем экран результатов
+      document.getElementById('results-subtitle').textContent = `Тест ${quiz.moduleNumber} • ${quiz.variantLabel}`;
+      document.getElementById('results-title').textContent = missedList.length === 0
+        ? 'Безупречный результат! Ни одной ошибки!'
+        : (quiz.mistakesQueue.length === 0 ? 'Модуль пройден и все ошибки исправлены!' : 'Тестирование завершено');
+
+      document.getElementById('results-description').textContent = missedList.length === 0
+        ? 'Вы ответили правильно на все вопросы с первой попытки.'
+        : `С первой попытки: ${quiz.firstTryCorrectCount} из ${totalQ}. Отработано в режиме «Работа над ошибками»: ${quiz.fixedMistakesCount}.`;
+
+      document.getElementById('res-stat-first-try').textContent = `${quiz.firstTryCorrectCount} / ${totalQ}`;
+      document.getElementById('res-stat-fixed').textContent = `${quiz.fixedMistakesCount}`;
+      document.getElementById('res-stat-xp').textContent = `+${quiz.firstTryCorrectCount * 10 + quiz.fixedMistakesCount * 5} XP`;
+
+      const retryMistakesBtn = document.getElementById('btn-retry-mistakes-only');
+      if (missedList.length > 0) {
+        retryMistakesBtn.classList.remove('hidden');
+        document.getElementById('retry-mistakes-count').textContent = missedList.length;
+      } else {
+        retryMistakesBtn.classList.add('hidden');
+      }
+
+      showView('view-results');
+    }
+
+    function startMistakesOnlyFromResults() {
+      if (!appState.activeQuiz) return;
+      startModuleQuiz(appState.activeQuiz.moduleId, true);
+    }
+
+    function restartCurrentModule() {
+      if (!appState.activeQuiz) return;
+      startModuleQuiz(appState.activeQuiz.moduleId, false);
+    }
+
+    function returnToMenu() {
+      renderHeaderStats();
+      renderMainMenu();
+      showView('view-menu');
+    }
+
+    function showView(viewId) {
+      ['view-menu', 'view-quiz', 'view-results', 'view-mito-game'].forEach(id => {
+        const el = document.getElementById(id);
+        if (id === viewId) {
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /*************************************************************************
+     * 6. БОНУС-ИГРА «МОЛЕКУЛЯРНЫЙ ИНЖЕНЕР МИТОХОНДРИЙ»
+     *************************************************************************/
+    function startMitoGame() {
+      showView('view-mito-game');
+      document.getElementById('mito-feedback').classList.add('hidden');
+      renderMitoGame();
+    }
+
+    function selectMitoBreakdown(id) {
+      appState.mitoGame.selectedBreakdownId = id;
+      document.getElementById('mito-feedback').classList.add('hidden');
+      renderMitoGame();
+    }
+
+    function tryMitoResource(resourceName) {
+      const game = appState.mitoGame;
+      const currentCase = MITO_BREAKDOWNS.find(b => b.id === game.selectedBreakdownId);
+      if (!currentCase) return;
+
+      const fb = document.getElementById('mito-feedback');
+      fb.classList.remove('hidden');
+
+      if (resourceName === currentCase.correctResource) {
+        if (!game.solvedIds.includes(currentCase.id)) {
+          game.solvedIds.push(currentCase.id);
+          appState.xp += 15;
+          renderHeaderStats();
+        }
+        fb.className = 'p-4 rounded-2xl border-2 bg-[#ECFDF5] border-[#34D399] text-[#065F46] space-y-1';
+        fb.innerHTML = `
+          <div class="font-display font-black text-base">✅ Поломка устранена (${resourceName})!</div>
+          <p class="text-xs sm:text-sm">${currentCase.explanation}</p>
+          <p class="text-xs font-bold pt-1 text-[#047857]">🥦 Пищевые источники: ${currentCase.foodSource}</p>
+        `;
+      } else {
+        fb.className = 'p-4 rounded-2xl border-2 bg-[#FEF2F2] border-[#F87171] text-[#991B1B] space-y-1';
+        fb.innerHTML = `
+          <div class="font-display font-black text-base">❌ Ресурс «${resourceName}» не устраняет эту поломку</div>
+          <p class="text-xs sm:text-sm">Обратите внимание на описание этапа в карточке «${currentCase.code}» и выберите подходящий кофермент или микроэлемент.</p>
+        `;
+      }
+
+      renderMitoGame();
+    }
+
+    function renderMitoGame() {
+      const game = appState.mitoGame;
+      document.getElementById('mito-score-pill').textContent = `Устранено поломок: ${game.solvedIds.length} / ${MITO_BREAKDOWNS.length}`;
+
+      const bList = document.getElementById('mito-breakdowns-list');
+      bList.innerHTML = '';
+
+      MITO_BREAKDOWNS.forEach(item => {
+        const isSelected = game.selectedBreakdownId === item.id;
+        const isSolved = game.solvedIds.includes(item.id);
+
+        let cardCls = 'option-card p-4 space-y-1.5';
+        if (isSolved) cardCls += ' correct';
+        if (isSelected) cardCls += ' ring-2 ring-[#F59E0B] bg-[#FFFBEB]';
+
+        const div = document.createElement('div');
+        div.className = cardCls;
+        div.onclick = () => selectMitoBreakdown(item.id);
+        div.innerHTML = `
+          <div class="flex items-center justify-between gap-2">
+            <span class="px-2.5 py-0.5 rounded-md text-xs font-black uppercase ${isSolved ? 'bg-[#059669] text-white' : 'bg-[#FEF3C7] text-[#B45309]'}">
+              ${item.code} • ${item.stage}
+            </span>
+            <span class="text-xs font-extrabold ${isSolved ? 'text-[#059669]' : 'text-gray-500'}">
+              ${isSolved ? `✓ Починено: ${item.correctResource}` : (isSelected ? '👉 Выбрана для ремонта' : 'Нажмите для выбора')}
+            </span>
+          </div>
+          <div class="text-sm font-bold text-gray-900">${item.symptom}</div>
+          <div class="text-xs text-gray-600">${item.clinical}</div>
+        `;
+        bList.appendChild(div);
+      });
+
+      const rList = document.getElementById('mito-resources-list');
+      rList.innerHTML = '';
+
+      MITO_RESOURCES.forEach(resName => {
+        const btn = document.createElement('button');
+        btn.className = 'tactile-btn tactile-btn-neutral p-3 text-xs sm:text-sm font-bold text-center';
+        btn.textContent = resName;
+        btn.onclick = () => tryMitoResource(resName);
+        rList.appendChild(btn);
+      });
+    }
+
+    window.onload = initApp;
+  </script>
+</body>
+</html>
