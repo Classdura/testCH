@@ -1,0 +1,2627 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PharmaLab 3D — Фармацевтический факультет</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; user-select: none; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+      background: #070d19;
+      color: #f8fafc;
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .glass {
+      background: rgba(12, 22, 38, 0.82);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    }
+    .glass-card {
+      background: rgba(18, 32, 54, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      transition: all 0.2s ease;
+    }
+    .glass-card:hover {
+      border-color: rgba(56, 189, 248, 0.65);
+      transform: translateY(-2px);
+    }
+    .station-marker {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      pointer-events: auto;
+      cursor: pointer;
+      transition: transform 0.18s ease, opacity 0.18s ease;
+      z-index: 10;
+    }
+    .station-marker:hover {
+      transform: translate(-50%, -108%) scale(1.05);
+    }
+    .pulse-ring {
+      animation: pulseRing 2.2s infinite;
+    }
+    @keyframes pulseRing {
+      0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.6); }
+      70% { box-shadow: 0 0 0 11px rgba(56, 189, 248, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+    }
+    input[type="text"] { user-select: text; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.45); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.45); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.75); }
+  </style>
+</head>
+<body>
+  <!-- 3D / Fallback 2D Viewport -->
+  <div id="canvas-container"></div>
+
+  <!-- Projected Floating Station Labels -->
+  <div id="markers-layer" class="fixed inset-0 pointer-events-none z-10 overflow-hidden"></div>
+
+  <!-- Top HUD Bar -->
+  <header class="fixed top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+    <!-- Brand, Rank & XP -->
+    <div class="glass rounded-2xl px-4 py-2.5 flex items-center gap-3 pointer-events-auto">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 via-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shrink-0">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="font-extrabold tracking-tight text-base sm:text-lg bg-gradient-to-r from-cyan-300 to-emerald-300 bg-clip-text text-transparent">PHARMALAB 3D</span>
+          <span id="rank-badge" class="text-[11px] mono px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">АБИТУРИЕНТ • 0 XP</span>
+        </div>
+        <div class="flex items-center gap-2 mt-1">
+          <div class="w-28 sm:w-36 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+            <div id="xp-bar-fill" class="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <span class="text-[11px] text-slate-300 hidden sm:inline">5 кафедр • 15 практикумов</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- HUD Action Buttons -->
+    <div class="flex items-center gap-2 pointer-events-auto">
+      <button id="btn-record-book" class="glass rounded-2xl px-3.5 py-2 flex items-center gap-2.5 hover:border-emerald-400/60 transition cursor-pointer">
+        <div class="text-left">
+          <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Зачётка</div>
+          <div class="text-xs sm:text-sm font-bold text-emerald-300"><span id="tasks-done-count">0</span> / 15</div>
+        </div>
+        <div class="flex gap-1" id="credit-dots">
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500" data-dot="garden"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500" data-dot="chem"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500" data-dot="forms"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500" data-dot="pharmacy"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500" data-dot="biopharm"></span>
+        </div>
+      </button>
+
+      <button id="btn-diploma" class="glass rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-amber-200 hover:bg-amber-500/20 border-amber-400/30 transition flex items-center gap-1.5 cursor-pointer">
+        <span>🏆</span>
+        <span class="hidden md:inline">Диплом</span>
+      </button>
+
+      <button id="btn-handbook" class="glass rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-cyan-200 hover:bg-cyan-500/20 transition flex items-center gap-1.5 cursor-pointer">
+        <span>📖</span>
+        <span class="hidden md:inline">Справочник</span>
+      </button>
+
+      <button id="btn-walk-mode" class="glass rounded-2xl px-3 py-2.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/20 transition hidden sm:flex items-center gap-1.5 cursor-pointer" title="Переключение: Обзор кампуса / Прогулка WASD">
+        <span>🚶</span>
+        <span id="walk-mode-label">Обзор</span>
+      </button>
+
+      <button id="btn-sound" class="glass rounded-2xl p-2.5 text-slate-200 hover:text-cyan-300 transition cursor-pointer" title="Звук Вкл/Выкл">
+        🔊
+      </button>
+    </div>
+  </header>
+
+  <!-- Hover Tooltip in 3D -->
+  <div id="hover-tooltip" class="fixed z-30 pointer-events-none hidden glass rounded-xl px-3 py-2 text-xs max-w-xs border-cyan-400/50">
+    <div id="tooltip-title" class="font-bold text-cyan-300"></div>
+    <div id="tooltip-desc" class="text-slate-300 mt-0.5"></div>
+  </div>
+
+  <!-- Toast Notification Banner -->
+  <div id="toast-banner" class="fixed top-20 left-1/2 -translate-x-1/2 z-40 pointer-events-none opacity-0 transition-all duration-300 transform -translate-y-2">
+    <div class="glass rounded-2xl px-5 py-3 border-emerald-400/60 flex items-center gap-3 shadow-2xl">
+      <span id="toast-icon" class="text-xl">✨</span>
+      <span id="toast-text" class="text-xs sm:text-sm font-semibold text-white"></span>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation Bar -->
+  <nav class="fixed bottom-3 left-3 right-3 z-20 flex flex-col items-center gap-1.5 pointer-events-none">
+    <div class="glass rounded-2xl p-1.5 flex flex-wrap justify-center gap-1.5 pointer-events-auto max-w-full">
+      <button data-nav="overview" class="nav-btn px-3 py-2 rounded-xl text-xs font-semibold bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 transition cursor-pointer">
+        🏛️ Кампус
+      </button>
+      <button data-nav="garden" class="nav-btn px-3 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:bg-emerald-500/20 border border-transparent transition cursor-pointer">
+        🌿 Фармакогнозия <span id="nav-count-garden" class="mono text-[10px] opacity-80">0/3</span>
+      </button>
+      <button data-nav="chem" class="nav-btn px-3 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:bg-sky-500/20 border border-transparent transition cursor-pointer">
+        ⚗️ Фармхимия <span id="nav-count-chem" class="mono text-[10px] opacity-80">0/3</span>
+      </button>
+      <button data-nav="forms" class="nav-btn px-3 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:bg-amber-500/20 border border-transparent transition cursor-pointer">
+        💊 Технология ЛФ <span id="nav-count-forms" class="mono text-[10px] opacity-80">0/4</span>
+      </button>
+      <button data-nav="pharmacy" class="nav-btn px-3 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:bg-violet-500/20 border border-transparent transition cursor-pointer">
+        🏥 Аптека <span id="nav-count-pharmacy" class="mono text-[10px] opacity-80">0/3</span>
+      </button>
+      <button data-nav="biopharm" class="nav-btn px-3 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:bg-rose-500/20 border border-transparent transition cursor-pointer">
+        🧬 ADME <span id="nav-count-biopharm" class="mono text-[10px] opacity-80">0/2</span>
+      </button>
+    </div>
+    <div class="text-[11px] text-slate-400 bg-slate-950/70 px-3 py-1 rounded-full backdrop-blur-sm hidden sm:block">
+      🖱️ Вращение: зажать ЛКМ • Зум: Колёсико • Прогулка: WASD / Стрелки • Клик по 3D-павильону или маркеру открывает практикум
+    </div>
+  </nav>
+
+  <!-- Interactive Station Practice Modal -->
+  <div id="station-modal" class="fixed inset-0 z-30 hidden items-center justify-center p-3 sm:p-5 bg-slate-950/65 backdrop-blur-sm">
+    <div class="glass rounded-3xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden border-cyan-400/45 shadow-2xl">
+      <div class="px-5 py-4 border-b border-slate-700/60 flex items-center justify-between bg-slate-900/70">
+        <div class="flex items-center gap-3">
+          <span id="modal-icon" class="text-2xl sm:text-3xl">🧪</span>
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 id="modal-title" class="text-base sm:text-xl font-extrabold text-white">Лаборатория</h2>
+              <span id="modal-badge" class="text-[11px] mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">КАФЕДРА</span>
+            </div>
+            <p id="modal-subtitle" class="text-xs text-slate-300">Описание дисциплины</p>
+          </div>
+        </div>
+        <button id="btn-close-modal" class="w-9 h-9 rounded-xl bg-slate-800/80 hover:bg-rose-500/30 text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer text-lg shrink-0">
+          ✕
+        </button>
+      </div>
+      <div id="modal-body" class="p-5 overflow-y-auto flex-1 space-y-4"></div>
+    </div>
+  </div>
+
+  <!-- Welcome Intro Overlay -->
+  <div id="intro-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/88 backdrop-blur-md">
+    <div class="glass rounded-3xl max-w-3xl w-full p-6 sm:p-8 border-cyan-400/45 text-center space-y-5">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/35 text-emerald-300 text-xs mono">
+        <span>🎓 ДЕНЬ ОТКРЫТЫХ ДВЕРЕЙ В 3D • 15 ПРАКТИЧЕСКИХ ЗАДАНИЙ</span>
+      </div>
+      <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
+        Добро пожаловать на <span class="bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">Фармацевтический факультет</span>!
+      </h1>
+      <p class="text-sm sm:text-base text-slate-300 leading-relaxed">
+        Настоящий <strong class="text-cyan-300">провизор</strong> — это специалист на стыке <strong class="text-emerald-300">химии, ботаники, биотехнологии и клинической медицины</strong>. Выберите любую кафедру прямо сейчас или войдите на площадь кампуса:
+      </p>
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-left text-xs">
+        <button data-start-station="garden" class="intro-dept-card glass-card rounded-2xl p-3 text-left cursor-pointer hover:border-emerald-400">
+          <div class="text-xl mb-1">🌿</div>
+          <div class="font-bold text-emerald-300">Фармакогнозия</div>
+          <div class="text-slate-400 mt-0.5">Сбор сырья, экстракция и микроскопия</div>
+          <div class="text-[10px] mono text-emerald-400 mt-1.5">Открыть 3 задания →</div>
+        </button>
+        <button data-start-station="chem" class="intro-dept-card glass-card rounded-2xl p-3 text-left cursor-pointer hover:border-sky-400">
+          <div class="text-xl mb-1">⚗️</div>
+          <div class="font-bold text-sky-300">Фармхимия</div>
+          <div class="text-slate-400 mt-0.5">Титрование, ГФ и несовместимость</div>
+          <div class="text-[10px] mono text-sky-400 mt-1.5">Открыть 3 задания →</div>
+        </button>
+        <button data-start-station="forms" class="intro-dept-card glass-card rounded-2xl p-3 text-left cursor-pointer hover:border-amber-400">
+          <div class="text-xl mb-1">💊</div>
+          <div class="font-bold text-amber-300">Технология ЛФ</div>
+          <div class="text-slate-400 mt-0.5">Таблетки, капсулы, мази, микстуры</div>
+          <div class="text-[10px] mono text-amber-400 mt-1.5">Открыть 4 задания →</div>
+        </button>
+        <button data-start-station="pharmacy" class="intro-dept-card glass-card rounded-2xl p-3 text-left cursor-pointer hover:border-violet-400">
+          <div class="text-xl mb-1">🏥</div>
+          <div class="font-bold text-violet-300">Аптека</div>
+          <div class="text-slate-400 mt-0.5">Рецепты Rp., Списки А/Б, пациенты</div>
+          <div class="text-[10px] mono text-violet-400 mt-1.5">Открыть 3 задания →</div>
+        </button>
+        <button data-start-station="biopharm" class="intro-dept-card glass-card rounded-2xl p-3 text-left cursor-pointer hover:border-rose-400 col-span-2 sm:col-span-1">
+          <div class="text-xl mb-1">🧬</div>
+          <div class="font-bold text-rose-300">Биофармация</div>
+          <div class="text-slate-400 mt-0.5">Путь ADME и терапевтическое окно</div>
+          <div class="text-[10px] mono text-rose-400 mt-1.5">Открыть 2 задания →</div>
+        </button>
+      </div>
+      <div class="pt-1">
+        <button id="btn-start-campus" class="w-full sm:w-auto px-8 py-3.5 rounded-2xl font-bold text-slate-950 bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-400 hover:brightness-110 transition shadow-lg shadow-cyan-500/25 cursor-pointer text-sm sm:text-base">
+          🚀 Войти в 3D-кампус и открыть практикум
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // =========================================================================
+      // 1. PROCEDURAL WEB AUDIO SYNTHESIZER (Safe & Self-Contained)
+      // =========================================================================
+      function SoundFX() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+      SoundFX.prototype.init = function () {
+        try {
+          if (!this.ctx) {
+            var AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) this.ctx = new AudioCtx();
+          }
+          if (this.ctx && this.ctx.state === 'suspended') {
+            this.ctx.resume();
+          }
+        } catch (e) {}
+      };
+      SoundFX.prototype.playTone = function (freq, type, duration, gainVal, slideTo) {
+        if (!this.enabled) return;
+        try {
+          this.init();
+          if (!this.ctx) return;
+          var now = this.ctx.currentTime;
+          var osc = this.ctx.createOscillator();
+          var gain = this.ctx.createGain();
+          osc.type = type || 'sine';
+          osc.frequency.setValueAtTime(freq, now);
+          if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, now + duration);
+          gain.gain.setValueAtTime(gainVal || 0.1, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now);
+          osc.stop(now + duration);
+        } catch (e) {}
+      };
+      SoundFX.prototype.click = function () { this.playTone(540, 'triangle', 0.08, 0.1, 780); };
+      SoundFX.prototype.drop = function () { this.playTone(720, 'sine', 0.13, 0.11, 340); };
+      SoundFX.prototype.grind = function () { this.playTone(185, 'sawtooth', 0.11, 0.06, 135); };
+      SoundFX.prototype.error = function () { this.playTone(190, 'sawtooth', 0.26, 0.12, 110); };
+      SoundFX.prototype.success = function () {
+        var self = this;
+        self.playTone(523.25, 'triangle', 0.15, 0.13);
+        setTimeout(function () { self.playTone(659.25, 'triangle', 0.15, 0.13); }, 105);
+        setTimeout(function () { self.playTone(783.99, 'triangle', 0.26, 0.15); }, 210);
+      };
+      var sfx = new SoundFX();
+
+      // =========================================================================
+      // 2. CURRICULUM DATA & APPLICATION STATE (15 TASKS ACROSS 5 DEPARTMENTS)
+      // =========================================================================
+      var state = {
+        activeStation: null,
+        activeTaskTab: 0,
+        xp: 0,
+        walkMode: false,
+        studentName: '',
+        completedTasks: {},
+
+        // 1. Pharmacognosy
+        gardenPlantIdx: 0,
+        gardenHarvested: [],
+        gardenExtractMap: {},
+        gardenMicroZoom: 120,
+        gardenMicroFocus: 50,
+
+        // 2. Pharmaceutical Chemistry
+        chemDrops: 0,
+        chemTargetDrops: 6,
+        chemStdChecked: {},
+        chemIncompatAnswers: {},
+
+        // 3. Dosage Forms Technology
+        formsSolidWeight: 0,
+        formsSolidFiller: false,
+        formsSolidForm: null,
+        formsCapsMap: {},
+        formsOintmentOrder: [],
+        formsLiquidStabilizer: false,
+        formsLiquidLabel1: false,
+        formsLiquidLabel2: false,
+
+        // 4. Pharmacy & Clinical Pharmacology
+        pharmAuditChecks: { cito: false, dose: false },
+        pharmAuditChoice: null,
+        pharmStorageSorted: {},
+        pharmCaseIdx: 0,
+        pharmCasesDone: [],
+
+        // 5. Biopharmacy & Pharmacokinetics (ADME)
+        bioRouteSelected: null,
+        bioDoseMg: 12,
+        bioIntervalH: 12,
+        bioLiverActivated: false
+      };
+
+      var STATIONS_META = {
+        overview: {
+          title: 'Кампус Фармфака',
+          camPos: { x: 0, y: 19, z: 25 },
+          target: { x: 0, y: 1.2, z: 0 }
+        },
+        garden: {
+          id: 'garden',
+          title: '1. Фармакогнозия',
+          short: 'Ботанический сад',
+          badge: 'КАФЕДРА ФАРМАКОГНОЗИИ',
+          icon: '🌿',
+          color: '#10b981',
+          taskKeys: ['garden_1', 'garden_2', 'garden_3'],
+          taskNames: ['1.1 Сбор сырья', '1.2 Фитопрепараты', '1.3 Микроскопия'],
+          subtitle: 'Сбор лекарственных растений, технология галеновых/новогаленовых препаратов и микроскопия',
+          pos: { x: -9.5, y: 0, z: -7.0 },
+          camPos: { x: -13.5, y: 6.8, z: -1.0 },
+          target: { x: -9.5, y: 1.4, z: -7.0 }
+        },
+        chem: {
+          id: 'chem',
+          title: '2. Фармхимия',
+          short: 'Хим. лаборатория',
+          badge: 'КАФЕДРА ФАРМХИМИИ',
+          icon: '⚗️',
+          color: '#38bdf8',
+          taskKeys: ['chem_1', 'chem_2', 'chem_3'],
+          taskNames: ['2.1 Титрование', '2.2 Фармакопея ГФ', '2.3 Несовместимость'],
+          subtitle: 'Количественное титрование, стандарты Государственной фармакопеи и анализ несовместимости',
+          pos: { x: 9.5, y: 0, z: -7.0 },
+          camPos: { x: 13.5, y: 6.8, z: -1.0 },
+          target: { x: 9.5, y: 1.5, z: -7.0 }
+        },
+        forms: {
+          id: 'forms',
+          title: '3. Технология ЛФ',
+          short: 'Лекарственные формы',
+          badge: 'КАФЕДРА ТЕХНОЛОГИИ ЛФ',
+          icon: '💊',
+          color: '#f59e0b',
+          taskKeys: ['forms_1', 'forms_2', 'forms_3', 'forms_4'],
+          taskNames: ['3.1 Таблетки', '3.2 Капсулы', '3.3 Мази (Rp.)', '3.4 Суспензии'],
+          subtitle: 'Изготовление твёрдых, капсулированных, мягких и жидких лекарственных форм',
+          pos: { x: -10.0, y: 0, z: 5.5 },
+          camPos: { x: -14.2, y: 6.8, z: 11.5 },
+          target: { x: -10.0, y: 1.4, z: 5.5 }
+        },
+        pharmacy: {
+          id: 'pharmacy',
+          title: '4. Учебная аптека',
+          short: 'Клиника и рецептура',
+          badge: 'УЧЕБНАЯ АПТЕКА',
+          icon: '🏥',
+          color: '#a855f7',
+          taskKeys: ['pharmacy_1', 'pharmacy_2', 'pharmacy_3'],
+          taskNames: ['4.1 Аудит рецепта', '4.2 Списки А/Б', '4.3 Консультация'],
+          subtitle: 'Фармацевтическая экспертиза рецептов, хранение Списков А/Б и консультирование пациентов',
+          pos: { x: 10.0, y: 0, z: 5.5 },
+          camPos: { x: 14.2, y: 6.8, z: 11.5 },
+          target: { x: 10.0, y: 1.5, z: 5.5 }
+        },
+        biopharm: {
+          id: 'biopharm',
+          title: '5. Биофармация ADME',
+          short: 'Фармакокинетика',
+          badge: 'ЦЕНТР БИОФАРМАЦИИ',
+          icon: '🧬',
+          color: '#f43f5e',
+          taskKeys: ['biopharm_1', 'biopharm_2'],
+          taskNames: ['5.1 Пути введения', '5.2 Терапевтическое окно'],
+          subtitle: 'Биодоступность, активация пролекарств в печени и расчёт терапевтического окна',
+          pos: { x: 0, y: 0, z: 11.5 },
+          camPos: { x: 0, y: 7.2, z: 18.0 },
+          target: { x: 0, y: 1.8, z: 11.5 }
+        }
+      };
+
+      // =========================================================================
+      // 3. EARLY BINDING OF START SCREEN & HUD HANDLERS (GUARANTEED RESPONSE)
+      // =========================================================================
+      var camAnim = null;
+      var camState = {
+        yaw: 0,
+        pitch: 0.58,
+        distance: 31,
+        targetX: 0,
+        targetY: 1.2,
+        targetZ: 0,
+        walkX: 0,
+        walkY: 2.3,
+        walkZ: 6.0,
+        walkYaw: 0,
+        walkPitch: -0.05
+      };
+
+      function enterCampus(optionalStationId) {
+        sfx.click();
+        var overlay = document.getElementById('intro-overlay');
+        if (overlay) {
+          overlay.style.display = 'none';
+        }
+        if (optionalStationId && STATIONS_META[optionalStationId]) {
+          focusCameraOn(optionalStationId);
+          openStationModal(optionalStationId);
+        } else {
+          focusCameraOn('overview');
+          showToast('🏛️', 'Добро пожаловать! Нажмите на любую кафедру или маркер, чтобы начать практикум.');
+        }
+      }
+
+      var btnStart = document.getElementById('btn-start-campus');
+      if (btnStart) {
+        btnStart.onclick = function () { enterCampus(null); };
+      }
+
+      var deptCards = document.querySelectorAll('.intro-dept-card');
+      for (var i = 0; i < deptCards.length; i++) {
+        (function (card) {
+          card.onclick = function () {
+            enterCampus(card.getAttribute('data-start-station'));
+          };
+        })(deptCards[i]);
+      }
+
+      // =========================================================================
+      // 4. TOAST, PROGRESS, RANK & DIPLOMA HELPERS
+      // =========================================================================
+      var toastTimer = null;
+      function showToast(icon, message) {
+        var banner = document.getElementById('toast-banner');
+        var iconEl = document.getElementById('toast-icon');
+        var textEl = document.getElementById('toast-text');
+        if (!banner || !iconEl || !textEl) return;
+        iconEl.textContent = icon;
+        textEl.textContent = message;
+        banner.classList.remove('opacity-0', '-translate-y-2');
+        banner.classList.add('opacity-100', 'translate-y-0');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          banner.classList.add('opacity-0', '-translate-y-2');
+          banner.classList.remove('opacity-100', 'translate-y-0');
+        }, 3600);
+      }
+
+      function getRankName(doneCount) {
+        if (doneCount >= 15) return 'МАГИСТР ФАРМАЦИИ';
+        if (doneCount >= 10) return 'ПРОВИЗОР-СТАЖЁР';
+        if (doneCount >= 4) return 'СТУДЕНТ-ФАРМАЦЕВТ';
+        return 'АБИТУРИЕНТ';
+      }
+
+      function getStationDoneCount(id) {
+        var keys = STATIONS_META[id].taskKeys;
+        var count = 0;
+        for (var i = 0; i < keys.length; i++) {
+          if (state.completedTasks[keys[i]]) count++;
+        }
+        return count;
+      }
+
+      function updateProgressUI() {
+        var doneTotal = Object.keys(state.completedTasks).length;
+        var countEl = document.getElementById('tasks-done-count');
+        var rankEl = document.getElementById('rank-badge');
+        var barEl = document.getElementById('xp-bar-fill');
+
+        if (countEl) countEl.textContent = String(doneTotal);
+        if (rankEl) rankEl.textContent = getRankName(doneTotal) + ' • ' + state.xp + ' XP';
+        if (barEl) barEl.style.width = Math.round((doneTotal / 15) * 100) + '%';
+
+        var ids = ['garden', 'chem', 'forms', 'pharmacy', 'biopharm'];
+        for (var i = 0; i < ids.length; i++) {
+          var id = ids[i];
+          var done = getStationDoneCount(id);
+          var total = STATIONS_META[id].taskKeys.length;
+          var dot = document.querySelector('[data-dot="' + id + '"]');
+          if (dot) {
+            if (done === total) {
+              dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400';
+            } else if (done > 0) {
+              dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400';
+            } else {
+              dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500';
+            }
+          }
+          var navCnt = document.getElementById('nav-count-' + id);
+          if (navCnt) {
+            navCnt.textContent = done + '/' + total;
+          }
+        }
+      }
+
+      function completeTask(taskKey, taskLabel, xpReward) {
+        var reward = xpReward || 100;
+        if (!state.completedTasks[taskKey]) {
+          state.completedTasks[taskKey] = true;
+          state.xp += reward;
+          sfx.success();
+          updateProgressUI();
+          var doneTotal = Object.keys(state.completedTasks).length;
+          showToast('🎓', '+' + reward + ' XP! Зачтено: «' + taskLabel + '» (' + doneTotal + '/15)');
+        } else {
+          sfx.success();
+          showToast('⭐', 'Практикум «' + taskLabel + '» уже зачтён в зачётке!');
+        }
+      }
+
+      // =========================================================================
+      // 5. THREE.JS r128 3D CAMPUS SCENE + CUSTOM ORBIT/WALK CONTROLS + 2D FALLBACK
+      // =========================================================================
+      var container = document.getElementById('canvas-container');
+      var use3D = false;
+      var scene, camera, renderer;
+      var interactiveMeshes = [];
+      var animatedObjects = [];
+      var particles = null;
+      var fallbackCanvas = null;
+      var fallbackCtx = null;
+
+      function focusCameraOn(zoneKey) {
+        var meta = STATIONS_META[zoneKey] || STATIONS_META.overview;
+        if (state.walkMode) {
+          state.walkMode = false;
+          var walkLabel = document.getElementById('walk-mode-label');
+          if (walkLabel) walkLabel.textContent = 'Обзор';
+        }
+        var dx = meta.camPos.x - meta.target.x;
+        var dy = meta.camPos.y - meta.target.y;
+        var dz = meta.camPos.z - meta.target.z;
+        var endDist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        var endYaw = Math.atan2(dx, dz);
+        var endPitch = Math.asin(Math.max(-0.9, Math.min(0.9, dy / Math.max(0.1, endDist))));
+
+        camAnim = {
+          startYaw: camState.yaw,
+          endYaw: endYaw,
+          startPitch: camState.pitch,
+          endPitch: endPitch,
+          startDist: camState.distance,
+          endDist: endDist,
+          startTx: camState.targetX,
+          endTx: meta.target.x,
+          startTy: camState.targetY,
+          endTy: meta.target.y,
+          startTz: camState.targetZ,
+          endTz: meta.target.z,
+          progress: 0
+        };
+
+        var navBtns = document.querySelectorAll('.nav-btn');
+        for (var i = 0; i < navBtns.length; i++) {
+          var isSelected = navBtns[i].getAttribute('data-nav') === zoneKey;
+          navBtns[i].classList.toggle('bg-cyan-500/25', isSelected);
+          navBtns[i].classList.toggle('text-cyan-200', isSelected);
+          navBtns[i].classList.toggle('border-cyan-400/40', isSelected);
+        }
+      }
+
+      function init2DFallback() {
+        use3D = false;
+        container.innerHTML = '';
+        fallbackCanvas = document.createElement('canvas');
+        fallbackCanvas.width = window.innerWidth;
+        fallbackCanvas.height = window.innerHeight;
+        container.appendChild(fallbackCanvas);
+        fallbackCtx = fallbackCanvas.getContext('2d');
+      }
+
+      function render2DFallback(elapsed) {
+        if (!fallbackCtx) return;
+        var w = fallbackCanvas.width;
+        var h = fallbackCanvas.height;
+        fallbackCtx.fillStyle = '#070d19';
+        fallbackCtx.fillRect(0, 0, w, h);
+
+        // Futuristic radial grid
+        var cx = w / 2;
+        var cy = h / 2;
+        fallbackCtx.strokeStyle = 'rgba(56, 189, 248, 0.14)';
+        fallbackCtx.lineWidth = 1;
+        for (var r = 60; r < Math.max(w, h) * 0.6; r += 65) {
+          fallbackCtx.beginPath();
+          fallbackCtx.arc(cx, cy, r, 0, Math.PI * 2);
+          fallbackCtx.stroke();
+        }
+
+        // Central core
+        var pulse = 26 + Math.sin(elapsed * 2.5) * 4;
+        var grad = fallbackCtx.createRadialGradient(cx, cy, 4, cx, cy, pulse * 2.2);
+        grad.addColorStop(0, 'rgba(52, 211, 153, 0.85)');
+        grad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        fallbackCtx.fillStyle = grad;
+        fallbackCtx.beginPath();
+        fallbackCtx.arc(cx, cy, pulse * 2.2, 0, Math.PI * 2);
+        fallbackCtx.fill();
+
+        // Draw connecting lines and 5 department nodes
+        var ids = ['garden', 'chem', 'forms', 'pharmacy', 'biopharm'];
+        for (var i = 0; i < ids.length; i++) {
+          var m = STATIONS_META[ids[i]];
+          var sx = cx + (m.pos.x / 14) * (w * 0.36);
+          var sy = cy + (m.pos.z / 14) * (h * 0.32);
+
+          fallbackCtx.strokeStyle = m.color;
+          fallbackCtx.globalAlpha = 0.35;
+          fallbackCtx.lineWidth = 2.5;
+          fallbackCtx.beginPath();
+          fallbackCtx.moveTo(cx, cy);
+          fallbackCtx.lineTo(sx, sy);
+          fallbackCtx.stroke();
+          fallbackCtx.globalAlpha = 1;
+
+          fallbackCtx.fillStyle = m.color;
+          fallbackCtx.beginPath();
+          fallbackCtx.arc(sx, sy, 22, 0, Math.PI * 2);
+          fallbackCtx.fill();
+
+          var el = markerElements[ids[i]];
+          if (el) {
+            el.style.display = 'flex';
+            el.style.left = sx + 'px';
+            el.style.top = (sy - 26) + 'px';
+          }
+        }
+      }
+
+      function registerStationMesh(mesh, stationId, label, hint) {
+        mesh.userData = { stationId: stationId, label: label, hint: hint };
+        interactiveMeshes.push(mesh);
+      }
+
+      try {
+        if (typeof THREE === 'undefined') {
+          throw new Error('THREE not loaded');
+        }
+
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color('#070d19');
+        scene.fog = new THREE.FogExp2('#070d19', 0.014);
+
+        camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 160);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // Lighting
+        var hemiLight = new THREE.HemisphereLight('#bae6fd', '#0f172a', 1.05);
+        scene.add(hemiLight);
+
+        var dirLight = new THREE.DirectionalLight('#ffffff', 1.55);
+        dirLight.position.set(16, 26, 18);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        scene.add(dirLight);
+
+        // Campus Plaza Floor
+        var floor = new THREE.Mesh(
+          new THREE.CylinderGeometry(26, 26, 0.4, 64),
+          new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.65, metalness: 0.25 })
+        );
+        floor.position.y = -0.2;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        var gridHelper = new THREE.GridHelper(48, 48, '#1e3a5f', '#11223a');
+        gridHelper.position.y = 0.01;
+        scene.add(gridHelper);
+
+        // Central DNA Monument
+        var centerGroup = new THREE.Group();
+        scene.add(centerGroup);
+
+        var pedestal = new THREE.Mesh(
+          new THREE.CylinderGeometry(2.3, 2.7, 0.45, 32),
+          new THREE.MeshStandardMaterial({ color: '#1e293b', metalness: 0.5, roughness: 0.3 })
+        );
+        pedestal.position.y = 0.22;
+        centerGroup.add(pedestal);
+
+        var ringGlow = new THREE.Mesh(
+          new THREE.TorusGeometry(2.45, 0.06, 16, 64),
+          new THREE.MeshBasicMaterial({ color: '#38bdf8' })
+        );
+        ringGlow.rotation.x = Math.PI / 2;
+        ringGlow.position.y = 0.45;
+        centerGroup.add(ringGlow);
+
+        var dnaGroup = new THREE.Group();
+        dnaGroup.position.y = 1.05;
+        centerGroup.add(dnaGroup);
+        var strandMat1 = new THREE.MeshStandardMaterial({ color: '#34d399', emissive: '#059669', emissiveIntensity: 0.4 });
+        var strandMat2 = new THREE.MeshStandardMaterial({ color: '#38bdf8', emissive: '#0284c7', emissiveIntensity: 0.4 });
+        var bondMat = new THREE.MeshStandardMaterial({ color: '#e2e8f0' });
+
+        for (var i = 0; i < 16; i++) {
+          var y = i * 0.27;
+          var angle = i * 0.52;
+          var r = 0.85;
+          var s1 = new THREE.Mesh(new THREE.SphereGeometry(0.14, 14, 14), strandMat1);
+          s1.position.set(Math.cos(angle) * r, y, Math.sin(angle) * r);
+          var s2 = new THREE.Mesh(new THREE.SphereGeometry(0.14, 14, 14), strandMat2);
+          s2.position.set(Math.cos(angle + Math.PI) * r, y, Math.sin(angle + Math.PI) * r);
+          var bond = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, r * 2, 8), bondMat);
+          bond.position.set(0, y, 0);
+          bond.rotation.z = Math.PI / 2;
+          bond.rotation.y = -angle;
+          dnaGroup.add(s1, s2, bond);
+        }
+        animatedObjects.push({ mesh: dnaGroup, type: 'spin', speed: 0.45 });
+
+        // Pathways to 5 stations
+        var stKeys = ['garden', 'chem', 'forms', 'pharmacy', 'biopharm'];
+        for (var k = 0; k < stKeys.length; k++) {
+          var st = STATIONS_META[stKeys[k]];
+          var pVec = new THREE.Vector3(st.pos.x, 0, st.pos.z);
+          var len = pVec.length();
+          var path = new THREE.Mesh(
+            new THREE.BoxGeometry(0.9, 0.04, len - 2.4),
+            new THREE.MeshStandardMaterial({ color: st.color, emissive: st.color, emissiveIntensity: 0.28 })
+          );
+          path.position.copy(pVec).multiplyScalar(0.5);
+          path.position.y = 0.02;
+          path.lookAt(st.pos.x, 0.02, st.pos.z);
+          scene.add(path);
+        }
+
+        // --- STATION 1: BOTANICAL GARDEN (Pharmacognosy) ---
+        (function () {
+          var meta = STATIONS_META.garden;
+          var g = new THREE.Group();
+          g.position.set(meta.pos.x, meta.pos.y, meta.pos.z);
+          scene.add(g);
+
+          var light = new THREE.PointLight('#10b981', 2.0, 12);
+          light.position.set(0, 4.5, 0);
+          g.add(light);
+
+          var base = new THREE.Mesh(
+            new THREE.CylinderGeometry(4.1, 4.4, 0.35, 32),
+            new THREE.MeshStandardMaterial({ color: '#132a24', roughness: 0.6 })
+          );
+          base.position.y = 0.17;
+          g.add(base);
+          registerStationMesh(base, 'garden', '1. Фармакогнозия (Ботанический сад)', 'Сбор сырья, фитопрепараты и микроскопия (3 задания)');
+
+          var dome = new THREE.Mesh(
+            new THREE.SphereGeometry(4.0, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.48),
+            new THREE.MeshStandardMaterial({ color: '#34d399', transparent: true, opacity: 0.14 })
+          );
+          dome.position.y = 0.35;
+          g.add(dome);
+
+          var beds = [
+            { x: -1.45, z: -1.3, color: '#fef08a', name: 'Ромашка аптечная' },
+            { x: 1.45, z: -1.3, color: '#34d399', name: 'Мята перечная' },
+            { x: -1.45, z: 1.35, color: '#f43f5e', name: 'Раувольфия змеиная' },
+            { x: 1.45, z: 1.35, color: '#c084fc', name: 'Наперстянка пурпурная' }
+          ];
+          for (var b = 0; b < beds.length; b++) {
+            var p = beds[b];
+            var box = new THREE.Mesh(
+              new THREE.BoxGeometry(1.65, 0.45, 1.65),
+              new THREE.MeshStandardMaterial({ color: '#1e293b' })
+            );
+            box.position.set(p.x, 0.55, p.z);
+            g.add(box);
+            registerStationMesh(box, 'garden', 'Грядка: ' + p.name, 'Нажмите для запуска практикума по фармакогнозии');
+
+            for (var s = 0; s < 5; s++) {
+              var sx = p.x + Math.cos(s * 1.3) * 0.4;
+              var sz = p.z + Math.sin(s * 1.3) * 0.4;
+              var h = 0.7 + (s % 3) * 0.22;
+              var stem = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.03, 0.04, h, 8),
+                new THREE.MeshStandardMaterial({ color: '#16a34a' })
+              );
+              stem.position.set(sx, 0.8 + h / 2, sz);
+              var flower = new THREE.Mesh(
+                new THREE.DodecahedronGeometry(0.15),
+                new THREE.MeshStandardMaterial({ color: p.color, emissive: p.color, emissiveIntensity: 0.25 })
+              );
+              flower.position.set(sx, 0.8 + h + 0.1, sz);
+              g.add(stem, flower);
+              animatedObjects.push({ mesh: flower, type: 'bob', baseY: flower.position.y, phase: s + b });
+            }
+          }
+        })();
+
+        // --- STATION 2: CHEMICAL LABORATORY (Pharmchemistry) ---
+        (function () {
+          var meta = STATIONS_META.chem;
+          var g = new THREE.Group();
+          g.position.set(meta.pos.x, meta.pos.y, meta.pos.z);
+          scene.add(g);
+
+          var light = new THREE.PointLight('#38bdf8', 2.2, 12);
+          light.position.set(0, 4.5, 0);
+          g.add(light);
+
+          var base = new THREE.Mesh(
+            new THREE.CylinderGeometry(4.1, 4.4, 0.35, 32),
+            new THREE.MeshStandardMaterial({ color: '#102338', roughness: 0.5 })
+          );
+          base.position.y = 0.17;
+          g.add(base);
+          registerStationMesh(base, 'chem', '2. Фармацевтическая химия', 'Титрование, Государственная фармакопея и несовместимость (3 задания)');
+
+          var table = new THREE.Mesh(
+            new THREE.BoxGeometry(4.3, 0.2, 2.3),
+            new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.25 })
+          );
+          table.position.set(0, 1.35, 0);
+          g.add(table);
+          registerStationMesh(table, 'chem', 'Аналитический стол и бюретка', 'Нажмите для проведения титрования и анализа');
+
+          var cols = ['#38bdf8', '#22d3ee', '#f472b6'];
+          for (var c = 0; c < cols.length; c++) {
+            var fx = -1.2 + c * 1.1;
+            var cone = new THREE.Mesh(
+              new THREE.ConeGeometry(0.38, 0.75, 20),
+              new THREE.MeshStandardMaterial({ color: cols[c], emissive: cols[c], emissiveIntensity: 0.45, transparent: true, opacity: 0.85 })
+            );
+            cone.position.set(fx, 1.82, 0.15);
+            g.add(cone);
+            registerStationMesh(cone, 'chem', 'Реакционная колба', 'Нажмите для запуска практикума по фармхимии');
+          }
+
+          var standPole = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.04, 0.04, 1.9, 12),
+            new THREE.MeshStandardMaterial({ color: '#94a3b8', metalness: 0.8 })
+          );
+          standPole.position.set(1.5, 2.35, -0.4);
+          var burette = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.06, 0.06, 1.4, 16),
+            new THREE.MeshStandardMaterial({ color: '#7dd3fc', emissive: '#0284c7', emissiveIntensity: 0.35 })
+          );
+          burette.position.set(1.3, 2.55, -0.4);
+          g.add(standPole, burette);
+        })();
+
+        // --- STATION 3: DOSAGE FORMS TECHNOLOGY ---
+        (function () {
+          var meta = STATIONS_META.forms;
+          var g = new THREE.Group();
+          g.position.set(meta.pos.x, meta.pos.y, meta.pos.z);
+          scene.add(g);
+
+          var light = new THREE.PointLight('#f59e0b', 2.1, 12);
+          light.position.set(0, 4.5, 0);
+          g.add(light);
+
+          var base = new THREE.Mesh(
+            new THREE.CylinderGeometry(4.1, 4.4, 0.35, 32),
+            new THREE.MeshStandardMaterial({ color: '#2b1e10', roughness: 0.55 })
+          );
+          base.position.y = 0.17;
+          g.add(base);
+          registerStationMesh(base, 'forms', '3. Технология лекарственных форм', 'Таблетки, капсулы, мази и суспензии (4 задания)');
+
+          var bench = new THREE.Mesh(
+            new THREE.BoxGeometry(4.3, 0.22, 2.3),
+            new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.4 })
+          );
+          bench.position.set(0, 1.35, 0);
+          g.add(bench);
+          registerStationMesh(bench, 'forms', 'Стол технолога и таблеточный пресс', 'Нажмите для изготовления лекарственных форм');
+
+          var mortar = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.62, 0.4, 0.62, 24),
+            new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.2 })
+          );
+          mortar.position.set(-1.1, 1.76, 0);
+          var pestle = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.1, 0.12, 0.85, 12),
+            new THREE.MeshStandardMaterial({ color: '#fbbf24' })
+          );
+          pestle.position.set(-0.95, 2.12, 0);
+          pestle.rotation.z = -0.45;
+          g.add(mortar, pestle);
+          registerStationMesh(mortar, 'forms', 'Ступка и пестик провизора', 'Измельчение и смешивание мазей и порошков');
+
+          var capGroup = new THREE.Group();
+          capGroup.position.set(1.1, 2.15, 0);
+          capGroup.rotation.z = 0.55;
+          var capTop = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.28, 0.28, 0.55, 20),
+            new THREE.MeshStandardMaterial({ color: '#f97316' })
+          );
+          capTop.position.y = 0.27;
+          var capBot = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.27, 0.27, 0.55, 20),
+            new THREE.MeshStandardMaterial({ color: '#fef08a' })
+          );
+          capBot.position.y = -0.27;
+          capGroup.add(capTop, capBot);
+          g.add(capGroup);
+          animatedObjects.push({ mesh: capGroup, type: 'spinBob', baseY: 2.15, speed: 1.1 });
+          registerStationMesh(capTop, 'forms', 'Желатиновая капсула', 'Нажмите для работы с капсулами и таблетками');
+        })();
+
+        // --- STATION 4: PHARMACY & CLINICAL PHARMACOLOGY ---
+        (function () {
+          var meta = STATIONS_META.pharmacy;
+          var g = new THREE.Group();
+          g.position.set(meta.pos.x, meta.pos.y, meta.pos.z);
+          scene.add(g);
+
+          var light = new THREE.PointLight('#a855f7', 2.1, 12);
+          light.position.set(0, 4.5, 0);
+          g.add(light);
+
+          var base = new THREE.Mesh(
+            new THREE.CylinderGeometry(4.1, 4.4, 0.35, 32),
+            new THREE.MeshStandardMaterial({ color: '#241436', roughness: 0.55 })
+          );
+          base.position.y = 0.17;
+          g.add(base);
+          registerStationMesh(base, 'pharmacy', '4. Учебная аптека и клиника', 'Аудит рецептов, Списки А/Б и консультация пациентов (3 задания)');
+
+          var counter = new THREE.Mesh(
+            new THREE.BoxGeometry(4.1, 1.25, 1.35),
+            new THREE.MeshStandardMaterial({ color: '#1e293b' })
+          );
+          counter.position.set(0, 0.97, 0.8);
+          g.add(counter);
+          registerStationMesh(counter, 'pharmacy', 'Рецептурный отдел аптеки', 'Нажмите для экспертизы рецептов и консультации');
+
+          var safeA = new THREE.Mesh(
+            new THREE.BoxGeometry(1.1, 1.5, 0.9),
+            new THREE.MeshStandardMaterial({ color: '#be123c', metalness: 0.6, roughness: 0.3 })
+          );
+          safeA.position.set(-1.35, 1.1, -1.1);
+          g.add(safeA);
+          registerStationMesh(safeA, 'pharmacy', 'Сейф «Список А»', 'Хранение ядовитых и наркотических средств');
+
+          var fridge = new THREE.Mesh(
+            new THREE.BoxGeometry(1.1, 2.2, 0.9),
+            new THREE.MeshStandardMaterial({ color: '#e0f2fe', roughness: 0.2 })
+          );
+          fridge.position.set(1.35, 1.45, -1.1);
+          g.add(fridge);
+          registerStationMesh(fridge, 'pharmacy', 'Фармацевтический холодильник (+2..+8 °C)', 'Хранение термолабильных препаратов и вакцин');
+
+          var crossGroup = new THREE.Group();
+          crossGroup.position.set(0, 3.6, -1.1);
+          var crossMat = new THREE.MeshBasicMaterial({ color: '#10b981' });
+          var vBar = new THREE.Mesh(new THREE.BoxGeometry(0.32, 1.05, 0.14), crossMat);
+          var hBar = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.32, 0.14), crossMat);
+          crossGroup.add(vBar, hBar);
+          g.add(crossGroup);
+          animatedObjects.push({ mesh: crossGroup, type: 'spin', speed: 0.9 });
+          registerStationMesh(vBar, 'pharmacy', 'Аптечный крест', 'Нажмите для входа в учебную аптеку');
+        })();
+
+        // --- STATION 5: BIOPHARMACY ADME HOLOGRAM ---
+        (function () {
+          var meta = STATIONS_META.biopharm;
+          var g = new THREE.Group();
+          g.position.set(meta.pos.x, meta.pos.y, meta.pos.z);
+          scene.add(g);
+
+          var light = new THREE.PointLight('#f43f5e', 2.3, 13);
+          light.position.set(0, 4.6, 0);
+          g.add(light);
+
+          var base = new THREE.Mesh(
+            new THREE.CylinderGeometry(4.1, 4.4, 0.35, 32),
+            new THREE.MeshStandardMaterial({ color: '#2b1220', roughness: 0.55 })
+          );
+          base.position.y = 0.17;
+          g.add(base);
+          registerStationMesh(base, 'biopharm', '5. Центр биофармации (ADME)', 'Пути введения и терапевтическое окно (2 задания)');
+
+          var holoRing = new THREE.Mesh(
+            new THREE.TorusGeometry(2.2, 0.07, 16, 64),
+            new THREE.MeshBasicMaterial({ color: '#fb7185' })
+          );
+          holoRing.rotation.x = Math.PI / 2;
+          holoRing.position.y = 0.42;
+          g.add(holoRing);
+
+          var holoGroup = new THREE.Group();
+          holoGroup.position.y = 0.6;
+          var holoMat = new THREE.MeshStandardMaterial({
+            color: '#fda4af',
+            emissive: '#e11d48',
+            emissiveIntensity: 0.35,
+            transparent: true,
+            opacity: 0.5
+          });
+
+          var head = new THREE.Mesh(new THREE.SphereGeometry(0.36, 18, 18), holoMat);
+          head.position.y = 3.15;
+          var torso = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.48, 1.65, 18), holoMat);
+          torso.position.y = 1.85;
+          var legs = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.3, 1.1, 16), holoMat);
+          legs.position.y = 0.55;
+
+          var heartNode = new THREE.Mesh(new THREE.SphereGeometry(0.18, 14, 14), new THREE.MeshBasicMaterial({ color: '#38bdf8' }));
+          heartNode.position.set(0.14, 2.25, 0.25);
+
+          var liverNode = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 14), new THREE.MeshBasicMaterial({ color: '#fbbf24' }));
+          liverNode.position.set(-0.2, 1.65, 0.25);
+
+          holoGroup.add(head, torso, legs, heartNode, liverNode);
+          g.add(holoGroup);
+          animatedObjects.push({ mesh: holoGroup, type: 'spin', speed: 0.6 });
+          registerStationMesh(torso, 'biopharm', '3D-голограмма ADME', 'Нажмите, чтобы изучить путь лекарства в организме');
+        })();
+
+        // Ambient Bio-Particles
+        var particleCount = 180;
+        var pGeo = new THREE.BufferGeometry();
+        var pPositions = new Float32Array(particleCount * 3);
+        for (var p = 0; p < particleCount; p++) {
+          pPositions[p * 3] = (Math.random() - 0.5) * 38;
+          pPositions[p * 3 + 1] = 0.5 + Math.random() * 8.5;
+          pPositions[p * 3 + 2] = (Math.random() - 0.5) * 38;
+        }
+        pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+        var pMat = new THREE.PointsMaterial({ color: '#67e8f9', size: 0.14, transparent: true, opacity: 0.65 });
+        particles = new THREE.Points(pGeo, pMat);
+        scene.add(particles);
+
+        use3D = true;
+      } catch (err) {
+        init2DFallback();
+      }
+
+      // =========================================================================
+      // 6. FLOATING STATION MARKERS PROJECTION
+      // =========================================================================
+      var markersLayer = document.getElementById('markers-layer');
+      var markerElements = {};
+
+      ['garden', 'chem', 'forms', 'pharmacy', 'biopharm'].forEach(function (id) {
+        var meta = STATIONS_META[id];
+        var el = document.createElement('button');
+        el.className = 'station-marker glass rounded-2xl px-3.5 py-2 flex items-center gap-2.5 text-left pulse-ring';
+        el.style.borderColor = meta.color;
+        el.innerHTML =
+          '<span class="text-xl">' + meta.icon + '</span>' +
+          '<div>' +
+            '<div class="text-xs font-extrabold text-white leading-tight">' + meta.title + '</div>' +
+            '<div class="text-[10px] mono" style="color:' + meta.color + '">' + meta.short + '</div>' +
+          '</div>' +
+          '<span class="marker-status text-[11px] mono font-bold ml-1 px-1.5 py-0.5 rounded bg-slate-900/85 text-white">0/' + meta.taskKeys.length + '</span>';
+
+        el.onclick = function () {
+          sfx.click();
+          focusCameraOn(id);
+          openStationModal(id);
+        };
+        markersLayer.appendChild(el);
+        markerElements[id] = el;
+      });
+
+      function updateMarkersProjection() {
+        var ids = ['garden', 'chem', 'forms', 'pharmacy', 'biopharm'];
+        if (!use3D || !camera) {
+          for (var j = 0; j < ids.length; j++) {
+            var mId = ids[j];
+            var dCount = getStationDoneCount(mId);
+            var tCount = STATIONS_META[mId].taskKeys.length;
+            var badge = markerElements[mId].querySelector('.marker-status');
+            if (badge) badge.textContent = dCount === tCount ? ('✅ ' + dCount + '/' + tCount) : (dCount + '/' + tCount);
+          }
+          return;
+        }
+
+        var widthHalf = window.innerWidth / 2;
+        var heightHalf = window.innerHeight / 2;
+
+        for (var i = 0; i < ids.length; i++) {
+          var id = ids[i];
+          var meta = STATIONS_META[id];
+          var el = markerElements[id];
+          var worldPos = new THREE.Vector3(meta.pos.x, meta.pos.y + 3.8, meta.pos.z);
+          worldPos.project(camera);
+
+          if (worldPos.z > 1) {
+            el.style.display = 'none';
+          } else {
+            el.style.display = 'flex';
+            var x = (worldPos.x * widthHalf) + widthHalf;
+            var y = -(worldPos.y * heightHalf) + heightHalf;
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+          }
+
+          var done = getStationDoneCount(id);
+          var total = meta.taskKeys.length;
+          var statusBadge = el.querySelector('.marker-status');
+          if (statusBadge) {
+            statusBadge.textContent = done === total ? ('✅ ' + done + '/' + total) : (done + '/' + total);
+          }
+        }
+      }
+
+      // =========================================================================
+      // 7. SAFE CAMERA DRAG, WHEEL ZOOM, WASD WALK & RAYCASTER (NO POINTERLOCK!)
+      // =========================================================================
+      var isDragging = false;
+      var dragStart = { x: 0, y: 0 };
+      var lastPointer = { x: 0, y: 0 };
+      var raycaster = use3D ? new THREE.Raycaster() : null;
+      var pointerVec = use3D ? new THREE.Vector2() : null;
+      var tooltip = document.getElementById('hover-tooltip');
+
+      function updateCameraTransform() {
+        if (!use3D || !camera) return;
+        if (state.walkMode) {
+          camera.position.set(camState.walkX, camState.walkY, camState.walkZ);
+          var lookX = camState.walkX - Math.sin(camState.walkYaw) * Math.cos(camState.walkPitch);
+          var lookY = camState.walkY + Math.sin(camState.walkPitch);
+          var lookZ = camState.walkZ - Math.cos(camState.walkYaw) * Math.cos(camState.walkPitch);
+          camera.lookAt(lookX, lookY, lookZ);
+        } else {
+          var cosP = Math.cos(camState.pitch);
+          var cx = camState.targetX + camState.distance * Math.sin(camState.yaw) * cosP;
+          var cy = camState.targetY + camState.distance * Math.sin(camState.pitch);
+          var cz = camState.targetZ + camState.distance * Math.cos(camState.yaw) * cosP;
+          camera.position.set(cx, cy, cz);
+          camera.lookAt(camState.targetX, camState.targetY, camState.targetZ);
+        }
+      }
+
+      var targetCanvas = use3D ? renderer.domElement : container;
+
+      targetCanvas.addEventListener('pointerdown', function (e) {
+        if (document.getElementById('station-modal').classList.contains('flex')) return;
+        isDragging = true;
+        dragStart.x = e.clientX;
+        dragStart.y = e.clientY;
+        lastPointer.x = e.clientX;
+        lastPointer.y = e.clientY;
+      });
+
+      window.addEventListener('pointermove', function (e) {
+        if (document.getElementById('station-modal').classList.contains('flex')) {
+          if (tooltip) tooltip.classList.add('hidden');
+          return;
+        }
+
+        if (isDragging) {
+          camAnim = null;
+          var dx = e.clientX - lastPointer.x;
+          var dy = e.clientY - lastPointer.y;
+          lastPointer.x = e.clientX;
+          lastPointer.y = e.clientY;
+
+          if (state.walkMode) {
+            camState.walkYaw -= dx * 0.004;
+            camState.walkPitch = Math.max(-0.6, Math.min(0.6, camState.walkPitch - dy * 0.004));
+          } else {
+            camState.yaw -= dx * 0.006;
+            camState.pitch = Math.max(0.14, Math.min(1.38, camState.pitch + dy * 0.006));
+          }
+          if (tooltip) tooltip.classList.add('hidden');
+          return;
+        }
+
+        if (use3D && raycaster && pointerVec) {
+          pointerVec.x = (e.clientX / window.innerWidth) * 2 - 1;
+          pointerVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
+          raycaster.setFromCamera(pointerVec, camera);
+          var hits = raycaster.intersectObjects(interactiveMeshes, false);
+          if (hits.length > 0) {
+            var hit = hits[0].object;
+            document.body.style.cursor = 'pointer';
+            if (tooltip) {
+              tooltip.classList.remove('hidden');
+              tooltip.style.left = Math.min(e.clientX + 14, window.innerWidth - 270) + 'px';
+              tooltip.style.top = Math.min(e.clientY + 14, window.innerHeight - 90) + 'px';
+              document.getElementById('tooltip-title').textContent = hit.userData.label;
+              document.getElementById('tooltip-desc').textContent = hit.userData.hint;
+            }
+          } else {
+            document.body.style.cursor = 'default';
+            if (tooltip) tooltip.classList.add('hidden');
+          }
+        }
+      });
+
+      window.addEventListener('pointerup', function (e) {
+        if (!isDragging) return;
+        isDragging = false;
+        if (document.getElementById('station-modal').classList.contains('flex')) return;
+
+        var moveDist = Math.hypot(e.clientX - dragStart.x, e.clientY - dragStart.y);
+        if (moveDist <= 6 && use3D && raycaster && pointerVec) {
+          pointerVec.x = (e.clientX / window.innerWidth) * 2 - 1;
+          pointerVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
+          raycaster.setFromCamera(pointerVec, camera);
+          var hits = raycaster.intersectObjects(interactiveMeshes, false);
+          if (hits.length > 0) {
+            var stId = hits[0].object.userData.stationId;
+            sfx.click();
+            focusCameraOn(stId);
+            openStationModal(stId);
+          }
+        }
+      });
+
+      window.addEventListener('wheel', function (e) {
+        if (document.getElementById('station-modal').classList.contains('flex')) return;
+        camAnim = null;
+        camState.distance = Math.max(8, Math.min(44, camState.distance + e.deltaY * 0.015));
+      }, { passive: true });
+
+      var keysPressed = {};
+      window.addEventListener('keydown', function (e) {
+        if (document.getElementById('station-modal').classList.contains('flex')) return;
+        keysPressed[e.code] = true;
+      });
+      window.addEventListener('keyup', function (e) {
+        keysPressed[e.code] = false;
+      });
+
+      function handleKeyboardMovement(dt) {
+        var speed = 11 * dt;
+        var yaw = state.walkMode ? camState.walkYaw : camState.yaw;
+        var fwdX = -Math.sin(yaw);
+        var fwdZ = -Math.cos(yaw);
+        var rightX = Math.cos(yaw);
+        var rightZ = -Math.sin(yaw);
+
+        var mx = 0;
+        var mz = 0;
+        if (keysPressed['KeyW'] || keysPressed['ArrowUp']) { mx += fwdX; mz += fwdZ; }
+        if (keysPressed['KeyS'] || keysPressed['ArrowDown']) { mx -= fwdX; mz -= fwdZ; }
+        if (keysPressed['KeyD'] || keysPressed['ArrowRight']) { mx += rightX; mz += rightZ; }
+        if (keysPressed['KeyA'] || keysPressed['ArrowLeft']) { mx -= rightX; mz -= rightZ; }
+
+        if (mx !== 0 || mz !== 0) {
+          camAnim = null;
+          var len = Math.hypot(mx, mz);
+          mx = (mx / len) * speed;
+          mz = (mz / len) * speed;
+          if (state.walkMode) {
+            camState.walkX = Math.max(-21, Math.min(21, camState.walkX + mx));
+            camState.walkZ = Math.max(-21, Math.min(21, camState.walkZ + mz));
+          } else {
+            camState.targetX = Math.max(-18, Math.min(18, camState.targetX + mx));
+            camState.targetZ = Math.max(-18, Math.min(18, camState.targetZ + mz));
+          }
+        }
+      }
+
+      // =========================================================================
+      // 8. MODAL MANAGEMENT & 15 INTERACTIVE PRACTICAL TASKS
+      // =========================================================================
+      var modal = document.getElementById('station-modal');
+      var modalBody = document.getElementById('modal-body');
+
+      function closeModal() {
+        sfx.click();
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        state.activeStation = null;
+      }
+
+      document.getElementById('btn-close-modal').onclick = closeModal;
+      modal.onclick = function (e) {
+        if (e.target === modal) closeModal();
+      };
+
+      function openStationModal(stationId, tabIdx) {
+        state.activeStation = stationId;
+        var meta = STATIONS_META[stationId];
+
+        if (typeof tabIdx === 'number') {
+          state.activeTaskTab = tabIdx;
+        } else {
+          var firstIncomplete = -1;
+          for (var i = 0; i < meta.taskKeys.length; i++) {
+            if (!state.completedTasks[meta.taskKeys[i]]) {
+              firstIncomplete = i;
+              break;
+            }
+          }
+          state.activeTaskTab = firstIncomplete >= 0 ? firstIncomplete : 0;
+        }
+
+        document.getElementById('modal-icon').textContent = meta.icon;
+        document.getElementById('modal-title').textContent = meta.title;
+        document.getElementById('modal-badge').textContent = meta.badge;
+        document.getElementById('modal-subtitle').textContent = meta.subtitle;
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        renderActiveStation();
+      }
+
+      function renderTaskTabsBar(stationId) {
+        var meta = STATIONS_META[stationId];
+        var html = '<div class="flex flex-wrap gap-2 pb-3 border-b border-slate-700/60">';
+        for (var idx = 0; idx < meta.taskNames.length; idx++) {
+          var name = meta.taskNames[idx];
+          var key = meta.taskKeys[idx];
+          var isDone = !!state.completedTasks[key];
+          var isActive = state.activeTaskTab === idx;
+          var cls = isActive
+            ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/60 shadow'
+            : (isDone
+              ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
+              : 'bg-slate-900/70 text-slate-300 border border-slate-700 hover:border-slate-500');
+          html += '<button data-tab-idx="' + idx + '" class="station-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ' + cls + '">' +
+            '<span>' + (isDone ? '✅' : '🔬') + '</span>' +
+            '<span>' + name + '</span>' +
+          '</button>';
+        }
+        html += '</div>';
+        return html;
+      }
+
+      function bindTabEvents() {
+        var btns = modalBody.querySelectorAll('.station-tab-btn');
+        for (var i = 0; i < btns.length; i++) {
+          (function (btn) {
+            btn.onclick = function () {
+              sfx.click();
+              state.activeTaskTab = Number(btn.getAttribute('data-tab-idx'));
+              renderActiveStation();
+            };
+          })(btns[i]);
+        }
+      }
+
+      function renderActiveStation() {
+        var id = state.activeStation;
+        if (id === 'garden') renderGardenStation();
+        if (id === 'chem') renderChemStation();
+        if (id === 'forms') renderFormsStation();
+        if (id === 'pharmacy') renderPharmacyStation();
+        if (id === 'biopharm') renderBiopharmStation();
+      }
+
+      // =========================================================================
+      // DEPARTMENT 1: ФАРМАКОГНОЗИЯ (3 ЗАДАНИЯ)
+      // =========================================================================
+      var PLANTS_DB = [
+        {
+          id: 'chamomile',
+          name: 'Ромашка аптечная',
+          latin: 'Matricaria chamomilla L.',
+          emoji: '🌼',
+          correctPart: 'flowers',
+          partLabel: 'Цветки (Flores)',
+          season: 'Май – Июль (начало цветения)',
+          actives: 'Хамазулен, бисаболол, флавоноиды',
+          effect: 'Противовоспалительное и спазмолитическое действие',
+          hint: 'Эфирное масло с хамазуленом сосредоточено в соцветиях-корзинках!'
+        },
+        {
+          id: 'mint',
+          name: 'Мята перечная',
+          latin: 'Mentha × piperita L.',
+          emoji: '🌱',
+          correctPart: 'leaves',
+          partLabel: 'Листья (Folia)',
+          season: 'Июль – Август (фаза бутонизации)',
+          actives: 'Ментол (до 50–60% в эфирном масле)',
+          effect: 'Охлаждающее, спазмолитическое и сосудорасширяющее средство',
+          hint: 'Эфирномасличные желёзки с ментолом находятся на листьях мяты.'
+        },
+        {
+          id: 'rauvolfia',
+          name: 'Раувольфия змеиная',
+          latin: 'Rauvolfia serpentina',
+          emoji: '🌿',
+          correctPart: 'roots',
+          partLabel: 'Корни (Radices)',
+          season: 'Осень (после отмирания надземной части)',
+          actives: 'Алкалоид резерпин (препарат «Раунатин»)',
+          effect: 'Снижает артериальное давление (гипотензивное действие)',
+          hint: 'Индольные алкалоиды (резерпин) накапливаются в подземных корнях.'
+        },
+        {
+          id: 'digitalis',
+          name: 'Наперстянка пурпурная',
+          latin: 'Digitalis purpurea L.',
+          emoji: '🌺',
+          correctPart: 'leaves',
+          partLabel: 'Листья (Folia)',
+          season: 'Лето (1-й и 2-й год вегетации)',
+          actives: 'Сердечные гликозиды (дигитоксин, гитоксин)',
+          effect: 'Усиливает сокращения миокарда при сердечной недостаточности',
+          hint: 'Кардиотонические гликозиды содержатся в листьях наперстянки.'
+        }
+      ];
+
+      function renderGardenStation() {
+        var tabs = renderTaskTabsBar('garden');
+        var tab = state.activeTaskTab;
+
+        if (tab === 0) {
+          // 1.1 Сбор лекарственного растительного сырья
+          var task = PLANTS_DB[state.gardenPlantIdx % PLANTS_DB.length];
+          modalBody.innerHTML = tabs +
+            '<div class="glass-card rounded-2xl p-4 border-emerald-500/40 bg-emerald-950/20">' +
+              '<div class="flex flex-wrap items-center justify-between gap-2">' +
+                '<div>' +
+                  '<span class="text-xs mono text-emerald-300 uppercase">Задание 1.1 • Заготовка лекарственного сырья</span>' +
+                  '<h3 class="text-lg font-bold text-white mt-0.5">Растение: ' + task.emoji + ' ' + task.name + ' <span class="text-xs font-normal italic text-slate-300">(' + task.latin + ')</span></h3>' +
+                '</div>' +
+                '<span class="text-xs px-3 py-1 rounded-full bg-slate-900 text-emerald-300 border border-emerald-500/30">Собрано: ' + state.gardenHarvested.length + ' / ' + PLANTS_DB.length + '</span>' +
+              '</div>' +
+              '<p class="text-xs sm:text-sm text-slate-300 mt-2">Выберите морфологическую группу сырья, в которой накапливается максимум действующих веществ:</p>' +
+            '</div>' +
+            '<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">' +
+              [
+                { key: 'flowers', icon: '🌸', title: 'Цветки (Flores)', desc: 'Соцветия в начале распускания' },
+                { key: 'leaves', icon: '🍃', title: 'Листья (Folia)', desc: 'Листовые пластинки в фазе бутонизации' },
+                { key: 'roots', icon: '🥕', title: 'Корни (Radices)', desc: 'Подземные органы, выкопанные осенью' }
+              ].map(function (opt) {
+                return '<button data-part="' + opt.key + '" class="plant-part-btn glass-card rounded-2xl p-4 text-left hover:border-emerald-400 cursor-pointer flex flex-col justify-between">' +
+                  '<div><div class="text-3xl mb-2">' + opt.icon + '</div><div class="font-bold text-white text-sm">' + opt.title + '</div><div class="text-xs text-slate-400 mt-1">' + opt.desc + '</div></div>' +
+                  '<div class="mt-3 text-[11px] mono text-emerald-300">Заготовить сырьё →</div>' +
+                '</button>';
+              }).join('') +
+            '</div>' +
+            '<div id="garden-feedback" class="hidden rounded-2xl p-4 text-sm"></div>';
+          bindTabEvents();
+
+          var pBtns = modalBody.querySelectorAll('.plant-part-btn');
+          for (var i = 0; i < pBtns.length; i++) {
+            (function (btn) {
+              btn.onclick = function () {
+                var chosen = btn.getAttribute('data-part');
+                var fb = document.getElementById('garden-feedback');
+                fb.classList.remove('hidden');
+                if (chosen === task.correctPart) {
+                  sfx.success();
+                  if (state.gardenHarvested.indexOf(task.id) === -1) state.gardenHarvested.push(task.id);
+                  fb.className = 'rounded-2xl p-4 text-sm bg-emerald-500/20 border border-emerald-400/50 text-emerald-100 space-y-1.5';
+                  fb.innerHTML =
+                    '<div class="font-bold text-emerald-300">✅ Верно! Собраны «' + task.partLabel + '» (Срок: ' + task.season + ')</div>' +
+                    '<div><strong>Действующие вещества:</strong> ' + task.actives + '</div>' +
+                    '<div><strong>Фармакология:</strong> ' + task.effect + '</div>' +
+                    '<button id="btn-next-plant" class="mt-2 px-4 py-2 rounded-xl bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer">' +
+                      (state.gardenHarvested.length >= PLANTS_DB.length ? '🎓 Завершить задание 1.1' : 'Следующее растение →') +
+                    '</button>';
+                  document.getElementById('btn-next-plant').onclick = function () {
+                    if (state.gardenHarvested.length >= PLANTS_DB.length) {
+                      completeTask('garden_1', 'Сбор лекарственного растительного сырья');
+                      state.activeTaskTab = 1;
+                    } else {
+                      state.gardenPlantIdx++;
+                    }
+                    renderGardenStation();
+                  };
+                } else {
+                  sfx.error();
+                  fb.className = 'rounded-2xl p-4 text-sm bg-rose-500/20 border border-rose-400/50 text-rose-100';
+                  fb.innerHTML = '<strong>❌ Неверно!</strong> ' + task.hint;
+                }
+              };
+            })(pBtns[i]);
+          }
+        } else if (tab === 1) {
+          // 1.2 Технология фитопрепаратов (простые, галеновы, новогаленовы)
+          var rows = [
+            { id: 'r1', title: 'Грудной сбор №4 (сушёные измельчённые травы)', correct: 'simple' },
+            { id: 'r2', title: 'Настойка валерианы спиртовая (содержит балластные примеси)', correct: 'galenic' },
+            { id: 'r3', title: 'Лантозид в ампулах (глубокая очистка от белков и слизи для инъекций)', correct: 'neogalenic' }
+          ];
+          modalBody.innerHTML = tabs +
+            '<div class="glass-card rounded-2xl p-4 border-emerald-500/40">' +
+              '<span class="text-xs mono text-emerald-300 uppercase">Задание 1.2 • Технология фитопрепаратов</span>' +
+              '<h3 class="text-lg font-bold text-white mt-0.5">Классифицируйте препараты растительного происхождения</h3>' +
+              '<p class="text-xs text-slate-300 mt-1">Сопоставьте каждый препарат со степенью очистки растительного сырья:</p>' +
+            '</div>' +
+            '<div class="space-y-2.5">' +
+              rows.map(function (r) {
+                return '<div class="glass-card rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">' +
+                  '<div class="font-bold text-white text-sm">🌿 ' + r.title + '</div>' +
+                  '<select data-rid="' + r.id + '" class="phyto-sel bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-emerald-200 cursor-pointer">' +
+                    '<option value="">-- Выберите группу --</option>' +
+                    '<option value="simple">Простые препараты (сушка и измельчение)</option>' +
+                    '<option value="galenic">Галеновы препараты (настойки/экстракты с примесями)</option>' +
+                    '<option value="neogalenic">Новогаленовы препараты (высшая очистка, без балласта)</option>' +
+                  '</select>' +
+                '</div>';
+              }).join('') +
+            '</div>' +
+            '<button id="btn-check-phyto" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-emerald-400 text-slate-950 cursor-pointer">✅ Проверить классификацию фитопрепаратов</button>';
+          bindTabEvents();
+
+          var sels = modalBody.querySelectorAll('.phyto-sel');
+          for (var j = 0; j < sels.length; j++) {
+            (function (sel) {
+              sel.value = state.gardenExtractMap[sel.getAttribute('data-rid')] || '';
+              sel.onchange = function () {
+                sfx.click();
+                state.gardenExtractMap[sel.getAttribute('data-rid')] = sel.value;
+              };
+            })(sels[j]);
+          }
+
+          document.getElementById('btn-check-phyto').onclick = function () {
+            var m = state.gardenExtractMap;
+            if (m.r1 === 'simple' && m.r2 === 'galenic' && m.r3 === 'neogalenic') {
+              completeTask('garden_2', 'Технология фитопрепаратов');
+              state.activeTaskTab = 2;
+              renderGardenStation();
+            } else {
+              sfx.error();
+              showToast('⚠️', 'Проверьте группы: сбор = простой, настойка = галеновый, очищенный инъекционный = новогаленовый!');
+            }
+          };
+        } else {
+          // 1.3 Микроскопия подлинности (интерактивный зум и фокус)
+          var zoom = state.gardenMicroZoom;
+          var focus = state.gardenMicroFocus;
+          var isSharp = Math.abs(focus - 75) <= 10 && zoom >= 200;
+          var blurPx = Math.max(0, Math.abs(focus - 75) * 0.14);
+
+          modalBody.innerHTML = tabs +
+            '<div class="glass-card rounded-2xl p-4 border-emerald-500/40">' +
+              '<span class="text-xs mono text-emerald-300 uppercase">Задание 1.3 • Микроскопия подлинности сырья</span>' +
+              '<h3 class="text-lg font-bold text-white mt-0.5">Настройте микроскоп и найдите фальсификат</h3>' +
+              '<p class="text-xs text-slate-300 mt-1">Увеличьте масштаб (≥200×) и наведите резкость (фокус ≈75%), чтобы рассмотреть структуру ткани под микроскопом:</p>' +
+            '</div>' +
+            '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">' +
+              '<div class="glass-card rounded-2xl p-4 flex flex-col items-center justify-center space-y-3">' +
+                '<div class="w-48 h-48 rounded-full border-4 border-emerald-400/60 bg-emerald-950/50 overflow-hidden relative flex items-center justify-center shadow-inner">' +
+                  '<div style="transform: scale(' + (zoom / 150) + '); filter: blur(' + blurPx.toFixed(1) + 'px); transition: all 0.15s;" class="text-center p-4">' +
+                    '<div class="text-3xl">🔬🌼</div>' +
+                    '<div class="text-[10px] mono text-emerald-200 mt-1 font-bold">ПОЛОЕ ЦВЕТОЛОЖЕ + 38% СТЕБЛЕЙ И ПУПАВКА</div>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="w-full space-y-2 text-xs">' +
+                  '<div>Увеличение: <strong class="mono text-cyan-300">' + zoom + '×</strong> <input type="range" id="micro-zoom" min="100" max="400" step="20" value="' + zoom + '" class="w-full accent-emerald-400 cursor-pointer"></div>' +
+                  '<div>Микровинт фокуса: <strong class="mono text-cyan-300">' + focus + '%</strong> <input type="range" id="micro-focus" min="0" max="100" step="5" value="' + focus + '" class="w-full accent-emerald-400 cursor-pointer"></div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="glass-card rounded-2xl p-4 flex flex-col justify-between space-y-3">' +
+                '<div class="space-y-2 text-xs">' +
+                  '<div class="font-bold text-white text-sm">Заключение микроскопического анализа:</div>' +
+                  '<p class="text-slate-300">' + (isSharp ? '🔍 Изображение чёткое! В препарате ромашки обнаружено 38% грубых стеблей и примесь пупавки собачьей.' : '⚠️ Настройте увеличение (≥200×) и фокус (~75%), чтобы прочитать диагностический признак.') + '</p>' +
+                '</div>' +
+                '<div class="space-y-2">' +
+                  '<button data-verdict="accept" class="micro-verdict w-full py-2.5 px-3 rounded-xl bg-slate-900 border border-slate-700 hover:border-emerald-400 text-xs font-bold text-left cursor-pointer">✅ Одобрить партию в производство</button>' +
+                  '<button data-verdict="reject" class="micro-verdict w-full py-2.5 px-3 rounded-xl bg-slate-900 border border-slate-700 hover:border-rose-400 text-xs font-bold text-left cursor-pointer">🚫 Забраковать как недоброкачественное сырьё</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+          bindTabEvents();
+
+          document.getElementById('micro-zoom').oninput = function (e) {
+            state.gardenMicroZoom = Number(e.target.value);
+            renderGardenStation();
+          };
+          document.getElementById('micro-focus').oninput = function (e) {
+            state.gardenMicroFocus = Number(e.target.value);
+            renderGardenStation();
+          };
+          var vBtns = modalBody.querySelectorAll('.micro-verdict');
+          for (var k = 0; k < vBtns.length; k++) {
+            (function (btn) {
+              btn.onclick = function () {
+                if (!isSharp) {
+                  sfx.error();
+                  showToast('🔬', 'Сначала настройте резкость (фокус ~75%) и увеличение (≥200×) на микроскопе!');
+                  return;
+                }
+                if (btn.getAttribute('data-verdict') === 'reject') {
+                  completeTask('garden_3', 'Микроскопия подлинности сырья');
+                } else {
+                  sfx.error();
+                  showToast('❌', 'Нельзя пропускать сырьё с 38% примесей и пупавкой!');
+                }
+              };
+            })(vBtns[k]);
+          }
+        }
+      }
+
+      // =========================================================================
+      // DEPARTMENT 2: ФАРМХИМИЯ (3 ЗАДАНИЯ)
+      // =========================================================================
+      function renderChemStation() {
+        var tabs = renderTaskTabsBar('chem');
+        var tab = state.activeTaskTab;
+
+        if (tab === 0) {
+          // 2.1 Количественное титрование
+          var target = state.chemTargetDrops;
+          var drops = state.chemDrops;
+          var liquidColor = '#38bdf8';
+          var statusLabel = 'Исходный раствор ацетилсалициловой кислоты (pH 3.2)';
+          if (drops > 0 && drops < target) {
+            liquidColor = '#818cf8';
+            statusLabel = 'Идёт нейтрализация... (pH ' + (3.2 + (drops / target) * 4.0).toFixed(1) + ')';
+          } else if (drops === target) {
+            liquidColor = '#f472b6';
+            statusLabel = '✨ Точка эквивалентности! Нежно-розовый цвет фенолфталеина (pH 7.2)';
+          } else if (drops > target) {
+            liquidColor = '#e11d48';
+            statusLabel = '⚠️ Перетитрование! Малиновый избыток NaOH (pH > 9.5). Нажмите «Сброс».';
+          }
+
+          modalBody.innerHTML = tabs +
+            '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">' +
+              '<div class="glass-card rounded-2xl p-4 flex flex-col justify-between space-y-3">' +
+                '<div>' +
+                  '<span class="text-xs mono text-sky-300 uppercase">Задание 2.1 • Алкалиметрия</span>' +
+                  '<h3 class="text-base sm:text-lg font-bold text-white mt-0.5">Титрование субстанции до точки эквивалентности</h3>' +
+                  '<p class="text-xs text-slate-300 mt-1">Добавляйте 0,1 М раствор NaOH из бюретки по каплям. Для нейтрализации нужно ровно <strong>' + target + ' капель</strong>.</p>' +
+                '</div>' +
+                '<div class="bg-slate-950/75 rounded-2xl p-4 border border-slate-800 flex flex-col items-center">' +
+                  '<div class="text-xs mono text-slate-400 mb-1">Добавлено капель: <strong class="text-sky-300 text-base">' + drops + '</strong></div>' +
+                  '<svg class="w-32 h-32" viewBox="0 0 120 120">' +
+                    '<path d="M48 12 H72 V34 L98 96 A10 10 0 0 1 89 110 H31 A10 10 0 0 1 22 96 L48 34 Z" fill="rgba(255,255,255,0.06)" stroke="#94a3b8" stroke-width="2.5"/>' +
+                    '<path d="M36 66 H84 L95 95 A8 8 0 0 1 88 107 H32 A8 8 0 0 1 25 95 Z" fill="' + liquidColor + '" opacity="0.88"/>' +
+                  '</svg>' +
+                  '<div class="text-xs text-center font-semibold mt-2" style="color:' + liquidColor + '">' + statusLabel + '</div>' +
+                '</div>' +
+                '<div class="flex gap-2">' +
+                  '<button id="btn-add-drop" class="flex-1 py-2.5 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs sm:text-sm cursor-pointer">💧 +1 капля из бюретки</button>' +
+                  '<button id="btn-reset-chem" class="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs sm:text-sm cursor-pointer">🔄 Сброс</button>' +
+                '</div>' +
+              '</div>' +
+              '<div class="glass-card rounded-2xl p-4 flex flex-col justify-between space-y-3">' +
+                '<div class="space-y-2 text-xs">' +
+                  '<span class="text-xs mono text-emerald-300 uppercase">Протокол анализа</span>' +
+                  '<h4 class="text-base font-bold text-white">Расчёт количественного содержания</h4>' +
+                  '<p class="text-slate-300">По норме ГФ содержание действующего вещества должно быть в пределах <strong>99,0% – 100,5%</strong>.</p>' +
+                  '<div class="p-3 rounded-xl bg-slate-900/90 border border-slate-700 mono space-y-1">' +
+                    '<div>Объём титранта = ' + (drops * 0.5).toFixed(1) + ' мл</div>' +
+                    '<div>Массовая доля = <span class="' + (drops === target ? 'text-emerald-300 font-bold' : 'text-amber-300') + '">' + (drops === 0 ? '0.0%' : ((drops / target) * 99.8).toFixed(1) + '%') + '</span></div>' +
+                  '</div>' +
+                '</div>' +
+                '<button id="btn-finish-titration" ' + (drops === target ? '' : 'disabled') + ' class="w-full py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition ' + (drops === target ? 'bg-emerald-400 text-slate-950 cursor-pointer' : 'bg-slate-800/60 text-slate-500 cursor-not-allowed') + '">' +
+                  (drops === target ? '🎓 Подтвердить 99.8% и зачесть задание 2.1' : 'Достигните точки эквивалентности (6 капель)') +
+                '</button>' +
+              '</div>' +
+            '</div>';
+          bindTabEvents();
+
+          document.getElementById('btn-add-drop').onclick = function () {
+            state.chemDrops++;
+            if (state.chemDrops === state.chemTargetDrops) sfx.success();
+            else if (state.chemDrops > state.chemTargetDrops) sfx.error();
+            else sfx.drop();
+            renderChemStation();
+          };
+          document.getElementById('btn-reset-chem').onclick = function () {
+            sfx.click();
+            state.chemDrops = 0;
+            renderChemStation();
+          };
+          var finBtn = document.getElementById('btn-finish-titration');
+          if (finBtn && !finBtn.disabled) {
+            finBtn.onclick = function () {
+              completeTask('chem_1', 'Количественное титрование субстанции');
+              state.activeTaskTab = 1;
+              renderChemStation();
+            };
+          }
+        } else if (tab === 1) {
+          // 2.2 Контроль по Государственной фармакопее (ГФ)
+          var params = [
+            { id: 'mp', name: 'Температура плавления', norm: '135–136 °C', actual: '135.4 °C' },
+            { id: 'sol', name: 'Растворимость в этаноле 96%', norm: 'Легко растворим', actual: 'Легко растворим' },
+            { id: 'imp', name: 'Тест на тяжёлые металлы (Pb²⁺)', norm: 'Не более 0,001%', actual: '0,008% (превышение в 8 раз!)' }
+          ];
+          modalBody.innerHTML = tabs +
+            '<div class="glass-card rounded-2xl p-4 border-sky-500/40">' +
+              '<span class="text-xs mono text-sky-300 uppercase">Задание 2.2 • Контроль по Государственной фармакопее (ГФ)</span>' +
+              '<h3 class="text-lg font-bold text-white mt-0.5">Сверьте 3 показателя партии со стандартом ГФ</h3>' +
+              '<p class="text-xs text-slate-300 mt-1">Отметьте каждый показатель («Норма» или «Брак») и вынесите вердикт по всей партии:</p>' +
+            '</div>' +
+            '<div class="space-y-2.5">' +
+              params.map(function (p) {
+                var val = state.chemStdChecked[p.id];
+                return '<div class="glass-card rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm">' +
+                  '<div><div class="font-bold text-white">' + p.name + '</div><div class="text-slate-400">Норма ГФ: <span class="text-cyan-300 mono">' + p.norm + '</span> • Факт: <span class="text-amber-200 mono">' + p.actual + '</span></div></div>' +
+                  '<div class="flex gap-2">' +
+                    '<button data-pid="' + p.id + '" data-verdict="pass" class="gf-btn px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer ' + (val === 'pass' ? 'bg-emerald-500/30 border-emerald-400 text-emerald-200' : 'bg-slate-900 border-slate-700 text-slate-300') + '">✅ Норма</button>' +
+                    '<button data-pid="' + p.id + '" data-verdict="fail" class="gf-btn px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer ' + (val === 'fail' ? 'bg-rose-500/30 border-rose-400 text-rose-200' : 'bg-slate-900 border-slate-700 text-slate-300') + '">🚫 Брак</button>' +
+                  '</div>' +
+                '</div>';
+              }).join('') +
+            '</div>' +
+            '<button id="btn-verify-gf" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-sky-400 to-cyan-400 text-slate-950 cursor-pointer">📋 Вынести вердикт «БРАК ПАРТИИ» по протоколу ГФ</button>';
+          bindTabEvents();
+
+          var gfBtns = modalBody.querySelectorAll('.gf-btn');
+          for (var i = 0; i < gfBtns.length; i++) {
+            (function (btn) {
+              btn.onclick = function () {
+                sfx.click();
+                state.chemStdChecked[btn.getAttribute('data-pid')] = btn.getAttribute('data-verdict');
+                renderChemStation();
+              };
+            })(gfBtns[i]);
+          }
+
+          document.getElementById('btn-verify-gf').onclick = function () {
+            var c = state.chemStdChecked;
+            if (c.mp === 'pass' && c.sol === 'pass' && c.imp === 'fail') {
+              completeTask('chem_2', 'Контроль по Государственной фармакопее');
+              state.activeTaskTab = 2;
+              renderChemStation();
+            } else {
+              sfx.error();
+              showToast('⚠️', 'Проверьте все 3 показателя: температура и растворимость в норме, а тяжёлые металлы превышены!');
+            }
+          };
+        } else {
+          // 2.3 Детектор несовместимости
+          var pairs = [
+            {
+              id: 'p1',
+              title: 'Алкалоид (Кодеин / Папаверин) + Настой танина (дубильные вещества)',
+              hint: 'В растворе образуется нерастворимый осадок танната алкалоида — химическая несовместимость!',
+              correct: 'chem'
+            },
+            {
+              id: 'p2',
+              title: 'Сульфаниламид (Стрептоцид) + Новокаин (прокаин)',
+              hint: 'Новокаин расщепляется до ПАБК, которая блокирует противомикробное действие сульфаниламидов в организме!',
+              correct: 'pharm'
+            },
+            {
+              id: 'p3',
+              title: 'Касторовое масло + Вода очищенная (без эмульгатора)',
+              hint: 'Жидкости с разной полярностью не смешиваются и расслаиваются — физическая несовместимость!',
+              correct: 'phys'
+            }
+          ];
+          modalBody.innerHTML = tabs +
+            '<div class="glass-card rounded-2xl p-4 border-sky-500/40">' +
+              '<span class="text-xs mono text-sky-300 uppercase">Задание 2.3 • Детектор несовместимости лекарств</span>' +
+              '<h3 class="text-lg font-bold text-white mt-0.5">Определите вид несовместимости в комбинированных рецептах</h3>' +
+            '</div>' +
+            '<div class="space-y-3">' +
+              pairs.map(function (p) {
+                var ans = state.chemIncompatAnswers[p.id];
+                return '<div class="glass-card rounded-2xl p-3.5 space-y-2">' +
+                  '<div class="font-bold text-xs sm:text-sm text-white">🧪 ' + p.title + '</div>' +
+                  '<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">' +
+                    '<button data-pair="' + p.id + '" data-type="chem" class="incompat-btn p-2 rounded-xl border text-left cursor-pointer ' + (ans === 'chem' ? 'bg-sky-500/25 border-sky-400 text-white' : 'bg-slate-900/70 border-slate-700 text-slate-300') + '">⚗️ Химическая (осадок)</button>' +
+                    '<button data-pair="' + p.id + '" data-type="phys" class="incompat-btn p-2 rounded-xl border text-left cursor-pointer ' + (ans === 'phys' ? 'bg-sky-500/25 border-sky-400 text-white' : 'bg-slate-900/70 border-slate-700 text-slate-300') + '">💧 Физическая (нерастворимость)</button>' +
+                    '<button data-pair="' + p.id + '" data-type="pharm" class="incompat-btn p-2 rounded-xl border text-left cursor-pointer ' + (ans === 'pharm' ? 'bg-sky-500/25 border-sky-400 text-white' : 'bg-slate-900/70 border-slate-700 text-slate-300') + '">🧬 Фармакологическая (антагонизм)</button>' +
+                  '</div>' +
+                  (ans ? '<div class="text-[11px] text-cyan-200 bg-slate-950/60 p-2 rounded-lg">💡 ' + p.hint + '</div>' : '') +
+                '</div>';
+              }).join('') +
+            '</div>' +
+            '<button id="btn-check-incompat" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-emerald-400 text-slate-950 cursor-pointer">✅ Подтвердить экспертизу совместимости</button>';
+          bindTabEvents();
+
+          var iBtns = modalBody.querySelectorAll('.incompat-btn');
+          for (var j = 0; j < iBtns.length; j++) {
+            (function (btn) {
+              btn.onclick = function () {
+                sfx.drop();
+                state.chemIncompatAnswers[btn.getAttribute('data-pair')] = btn.getAttribute('data-type');
+                renderChemStation();
+              };
+            })(iBtns[j]);
+          }
+
+          document.getElementById('btn-check-incompat').onclick = function () {
+            var a = state.chemIncompatAnswers;
+            if (a.p1 === 'chem' && a.p2 === 'pharm' && a.p3 === 'phys') {
+              completeTask('chem_3', 'Детектор несовместимости лекарств');
+            } else {
+              sfx.error();
+              showToast('⚠️', 'Сопоставьте каждую пару: танин+алкалоид = химическая, сульфаниламид+новокаин = фармакологическая, масло+вода = физическая!');
+            }
+          };
+        }
+      }
+
+      // =========================================================================
+      // DEPARTMENT 3: ТЕХНОЛОГИЯ ЛЕКАРСТВЕННЫХ ФОРМ (4 ЗАДАНИЯ)
+      // =========================================================================
+      function renderFormsStation() {
+        var tabs = renderTaskTabsBar('forms');
+        var tab = state.activeTaskTab;
+
+        if (tab === 0) {
+          // 3.1 Твёрдые формы (Таблетки + аналитические весы 0,25 г + наполнители)
+          modalBody.innerHTML = tabs +
+            '<div class="glass-card rounded-2xl p-4 border-amber-500/40 bg-amber-950/15">' +
+              '<span class="text-xs mono text-amber-300 uppercase">Задание 3.1 • Твёрдые лекарственные формы</span>' +
+              '<h3 class="text-lg font-bold text-white mt-0.5">Аналитические весы и таблеточный пресс</h3>' +
+              '<pre class="mono text-xs bg-slate-950/80 p-3 rounded-xl border border-slate-700 text-emerald-300 mt-2">Rp.: Acidi acetylsalicylici 0,25\nDa tales doses N. 10 in tabulettis\nS. По 1 таблетке после еды</pre>' +
+            '</div>' +
+            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
+              '<div class="glass-card rounded-2xl p-4 space-y-2.5">' +
+                '<div class="text-xs font-bold text-amber-300">1. Навеска действующего вещества (нужно 0,25 г):</div>' +
+                '<div class="text-2xl mono font-extrabold text-white bg-slate-950 p-3 rounded-xl text-center border border-slate-700">' + state.formsSolidWeight.toFixed(2) + ' г</div>' +
+                '<div class="flex gap-2">' +
+                  '<button data-w="0.10" class="w-btn flex-1 py-2 rounded-xl bg-slate-800 hover:bg-amber-500/30 text-xs font-bold cursor-pointer">+0,10 г</button>' +
+                  '<button data-w="0.05" class="w-btn flex-1 py-2 rounded-xl bg-slate-800 hover:bg-amber-500/30 text-xs font-bold cursor-pointer">+0,05 г</button>' +
+                  '<button id="w-reset" class="py-2 px-3 rounded-xl bg-slate-900 text-xs text-slate-400 cursor-pointer">Сброс</button>' +
+                '</div>' +
+                '<label class="flex items-center gap-2 text-xs p-2.5 rounded-xl bg-slate-900/80 border border-slate-700 cursor-pointer">' +
+                  '<input type="checkbox" id="chk-filler" ' + (state.formsSolidFiller ? 'checked' : '') + ' class="accent-amber-400">' +
+                  '<span>Добавить вспомогательные наполнители (крахмал + тальк для прессования)</span>' +
+                '</label>' +
+              '</div>' +
+              '<div class="glass-card rounded-2xl p-4 space-y-2">' +
+                '<div class="text-xs font-bold text-amber-300">2. Выберите форму «in tabulettis»:</div>' +
+                [
+                  { id: 'tab', label: '⚪ Таблетки (спрессованная твёрдая форма)' },
+                  { id: 'ung', label: '🧴 Мазь на вазелиновой основе' },
+                  { id: 'amp', label: '💉 Стерильный раствор в ампулах' }
+                ].map(function (f) {
+                  return '<button data-sf="' + f.id + '" class="sf-btn w-full p-2.5 rounded-xl border text-left text-xs cursor-pointer ' + (state.formsSolidForm === f.id ? 'bg-amber-500/25 border-amber-400 text-white' : 'bg-slate-900/70 border-slate-700 text-slate-300') + '">' + f.label + '</button>';
+                }).join('') +
+              '</div>' +
+            '</div>' +
+            '<button id="btn-press-tablet" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 cursor-pointer">⚙️ Запустить таблеточный пресс</button>';
+          bindTabEvents();
+
+          var wBtns = modalBody.querySelectorAll('.w-btn');
+          for (var i = 0; i < wBtns.length; i++) {
+            (function (b) {
+              b.onclick = function () {
+                sfx.click();
+                state.formsSolidWeight = Math.round((state.formsSolidWeight + Number(b.getAttribute('data-w'))) * 100) / 100;
+                renderFormsStation();
+              };
+            })(wBtns[i]);
+          }
+          document.getElementById('w-reset').onclick = function () {
+            sfx.click();
+            state.formsSolidWeight = 0;
+            renderFormsStation();
+          };
+          document.getElementById('chk-filler').onchange = function (e) {
+            state.formsSolidFiller = e.target.checked;
+          };
+          var sfBtns = modalBody.querySelectorAll('.sf-btn');
+          for (var j = 0; j < sfBtns.length; j++) {
+            (function (b) {
+              b.onclick = function () {
+                sfx.click();
+                state.formsSolidForm = b.getAttribute('data-sf');
+                renderFormsStation();
+              };
+            })(sfBtns[j]);
+          }
+          document.getElementById('btn-press-tablet').onclick = function () {
+            if (Math.abs(state.formsSolidWeight - 0.25) < 0.001 && state.formsSolidFiller && state.formsSolidForm === 'tab') {
+              completeTask('forms_1', 'Твёрдые формы (Таблетки)');
+              state.activeTaskTab = 1;
+              renderFormsStation();
+            } else {
+              sfx.error();
+              showToast('⚠️', 'Отвесьте ровно 0,25 г, добавьте наполнители (крахмал/тальк) и выберите «Таблетки»!');
+            }
+          };
+        } else if (tab === 1) {
+          // 3.2 Капсулы (3 типа оболочек)
+          var caps = [
+            { id: 'c1', title: 'Горький сухой порошок антибиотика (растворение в желудке)', correct: 'hard' },
+            { id: 'c2', title: 'Жирорастворимый Витамин D3 в масляном растворе', correct: 'soft' },
+            { id: 'c3', title: 'Фермент панкреатин (разрушается HCl желудка, нужен в кишечнике)', correct: 'enteric' }
+          ];
+          modalBody.innerHTML = tabs +
+            '<div class="glass-card rounded-2xl p-4 border-amber-500/40">' +
+              '<span class="text-xs mono text-amber-300 uppercase">Задание 3.2 • Капсулирование (in capsulis gelatinosis)</span>' +
+              '<h3 class="text-lg font-bold text-white mt-0.5">Подберите оптимальный тип капсульной оболочки</h3>' +
+            '</div>' +
+            '<div class="space-y-2.5">' +
+              caps.map(function (c) {
+                return '<div class="glass-card rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">' +
+                  '<div class="font-bold text-white text-sm">💊 ' + c.title + '</div>' +
+                  '<select data-cid="' + c.id + '" class="cap-sel bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-amber-200 cursor-pointer">' +
+                    '<option value="">-- Выберите оболочку --</option>' +
+                    '<option value="hard">Твёрдая желатиновая капсула (с крышечкой)</option>' +
+                    '<option value="soft">Мягкая эластичная капсула (для масел)</option>' +
+                    '<option value="enteric">Кислотоустойчивая кишечнорастворимая оболочка</option>' +
+                  '</select>' +
+                '</div>';
+              }).join('') +
+            '</div>' +
+            '<button id="btn-check-caps" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-amber-400 text-slate-950 cursor-pointer">💊 Запустить капсулятор и проверить</button>';
+          bindTabEvents();
+
+          var cSels = modalBody.querySelectorAll('.cap-sel');
+          for (var i = 0; i < cSels.length; i++) {
+            (function (sel) {
+              sel.value = state.formsCapsMap[sel.getAttribute('data-cid')] || '';
+              sel.onchange = function () {
+                sfx.click();
+                state.formsCapsMap[sel.getAttribute('data-cid')] = sel.value;
+              };
+            })(cSels[i]);
+          }
+
+          document.getElementById('btn-check-caps').onclick = function () {
+            var m = state.formsCapsMap;
+            if (m.c1 === 'hard' && m.c2 === 'soft' && m.c3 === 'enteric') {
+              completeTask('forms_2', 'Капсулированные лекарственные формы');
+              state.activeTaskTab = 2;
+              renderFormsStation();
+            } else {
+              sfx.error();
+              showToast('⚠️', 'Проверьте соответствие: порошок → твёрдая, масло → мягкая, фермент → кишечнорастворимая!');
+            }
+          };
+        } else if (tab === 2) {
+          // 3.3 Мягкие формы (Мази по латинскому рецепту: Basis -> Adjuvans -> Corrigens -> Constituens)
+          var seq = state.formsOintmentOrder;
+          var components = [
+            { key: 'basis', latin: 'Basis', ru: 'Ментол 0,1 (главное вещество)' },
+            { key: 'adjuvans', latin: 'Adjuvans', ru: 'Цинка оксид 1,0 (вспомогательное)' },
+            { key: 'corrigens', latin: 'Corrigens', ru: 'Масло лаванды 2 кап. (запах)' },
+            { key: 'constituens', latin: 'Constituens', ru: 'Вазелин до 10,0 (мазевая основа)' }
+          ];
+          modalBody.innerHTML = tabs +
+            '<div class="glass-card rounded-2xl p-4 border-amber-500/40 bg-amber-950/15">' +
+              '<span class="text-xs mono text-amber-300 uppercase">Задание 3.3 • Мягкие лекарственные формы (Мази)</span>' +
+              '<h3 class="text-lg font-bold text-white mt-0.5">Добавьте 4 части прописи в ступку строго по рецептурному порядку</h3>' +
+              '<pre class="mono text-xs bg-slate-950/80 p-3 rounded-xl border border-slate-700 text-emerald-300 mt-2">Rp.: Mentholi 0,1\nZinci oxydi 1,0\nOlei Lavandulae gtts. II\nVaselini ad 10,0\nM. f. unguentum</pre>' +
+              '<div class="text-xs text-amber-200 mt-2">Порядок в ступке: <span class="mono font-bold">' + (seq.length ? seq.join(' → ') : 'пусто (нажимайте по порядку 1→2→3→4)') + '</span></div>' +
+            '</div>' +
+            '<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">' +
+              components.map(function (c) {
+                var idx = seq.indexOf(c.latin);
+                return '<button data-lat="' + c.latin + '" class="oint-seq-btn rounded-2xl p-3 text-left border transition cursor-pointer ' + (idx >= 0 ? 'bg-emerald-500/20 border-emerald-400 text-emerald-100' : 'bg-slate-900/70 border-slate-700 hover:border-amber-400 text-slate-300') + '">' +
+                  '<div class="flex justify-between font-bold mono text-xs text-amber-300"><span>' + c.latin + '</span><span>' + (idx >= 0 ? ('#' + (idx + 1)) : '➕') + '</span></div>' +
+                  '<div class="text-[11px] mt-1">' + c.ru + '</div>' +
+                '</button>';
+              }).join('') +
+            '</div>' +
+            '<div class="flex gap-2">' +
+              '<button id="btn-reset-oint" class="py-3 px-4 rounded-2xl bg-slate-800 text-xs font-bold text-slate-200 cursor-pointer">🔄 Очистить ступку</button>' +
+              '<button id="btn-mix-ointment" class="flex-1 py-3 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 cursor-pointer">🥣 Растереть мазь (Misce ut fiat unguentum)</button>' +
+            '</div>';
+          bindTabEvents();
+
+          var oBtns = modalBody.querySelectorAll('.oint-seq-btn');
+          for (var i = 0; i < oBtns.length; i++) {
+            (function (b) {
+              b.onclick = function () {
+                var lat = b.getAttribute('data-lat');
+                if (state.formsOintmentOrder.indexOf(lat) === -1) {
+                  sfx.grind();
+                  state.formsOintmentOrder.push(lat);
+                  renderFormsStation();
+                }
+              };
+            })(oBtns[i]);
+          }
+          document.getElementById('btn-reset-oint').onclick = function () {
+            sfx.click();
+            state.formsOintmentOrder = [];
+            renderFormsStation();
+          };
+          document.getElementById('btn-mix-ointment').onclick = function () {
+            var expected = ['Basis', 'Adjuvans', 'Corrigens', 'Constituens'];
+            var ok = seq.length === 4 && seq.every(function (v, idx) { return v === expected[idx]; });
+            if (ok) {
+              completeTask('forms_3', 'Мягкие лекарственные формы (Мази)');
+              state.activeTaskTab = 3;
+              renderFormsStation();
+            } else {
+              sfx.error();
+              showToast('⚠️', 'Соблюдайте классический порядок рецепта: 1. Basis → 2. Adjuvans → 3. Corrigens → 4. Constituens!');
+            }
+          };
+        } else {
+          // 3.4 Жидкие формы (Суспензии и предупредительные этикетки)
+          modalBody.innerHTML = tabs +
+            '<div class="glass-card rounded-2xl p-4 border-amber-500/40">' +
+              '<span class="text-xs mono text-amber-300 uppercase">Задание 3.4 • Жидкие лекарственные формы (Суспензии и микстуры)</span>' +
+              '<h3 class="text-lg font-bold text-white mt-0.5">Стабилизация суспензии и оформление этикеток</h3>' +
+              '<p class="text-xs text-slate-300 mt-1">Отметьте обязательный технологический приём и предупредительные этикетки для отпуска суспензии из аптеки:</p>' +
+            '</div>' +
+            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">' +
+              '<div class="glass-card rounded-2xl p-4 space-y-2">' +
+                '<div class="font-bold text-amber-300">1. Технология приготовления:</div>' +
+                '<label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/70 border border-slate-700 cursor-pointer">' +
+                  '<input type="checkbox" id="chk-stab" ' + (state.formsLiquidStabilizer ? 'checked' : '') + ' class="accent-amber-400">' +
+                  '<span>Добавить стабилизатор (защитный коллоид) для предотвращения слипания частиц</span>' +
+                '</label>' +
+              '</div>' +
+              '<div class="glass-card rounded-2xl p-4 space-y-2">' +
+                '<div class="font-bold text-amber-300">2. Предупредительные этикетки:</div>' +
+                '<label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/70 border border-slate-700 cursor-pointer">' +
+                  '<input type="checkbox" id="chk-shake" ' + (state.formsLiquidLabel1 ? 'checked' : '') + ' class="accent-amber-400">' +
+                  '<span>🏷️ «Перед употреблением взбалтывать!»</span>' +
+                '</label>' +
+                '<label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/70 border border-slate-700 cursor-pointer">' +
+                  '<input type="checkbox" id="chk-cool" ' + (state.formsLiquidLabel2 ? 'checked' : '') + ' class="accent-amber-400">' +
+                  '<span>❄️ «Хранить в прохладном, защищённом от света месте»</span>' +
+                '</label>' +
+              '</div>' +
+            '</div>' +
+            '<button id="btn-finish-liquid" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-emerald-400 text-slate-950 cursor-pointer">🧪 Оформить флакон к отпуску</button>';
+          bindTabEvents();
+
+          document.getElementById('chk-stab').onchange = function (e) { state.formsLiquidStabilizer = e.target.checked; };
+          document.getElementById('chk-shake').onchange = function (e) { state.formsLiquidLabel1 = e.target.checked; };
+          document.getElementById('chk-cool').onchange = function (e) { state.formsLiquidLabel2 = e.target.checked; };
+
+          document.getElementById('btn-finish-liquid').onclick = function () {
+            if (state.formsLiquidStabilizer && state.formsLiquidLabel1 && state.formsLiquidLabel2) {
+              completeTask('forms_4', 'Жидкие лекарственные формы (Суспензии)');
+            } else {
+              sfx.error();
+              showToast('⚠️', 'Для отпуска суспензии необходимы стабилизатор и обе предупредительные этикетки!');
+            }
+          };
+        }
+      }
+
+      // =========================================================================
+      // DEPARTMENT 4: УЧЕБНАЯ АПТЕКА (3 ЗАДАНИЯ)
+      // =========================================================================
+      function renderPharmacyStation() {
+        var tabs = renderTaskTabsBar('pharmacy');
+        var tab = state.activeTaskTab;
+
+        if (tab === 0) {
+          // 4.1 Экспертиза рецепта (Cito! + превышение ВРД без '!')
+          modalBody.innerHTML = tabs +
+            '<div class="glass-card rounded-2xl p-4 border-violet-500/40 bg-violet-950/20">' +
+              '<span class="text-xs mono text-violet-300 uppercase">Задание 4.1 • Фармацевтическая экспертиза рецепта</span>' +
+              '<h3 class="text-lg font-bold text-white mt-0.5">Проверьте бланк врача перед изготовлением</h3>' +
+              '<div class="mono text-xs bg-slate-950/90 p-3.5 rounded-xl border border-violet-400/40 text-slate-200 mt-2 space-y-1">' +
+                '<div class="text-rose-400 font-bold">Cito!</div>' +
+                '<div>Rp.: Atropini sulfatis 0,003 <span class="text-slate-400">(Высшая разовая доза в ГФ = 0,001 г!)</span></div>' +
+                '<div>D. t. d. N. 6 in pulveribus</div>' +
+                '<div>S. По 1 порошку 2 раза в день</div>' +
+              '</div>' +
+              '<p class="text-xs text-slate-300 mt-2">Врач указал пометку <strong>Cito!</strong> и превысил высшую разовую дозу (0,003 г вместо 0,001 г), но <strong>НЕ написал дозу прописью с восклицательным знаком (!) и подписью</strong>. Как обязан поступить провизор?</p>' +
+            '</div>' +
+            '<div class="space-y-2">' +
+              [
+                { ok: true, text: '1) Изготовить вне очереди (пометка Cito!), но снизить дозу до 50% от высшей разовой дозы по ГФ (до 0,0005 г)' },
+                { ok: false, text: '2) Отпустить 0,003 г без изменений — проверять дозировки ядовитых веществ не нужно' },
+                { ok: false, text: '3) Отложить рецепт на завтра, так как «Cito!» означает «в плановом порядке»' }
+              ].map(function (o) {
+                return '<button data-ok="' + o.ok + '" class="rx-audit-btn w-full glass-card rounded-2xl p-3.5 text-left text-xs sm:text-sm hover:border-violet-400 cursor-pointer">' + o.text + '</button>';
+              }).join('') +
+            '</div>';
+          bindTabEvents();
+
+          var rBtns = modalBody.querySelectorAll('.rx-audit-btn');
+          for (var i = 0; i < rBtns.length; i++) {
+            (function (btn) {
+              btn.onclick = function () {
+                if (btn.getAttribute('data-ok') === 'true') {
+                  completeTask('pharmacy_1', 'Фармацевтическая экспертиза рецепта');
+                  state.activeTaskTab = 1;
+                  renderPharmacyStation();
+                } else {
+                  sfx.error();
+                  showToast('❌', 'Неверно! «Cito!» = срочно, а при неподтверждённом превышении ВРД доза снижается до 50%!');
+                }
+              };
+            })(rBtns[i]);
+          }
+        } else if (tab === 1) {
+          // 4.2 Списки А/Б и режим хранения (4 зоны)
+          var items = [
+            { id: 'morph', name: 'Морфин / Атропин (ядовитые и наркотические)', correct: 'safeA' },
+            { id: 'adren', name: 'Адреналин / Клофелин (сильнодействующие)', correct: 'listB' },
+            { id: 'vacc', name: 'Инсулин и вакцины (+2…+8 °C)', correct: 'fridge' },
+            { id: 'nitro', name: 'Раствор нитроглицерина / светочувствительные ампулы', correct: 'dark' }
+          ];
+          modalBody.innerHTML = tabs +
+            '<div class="glass-card rounded-2xl p-4 border-violet-500/40">' +
+              '<span class="text-xs mono text-violet-300 uppercase">Задание 4.2 • Списки А/Б и режим хранения</span>' +
+              '<h3 class="text-lg font-bold text-white mt-0.5">Распределите 4 группы препаратов по зонам хранения</h3>' +
+            '</div>' +
+            '<div class="space-y-2.5">' +
+              items.map(function (it) {
+                return '<div class="glass-card rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">' +
+                  '<div class="font-bold text-white text-sm">📦 ' + it.name + '</div>' +
+                  '<select data-itemid="' + it.id + '" class="storage-sel bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-cyan-200 cursor-pointer">' +
+                    '<option value="">-- Выберите место хранения --</option>' +
+                    '<option value="safeA">🔐 Сейф «Список А» (с таблицей высших доз и противоядий)</option>' +
+                    '<option value="listB">🗄️ Запираемый шкаф «Список Б» (сильнодействующие)</option>' +
+                    '<option value="fridge">❄️ Холодильник (+2…+8 °C, отдельно от пищи)</option>' +
+                    '<option value="dark">🌑 Защищённый от света шкаф (тёмное стекло)</option>' +
+                  '</select>' +
+                '</div>';
+              }).join('') +
+            '</div>' +
+            '<button id="btn-check-storage" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-violet-400 to-fuchsia-500 text-slate-950 cursor-pointer">🔒 Проверить соблюдение правил хранения</button>';
+          bindTabEvents();
+
+          var sSels = modalBody.querySelectorAll('.storage-sel');
+          for (var i = 0; i < sSels.length; i++) {
+            (function (sel) {
+              sel.value = state.pharmStorageSorted[sel.getAttribute('data-itemid')] || '';
+              sel.onchange = function () {
+                sfx.click();
+                state.pharmStorageSorted[sel.getAttribute('data-itemid')] = sel.value;
+              };
+            })(sSels[i]);
+          }
+
+          document.getElementById('btn-check-storage').onclick = function () {
+            var s = state.pharmStorageSorted;
+            if (s.morph === 'safeA' && s.adren === 'listB' && s.vacc === 'fridge' && s.nitro === 'dark') {
+              completeTask('pharmacy_2', 'Списки А/Б и режим хранения');
+              state.activeTaskTab = 2;
+              renderPharmacyStation();
+            } else {
+              sfx.error();
+              showToast('⚠️', 'Проверьте каждую группу: Список А → сейф с противоядиями, Список Б → запираемый шкаф, инсулин → холодильник!');
+            }
+          };
+        } else {
+          // 4.3 Фармацевтическое консультирование (3 реальных кейса)
+          var cases = [
+            {
+              id: 'c1',
+              patient: 'Посетитель 1: «Врач написал принимать таблетки ДО ЕДЫ. Можно выпить их прямо во время обеда с соком?»',
+              options: [
+                { ok: true, text: 'Нет! Лекарство «до еды» принимают за 15 минут до приёма пищи и запивают чистой водой (а «натощак» — за 30–60 минут до завтрака).' },
+                { ok: false, text: 'Да, можно запивать грейпфрутовым соком или сладким чаем во время еды.' }
+              ]
+            },
+            {
+              id: 'c2',
+              patient: 'Посетитель 2: «Таблетка в кишечнорастворимой оболочке крупная. Я раскушу её пополам?»',
+              options: [
+                { ok: true, text: 'Нельзя! Оболочка защищает слизистую желудка от раздражения, а действующее вещество — от разрушения соляной кислотой.' },
+                { ok: false, text: 'Конечно, растолките её в порошок и запейте молоком.' }
+              ]
+            },
+            {
+              id: 'c3',
+              patient: 'Посетитель 3: «Антибиотик назначен 4 раза в сутки, но температура спала на 2-й день. Прекращаю приём?»',
+              options: [
+                { ok: true, text: 'Нельзя бросать курс! Принимайте строго каждые 6 часов весь назначенный срок, иначе выживут устойчивые бактерии (антибиотикорезистентность).' },
+                { ok: false, text: 'Да, раз стало легче — оставьте таблетки в домашней аптечке до следующего раза.' }
+              ]
+            }
+          ];
+          var curr = cases[state.pharmCaseIdx % cases.length];
+          modalBody.innerHTML = tabs +
+            '<div class="glass-card rounded-2xl p-4 border-violet-500/40 bg-violet-950/20">' +
+              '<div class="flex justify-between items-center">' +
+                '<span class="text-xs mono text-violet-300 uppercase">Задание 4.3 • Фармацевтическое консультирование</span>' +
+                '<span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-900 text-violet-200">Консультаций: ' + state.pharmCasesDone.length + ' / ' + cases.length + '</span>' +
+              '</div>' +
+              '<h3 class="text-base sm:text-lg font-bold text-white mt-1.5">🗣️ ' + curr.patient + '</h3>' +
+            '</div>' +
+            '<div class="space-y-2.5">' +
+              curr.options.map(function (o) {
+                return '<button data-ok="' + o.ok + '" class="consult-btn w-full glass-card rounded-2xl p-4 text-left text-xs sm:text-sm hover:border-violet-400 cursor-pointer">🧑‍⚕️ ' + o.text + '</button>';
+              }).join('') +
+            '</div>';
+          bindTabEvents();
+
+          var cBtns = modalBody.querySelectorAll('.consult-btn');
+          for (var i = 0; i < cBtns.length; i++) {
+            (function (btn) {
+              btn.onclick = function () {
+                if (btn.getAttribute('data-ok') === 'true') {
+                  sfx.success();
+                  if (state.pharmCasesDone.indexOf(curr.id) === -1) state.pharmCasesDone.push(curr.id);
+                  if (state.pharmCasesDone.length >= cases.length) {
+                    completeTask('pharmacy_3', 'Фармацевтическое консультирование');
+                  } else {
+                    state.pharmCaseIdx++;
+                    showToast('✅', 'Грамотный ответ провизора! Следующий посетитель...');
+                  }
+                  renderPharmacyStation();
+                } else {
+                  sfx.error();
+                  showToast('❌', 'Такой совет может навредить здоровью пациента!');
+                }
+              };
+            })(cBtns[i]);
+          }
+        }
+      }
+
+      // =========================================================================
+      // DEPARTMENT 5: ЦЕНТР БИОФАРМАЦИИ ADME (2 ЗАДАНИЯ)
+      // =========================================================================
+      function renderBiopharmStation() {
+        var tabs = renderTaskTabsBar('biopharm');
+        var tab = state.activeTaskTab;
+
+        if (tab === 0) {
+          // 5.1 Биодоступность и пути введения
+          var routes = [
+            { id: 'iv', name: 'Внутривенно (in amp. / i.v.)', speed: '10–20 секунд', bio: '100% биодоступность (сразу в кровоток, минуя печень)', ok: true },
+            { id: 'sl', name: 'Сублингвально (под язык)', speed: '2–3 минуты', bio: '75–85% (всасывание через слизистую рта)', ok: false },
+            { id: 'po', name: 'Перорально в таблетках (per os)', speed: '30–60 минут', bio: '45–65% (эффект первого прохождения через печень)', ok: false },
+            { id: 'td', name: 'Трансдермально (пластырь/мазь)', speed: '2–4 часа', bio: 'Медленное высвобождение через кожу', ok: false }
+          ];
+          modalBody.innerHTML = tabs +
+            '<div class="glass-card rounded-2xl p-4 border-rose-500/40 bg-rose-950/20">' +
+              '<span class="text-xs mono text-rose-300 uppercase">Задание 5.1 • Биодоступность и пути введения (Absorption)</span>' +
+              '<h3 class="text-lg font-bold text-white mt-0.5">Экстренная помощь: анафилактический шок!</h3>' +
+              '<p class="text-xs sm:text-sm text-slate-300 mt-1">Необходима <strong>100% биодоступность</strong> и немедленное поступление препарата в системный кровоток за секунды. Выберите путь введения:</p>' +
+            '</div>' +
+            '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
+              routes.map(function (r) {
+                return '<button data-ok="' + r.ok + '" class="route-btn glass-card rounded-2xl p-4 text-left hover:border-rose-400 cursor-pointer flex flex-col justify-between">' +
+                  '<div><div class="font-bold text-sm text-white">' + r.name + '</div><div class="text-xs text-rose-300 mono mt-1.5">Начало действия: ' + r.speed + '</div><p class="text-xs text-slate-300 mt-1">' + r.bio + '</p></div>' +
+                  '<div class="mt-3 text-xs mono text-cyan-300">Выбрать путь введения →</div>' +
+                '</button>';
+              }).join('') +
+            '</div>';
+          bindTabEvents();
+
+          var rBtns = modalBody.querySelectorAll('.route-btn');
+          for (var i = 0; i < rBtns.length; i++) {
+            (function (btn) {
+              btn.onclick = function () {
+                if (btn.getAttribute('data-ok') === 'true') {
+                  completeTask('biopharm_1', 'Биодоступность и пути введения (ADME)');
+                  state.activeTaskTab = 1;
+                  renderBiopharmStation();
+                } else {
+                  sfx.error();
+                  showToast('⚠️', 'При анафилактическом шоке нужна 100% биодоступность прямо в кровоток за секунды!');
+                }
+              };
+            })(rBtns[i]);
+          }
+        } else {
+          // 5.2 Фармакокинетика, активация пролекарства в печени и терапевтическое окно
+          var dose = state.bioDoseMg;
+          var interval = state.bioIntervalH;
+          // Effective steady-state concentration index: (dose * 24 / interval)
+          var cEff = Math.round((dose * 24) / interval);
+          var inWindow = cEff >= 30 && cEff <= 42;
+          var statusColor = '#38bdf8';
+          var statusMsg = 'Подберите разовую дозу и интервал приёма так, чтобы кривая находилась в зелёном «Терапевтическом окне» (30–42 мкг/л).';
+
+          if (cEff < 30) {
+            statusColor = '#fbbf24';
+            statusMsg = '⬇️ Ниже минимальной эффективной концентрации (' + cEff + ' мкг/л < 30) — препарат не окажет лечебного эффекта.';
+          } else if (cEff > 42) {
+            statusColor = '#f43f5e';
+            statusMsg = '⬆️ Выше токсического порога (' + cEff + ' мкг/л > 42) — опасность кумуляции и отравления!';
+          } else {
+            statusColor = '#34d399';
+            statusMsg = '✅ Оптимально! Равновесная концентрация (' + cEff + ' мкг/л) строго внутри Терапевтического окна!';
+          }
+
+          // Generate SVG curve points for plasma concentration over 24 hours
+          var pts = [];
+          for (var h = 0; h <= 24; h++) {
+            var phase = (h % interval) / interval;
+            var wave = Math.sin(phase * Math.PI) * 0.22;
+            var val = Math.min(60, Math.max(4, cEff * (0.88 + wave)));
+            var px = (h / 24) * 300;
+            var py = 100 - (val / 60) * 90;
+            pts.push(px.toFixed(1) + ',' + py.toFixed(1));
+          }
+
+          modalBody.innerHTML = tabs +
+            '<div class="glass-card rounded-2xl p-4 border-rose-500/40">' +
+              '<span class="text-xs mono text-rose-300 uppercase">Задание 5.2 • Фармакокинетика и терапевтическое окно</span>' +
+              '<h3 class="text-lg font-bold text-white mt-0.5">Настройте режим дозирования и активацию пролекарства в печени</h3>' +
+            '</div>' +
+            '<div class="glass-card rounded-2xl p-4 space-y-4">' +
+              '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">' +
+                '<div>' +
+                  '<div class="font-bold text-white">Разовая доза: <span class="mono text-cyan-300 text-base">' + dose + ' мг</span></div>' +
+                  '<input type="range" id="slider-bio-dose" min="5" max="30" step="1" value="' + dose + '" class="w-full accent-cyan-400 cursor-pointer mt-1">' +
+                '</div>' +
+                '<div>' +
+                  '<div class="font-bold text-white">Интервал приёма: <span class="mono text-cyan-300 text-base">каждые ' + interval + ' ч</span></div>' +
+                  '<select id="sel-bio-int" class="w-full mt-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-cyan-200 cursor-pointer">' +
+                    '<option value="6" ' + (interval === 6 ? 'selected' : '') + '>Каждые 6 часов (4 раза в сутки)</option>' +
+                    '<option value="8" ' + (interval === 8 ? 'selected' : '') + '>Каждые 8 часов (3 раза в сутки)</option>' +
+                    '<option value="12" ' + (interval === 12 ? 'selected' : '') + '>Каждые 12 часов (2 раза в сутки)</option>' +
+                    '<option value="24" ' + (interval === 24 ? 'selected' : '') + '>Каждые 24 часа (1 раз в сутки)</option>' +
+                  '</select>' +
+                '</div>' +
+              '</div>' +
+
+              '<label class="flex items-center gap-2 text-xs bg-slate-900/90 px-3 py-2.5 rounded-xl border border-amber-400/40 cursor-pointer">' +
+                '<input type="checkbox" id="chk-liver" ' + (state.bioLiverActivated ? 'checked' : '') + ' class="accent-amber-400">' +
+                '<span class="text-amber-200 font-semibold">🫀 Включить метаболизм пролекарства в печени (ферменты CYP450 → активный метаболит)</span>' +
+              '</label>' +
+
+              '<div class="bg-slate-950/85 rounded-2xl p-3 border border-slate-800">' +
+                '<div class="flex justify-between text-[10px] mono text-slate-400 mb-1">' +
+                  '<span>График концентрации в плазме крови (24 ч)</span>' +
+                  '<span class="text-emerald-300">Зелёная зона = Терапевтическое окно (30–42 мкг/л)</span>' +
+                '</div>' +
+                '<svg viewBox="0 0 300 100" class="w-full h-24 rounded-lg overflow-hidden">' +
+                  '<rect x="0" y="0" width="300" height="37" fill="rgba(244,63,94,0.18)"/>' +
+                  '<rect x="0" y="37" width="300" height="18" fill="rgba(16,185,129,0.28)"/>' +
+                  '<rect x="0" y="55" width="300" height="45" fill="rgba(251,191,36,0.12)"/>' +
+                  '<polyline fill="none" stroke="' + statusColor + '" stroke-width="2.5" points="' + pts.join(' ') + '"/>' +
+                '</svg>' +
+                '<div class="text-xs font-semibold mt-1.5" style="color:' + statusColor + '">' + statusMsg + '</div>' +
+              '</div>' +
+
+              '<button id="btn-finish-biopharm" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-rose-400 to-amber-400 text-slate-950 cursor-pointer">🧬 Утвердить схему дозирования</button>' +
+            '</div>';
+          bindTabEvents();
+
+          document.getElementById('slider-bio-dose').oninput = function (e) {
+            state.bioDoseMg = Number(e.target.value);
+            renderBiopharmStation();
+          };
+          document.getElementById('sel-bio-int').onchange = function (e) {
+            sfx.click();
+            state.bioIntervalH = Number(e.target.value);
+            renderBiopharmStation();
+          };
+          document.getElementById('chk-liver').onchange = function (e) {
+            sfx.click();
+            state.bioLiverActivated = e.target.checked;
+          };
+          document.getElementById('btn-finish-biopharm').onclick = function () {
+            if (inWindow && state.bioLiverActivated) {
+              completeTask('biopharm_2', 'Фармакокинетика и терапевтическое окно');
+            } else if (!state.bioLiverActivated) {
+              sfx.error();
+              showToast('⚠️', 'Включите ферментативную активацию пролекарства в печени!');
+            } else {
+              sfx.error();
+              showToast('⚠️', 'Подберите дозу и интервал так, чтобы кривая попала в зелёное Терапевтическое окно (30–42 мкг/л)!');
+            }
+          };
+        }
+      }
+
+      // =========================================================================
+      // 9. RECORD BOOK, DIPLOMA & HANDBOOK MODALS
+      // =========================================================================
+      function openRecordBookOrDiploma(focusDiploma) {
+        sfx.click();
+        var count = Object.keys(state.completedTasks).length;
+        var rank = getRankName(count);
+
+        document.getElementById('modal-icon').textContent = focusDiploma ? '🏆' : '🎓';
+        document.getElementById('modal-title').textContent = focusDiploma ? 'Диплом Магистра фармации' : 'Зачётная книжка студента-фармацевта';
+        document.getElementById('modal-badge').textContent = rank + ' • ' + count + ' / 15';
+        document.getElementById('modal-subtitle').textContent = 'Статистика по всем 5 кафедрам и персональный сертификат';
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        var ids = ['garden', 'chem', 'forms', 'pharmacy', 'biopharm'];
+        var cardsHtml = ids.map(function (id) {
+          var m = STATIONS_META[id];
+          var done = getStationDoneCount(id);
+          var total = m.taskKeys.length;
+          var btnsHtml = m.taskNames.map(function (tName, tIdx) {
+            var tOk = !!state.completedTasks[m.taskKeys[tIdx]];
+            return '<button data-jump="' + id + '" data-tab="' + tIdx + '" class="jump-task-btn text-[11px] px-2.5 py-1 rounded-lg border cursor-pointer transition ' + (tOk ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-200' : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-cyan-400') + '">' + (tOk ? '✅ ' : '▶️ ') + tName + '</button>';
+          }).join('');
+          return '<div class="glass-card rounded-2xl p-3.5 flex flex-col justify-between gap-2 ' + (done === total ? 'border-emerald-400/60 bg-emerald-950/20' : '') + '">' +
+            '<div class="flex items-center justify-between">' +
+              '<div class="flex items-center gap-2"><span class="text-xl">' + m.icon + '</span><div><div class="font-bold text-sm text-white">' + m.title + '</div><div class="text-[11px] text-slate-400">' + m.short + '</div></div></div>' +
+              '<span class="mono text-xs font-bold ' + (done === total ? 'text-emerald-300' : 'text-amber-300') + '">' + done + '/' + total + '</span>' +
+            '</div>' +
+            '<div class="flex flex-wrap gap-1.5 pt-1">' + btnsHtml + '</div>' +
+          '</div>';
+        }).join('');
+
+        var nameVal = state.studentName || '';
+        var displayName = nameVal.trim() ? nameVal.trim() : 'Будущий провизор';
+
+        modalBody.innerHTML =
+          '<div class="rounded-3xl p-5 bg-gradient-to-br from-emerald-500/20 via-cyan-500/15 to-violet-500/20 border-2 border-emerald-400/60 text-center space-y-2.5">' +
+            '<div class="text-3xl">🏆</div>' +
+            '<div class="text-[11px] mono text-emerald-300 uppercase tracking-widest">СЕРТИФИКАТ ПРАКТИКИ • PHARMALAB 3D</div>' +
+            '<h3 class="text-lg sm:text-2xl font-extrabold text-white">' + displayName + '</h3>' +
+            '<div class="text-xs sm:text-sm text-cyan-200 font-bold">Текущий ранг: ' + rank + ' (' + count + '/15 заданий • ' + state.xp + ' XP)</div>' +
+            '<div class="max-w-xs mx-auto pt-1">' +
+              '<input type="text" id="input-diploma-name" placeholder="Введите ваше имя для диплома..." value="' + nameVal.replace(/"/g, '&quot;') + '" class="w-full px-3 py-2 rounded-xl bg-slate-950/90 border border-slate-700 text-xs text-center text-white focus:outline-none focus:border-cyan-400">' +
+            '</div>' +
+          '</div>' +
+          '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' + cardsHtml + '</div>';
+
+        var inpName = document.getElementById('input-diploma-name');
+        if (inpName) {
+          inpName.oninput = function (e) {
+            state.studentName = e.target.value;
+            var h3 = modalBody.querySelector('h3');
+            if (h3) h3.textContent = state.studentName.trim() ? state.studentName.trim() : 'Будущий провизор';
+          };
+        }
+
+        var jumpBtns = modalBody.querySelectorAll('.jump-task-btn');
+        for (var j = 0; j < jumpBtns.length; j++) {
+          (function (btn) {
+            btn.onclick = function () {
+              var targetId = btn.getAttribute('data-jump');
+              var tIdx = Number(btn.getAttribute('data-tab'));
+              sfx.click();
+              focusCameraOn(targetId);
+              openStationModal(targetId, tIdx);
+            };
+          })(jumpBtns[j]);
+        }
+      }
+
+      document.getElementById('btn-record-book').onclick = function () { openRecordBookOrDiploma(false); };
+      document.getElementById('btn-diploma').onclick = function () { openRecordBookOrDiploma(true); };
+
+      document.getElementById('btn-handbook').onclick = function () {
+        sfx.click();
+        document.getElementById('modal-icon').textContent = '📖';
+        document.getElementById('modal-title').textContent = 'Справочник абитуриента Фармфака';
+        document.getElementById('modal-badge').textContent = 'ПРОФОРИЕНТАЦИЯ & ЛАТЫНЬ';
+        document.getElementById('modal-subtitle').textContent = 'Кем работают выпускники и рецептурные сокращения';
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        modalBody.innerHTML =
+          '<div class="space-y-4">' +
+            '<div class="glass-card rounded-2xl p-4">' +
+              '<h3 class="font-bold text-cyan-300 text-sm uppercase tracking-wider mb-2">🚀 Карьера после фармацевтического факультета</h3>' +
+              '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">' +
+                '<div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800"><div class="font-bold text-emerald-300">🧬 R&D-разработчик лекарств</div><p class="text-slate-300 mt-1">Создание новых молекул, таргетных препаратов и вакцин в биофармацевтических центрах.</p></div>' +
+                '<div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800"><div class="font-bold text-sky-300">⚗️ Химик-аналитик / Эксперт качества</div><p class="text-slate-300 mt-1">Контроль подлинности и безопасности препаратов по Государственной фармакопее.</p></div>' +
+                '<div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800"><div class="font-bold text-amber-300">🏭 Провизор-технолог</div><p class="text-slate-300 mt-1">Управление линиями производства таблеток, капсул, мазей и стерильных растворов.</p></div>' +
+                '<div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800"><div class="font-bold text-violet-300">🏥 Клинический провизор</div><p class="text-slate-300 mt-1">Экспертиза рецептов, подбор безопасных комбинаций и фармацевтическое консультирование.</p></div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="glass-card rounded-2xl p-4">' +
+              '<h3 class="font-bold text-amber-300 text-sm uppercase tracking-wider mb-2">📜 Словарь рецептурной латыни</h3>' +
+              '<div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs mono">' +
+                '<div class="p-2 rounded-lg bg-slate-950/70"><span class="text-emerald-300 font-bold">Rp.:</span> — Возьми (Recipe)</div>' +
+                '<div class="p-2 rounded-lg bg-slate-950/70"><span class="text-emerald-300 font-bold">D.t.d.</span> — Выдай таких доз</div>' +
+                '<div class="p-2 rounded-lg bg-slate-950/70"><span class="text-emerald-300 font-bold">S.:</span> — Обозначь (Signa)</div>' +
+                '<div class="p-2 rounded-lg bg-slate-950/70"><span class="text-emerald-300 font-bold">M. f.</span> — Смешай, чтобы образовалось</div>' +
+                '<div class="p-2 rounded-lg bg-slate-950/70"><span class="text-emerald-300 font-bold">Cito!</span> — Скоро (срочно!)</div>' +
+                '<div class="p-2 rounded-lg bg-slate-950/70"><span class="text-emerald-300 font-bold">Statim!</span> — Тотчас (немедленно!)</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+      };
+
+      // Bottom navigation buttons
+      var navButtons = document.querySelectorAll('.nav-btn');
+      for (var n = 0; n < navButtons.length; n++) {
+        (function (btn) {
+          btn.onclick = function () {
+            var target = btn.getAttribute('data-nav');
+            sfx.click();
+            focusCameraOn(target);
+            if (target !== 'overview') {
+              openStationModal(target);
+            }
+          };
+        })(navButtons[n]);
+      }
+
+      // Walk mode toggle
+      var btnWalk = document.getElementById('btn-walk-mode');
+      if (btnWalk) {
+        btnWalk.onclick = function () {
+          sfx.click();
+          state.walkMode = !state.walkMode;
+          document.getElementById('walk-mode-label').textContent = state.walkMode ? 'Прогулка WASD' : 'Обзор';
+          if (state.walkMode) {
+            camAnim = null;
+            camState.walkX = 0;
+            camState.walkY = 2.3;
+            camState.walkZ = 6.0;
+            camState.walkYaw = 0;
+            camState.walkPitch = -0.05;
+            showToast('🚶', 'Режим прогулки: идите на WASD, оглядывайтесь зажатой мышью, кликайте по кафедрам!');
+          } else {
+            focusCameraOn('overview');
+          }
+        };
+      }
+
+      // Sound toggle
+      var btnSound = document.getElementById('btn-sound');
+      if (btnSound) {
+        btnSound.onclick = function () {
+          sfx.enabled = !sfx.enabled;
+          btnSound.textContent = sfx.enabled ? '🔊' : '🔇';
+          if (sfx.enabled) sfx.click();
+        };
+      }
+
+      // Resize handler
+      window.addEventListener('resize', function () {
+        if (use3D && camera && renderer) {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+        } else if (fallbackCanvas) {
+          fallbackCanvas.width = window.innerWidth;
+          fallbackCanvas.height = window.innerHeight;
+        }
+      });
+
+      // =========================================================================
+      // 10. ANIMATION LOOP
+      // =========================================================================
+      var lastTime = performance.now();
+
+      function animate(now) {
+        requestAnimationFrame(animate);
+        var dt = Math.min((now - lastTime) / 1000, 0.05);
+        lastTime = now;
+        var elapsed = now / 1000;
+
+        if (camAnim) {
+          camAnim.progress = Math.min(1, camAnim.progress + dt * 1.9);
+          var ease = 1 - Math.pow(1 - camAnim.progress, 3);
+          camState.yaw = camAnim.startYaw + (camAnim.endYaw - camAnim.startYaw) * ease;
+          camState.pitch = camAnim.startPitch + (camAnim.endPitch - camAnim.startPitch) * ease;
+          camState.distance = camAnim.startDist + (camAnim.endDist - camAnim.startDist) * ease;
+          camState.targetX = camAnim.startTx + (camAnim.endTx - camAnim.startTx) * ease;
+          camState.targetY = camAnim.startTy + (camAnim.endTy - camAnim.startTy) * ease;
+          camState.targetZ = camAnim.startTz + (camAnim.endTz - camAnim.startTz) * ease;
+          if (camAnim.progress >= 1) camAnim = null;
+        } else {
+          handleKeyboardMovement(dt);
+        }
+
+        if (use3D && renderer && scene && camera) {
+          for (var i = 0; i < animatedObjects.length; i++) {
+            var item = animatedObjects[i];
+            if (item.type === 'spin') {
+              item.mesh.rotation.y += dt * item.speed;
+            } else if (item.type === 'bob') {
+              item.mesh.position.y = item.baseY + Math.sin(elapsed * 2.2 + item.phase) * 0.08;
+            } else if (item.type === 'spinBob') {
+              item.mesh.rotation.y += dt * item.speed;
+              item.mesh.position.y = item.baseY + Math.sin(elapsed * 2.0) * 0.14;
+            }
+          }
+          if (particles) {
+            particles.rotation.y = elapsed * 0.04;
+          }
+          updateCameraTransform();
+          updateMarkersProjection();
+          renderer.render(scene, camera);
+        } else {
+          render2DFallback(elapsed);
+          updateMarkersProjection();
+        }
+      }
+
+      updateProgressUI();
+      if (window.addEventListener) {
+        window.addEventListener('load', function () {
+          requestAnimationFrame(animate);
+        });
+      }
+      requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>

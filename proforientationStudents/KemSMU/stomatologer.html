@@ -1,0 +1,2514 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>DentaSim 3D — Клиническая практика</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      touch-action: none;
+      background: radial-gradient(circle at 50% 42%, #1e293b 0%, #0f172a 100%);
+    }
+    .clinical-glass {
+      background: rgba(15, 23, 42, 0.86);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      box-shadow: 0 12px 32px -6px rgba(2, 6, 23, 0.55);
+    }
+    .clinical-light {
+      background: rgba(255, 255, 255, 0.96);
+      color: #0f172a;
+      border: 1px solid rgba(203, 213, 225, 0.9);
+      box-shadow: 0 20px 45px -10px rgba(2, 6, 23, 0.5);
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    @keyframes pulseHint {
+      0% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.75); border-color: #14b8a6; }
+      70% { box-shadow: 0 0 0 9px rgba(20, 184, 166, 0); border-color: #2dd4bf; }
+      100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0); border-color: #14b8a6; }
+    }
+    .tool-hint {
+      animation: pulseHint 1.6s infinite;
+      background: rgba(19, 78, 74, 0.55) !important;
+    }
+    .tool-active {
+      border-color: #38bdf8 !important;
+      background: linear-gradient(180deg, rgba(14, 116, 144, 0.75) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
+      transform: translateY(-4px);
+      box-shadow: 0 8px 20px -4px rgba(56, 189, 248, 0.45);
+    }
+    @keyframes shakeError {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+    .shake-anim {
+      animation: shakeError 0.36s ease-in-out;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.95) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-anim {
+      animation: modalIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Контейнер 3D-сцены -->
+  <div id="canvas-container"></div>
+
+  <!-- Всплывающая подсказка при наведении на 3D-объект -->
+  <div id="object-tooltip" class="fixed z-20 pointer-events-none hidden px-3 py-1.5 rounded-xl bg-slate-900/95 text-teal-300 border border-teal-500/40 text-xs font-bold shadow-xl">
+    Зуб 1.6
+  </div>
+
+  <!-- Всплывающие тост-уведомления (вместо alert) -->
+  <div id="toast-box" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 w-11/12 max-w-lg"></div>
+
+  <!-- ==================== СТАРТОВЫЙ ЭКРАН ==================== -->
+  <div id="start-screen" class="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6 bg-slate-950/75 backdrop-blur-md overflow-y-auto">
+    <div class="clinical-light w-full max-w-2xl rounded-3xl p-5 sm:p-8 modal-anim my-auto">
+      <div class="flex items-center gap-3.5 mb-4">
+        <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-teal-600 to-cyan-700 flex items-center justify-center text-white shadow-lg shadow-teal-600/30 shrink-0">
+          <svg class="w-7 h-7 sm:w-8 sm:h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3C9.4 3 7.4 4.2 6.4 6C5.1 8.3 5.4 11.4 6.4 14.2C7.2 16.5 7.8 20 9.3 20C10.5 20 10.8 16.4 12 16.4C13.2 16.4 13.5 20 14.7 20C16.2 20 16.8 16.5 17.6 14.2C18.6 11.4 18.9 8.3 17.6 6C16.6 4.2 14.6 3 12 3Z" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <span class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-teal-100 text-teal-800 mb-1">Медицинский практикум • 8–11 классы</span>
+          <h1 class="text-xl sm:text-3xl font-extrabold text-slate-900 leading-tight">DentaSim 3D: Клиническая практика</h1>
+        </div>
+      </div>
+
+      <p class="text-slate-600 text-xs sm:text-sm leading-relaxed mb-5">
+        Интерактивный 3D-симулятор приёма в современной стоматологической клинике. За одну смену вы примете <strong>6 случайных пациентов из 15 клинических кейсов</strong>: подберёте инструменты со стерильного лотка, выполните манипуляции в строгом алгоритме и обоснуете их биологический и физико-химический смысл.
+      </p>
+
+      <div class="mb-5">
+        <label for="input-student-name" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">ФИО практиканта (для оформления диплома)</label>
+        <input id="input-student-name" type="text" placeholder="Ординатор" maxlength="42"
+          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-teal-600 transition" />
+      </div>
+
+      <div class="mb-6">
+        <span class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Уровень клинической ответственности</span>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button id="btn-mode-intern" type="button"
+            class="text-left p-4 rounded-2xl border-2 border-teal-600 bg-teal-50/90 transition cursor-pointer">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-extrabold text-slate-900 text-sm sm:text-base">Интерн (с подсказками)</span>
+              <span class="px-2 py-0.5 rounded-md bg-teal-600 text-white text-[11px] font-bold">-10% за ошибку</span>
+            </div>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Подсвечивается рекомендуемый инструмент и целевая 3D-зона, отображаются пошаговые клинические подсказки.
+            </p>
+          </button>
+
+          <button id="btn-mode-expert" type="button"
+            class="text-left p-4 rounded-2xl border-2 border-slate-200 bg-white hover:border-slate-400 transition cursor-pointer">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-extrabold text-slate-900 text-sm sm:text-base">Врач-эксперт (без подсказок)</span>
+              <span class="px-2 py-0.5 rounded-md bg-slate-800 text-white text-[11px] font-bold">-20% за ошибку</span>
+            </div>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Без подсветки и текстовых подсказок. Вы самостоятельно определяете алгоритм действий и точки приложения.
+            </p>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200">
+        <div class="text-xs text-slate-500">
+          Управление 3D: вращение — 1 палец / ЛКМ, масштаб — 2 пальца / колесо
+        </div>
+        <button id="btn-start-shift" type="button"
+          class="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-500 hover:to-cyan-600 text-white font-bold text-sm sm:text-base shadow-lg shadow-teal-600/30 transition active:scale-95 cursor-pointer">
+          Начать смену (6 случайных кейсов из 15) →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ИГРОВОЙ ИНТЕРФЕЙС (HUD) ==================== -->
+  <div id="hud-overlay" class="fixed inset-0 z-10 pointer-events-none hidden flex flex-col justify-between p-2.5 sm:p-4">
+    
+    <!-- Верхний блок HUD -->
+    <div class="max-w-6xl w-full mx-auto flex flex-col gap-2">
+      <!-- Главная полоса статуса -->
+      <div class="clinical-glass rounded-2xl px-3 py-2.5 sm:px-4 sm:py-3 pointer-events-auto flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+          <span id="hud-case-counter" class="px-3 py-1.5 rounded-xl bg-teal-600 text-white font-extrabold text-xs sm:text-sm whitespace-nowrap">
+            Кейс 1 / 6
+          </span>
+          <div>
+            <div class="flex items-center gap-2">
+              <span id="hud-case-category" class="text-[11px] font-bold uppercase tracking-wider text-teal-300 bg-teal-950/80 border border-teal-500/30 px-2 py-0.5 rounded-md">Диагностика</span>
+              <span id="hud-step-counter" class="text-xs font-semibold text-slate-300">Этап 1 из 3</span>
+            </div>
+            <h2 id="hud-case-title" class="text-sm sm:text-lg font-extrabold text-white leading-tight mt-0.5">«Слепое пятно на шестерке»</h2>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-3 ml-auto">
+          <!-- Шкала репутации -->
+          <div class="flex flex-col items-end min-w-[115px] sm:min-w-[145px]">
+            <div class="flex items-center justify-between w-full text-xs font-bold mb-1">
+              <span class="text-slate-300">Репутация:</span>
+              <span id="hud-reputation-text" class="text-emerald-400">100%</span>
+            </div>
+            <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700">
+              <div id="hud-reputation-bar" class="h-full bg-emerald-500 rounded-full transition-all duration-300" style="width: 100%"></div>
+            </div>
+          </div>
+
+          <!-- Переключатель подсказок -->
+          <button id="btn-toggle-hints" type="button" title="Режим подсказок"
+            class="px-2.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-600 text-xs font-bold text-slate-100 flex items-center gap-1.5 transition cursor-pointer">
+            <span id="hint-indicator-dot" class="w-2 h-2 rounded-full bg-teal-400"></span>
+            <span id="hint-indicator-text" class="hidden sm:inline">Интерн</span>
+          </button>
+
+          <!-- Кнопка звука -->
+          <button id="btn-toggle-sound" type="button" title="Звук"
+            class="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-600 text-slate-100 transition cursor-pointer">
+            <svg id="icon-sound-on" class="w-5 h-5 text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+            <svg id="icon-sound-off" class="w-5 h-5 text-slate-400 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Баннер клинической задачи (сворачиваемый на мобильных) -->
+      <div class="clinical-glass rounded-2xl px-3.5 py-2.5 pointer-events-auto">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-cyan-300">Жалоба пациента и клиническая задача</span>
+          <div class="flex items-center gap-1.5">
+            <button id="btn-toggle-banner" type="button" class="sm:hidden px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 text-[11px] font-bold border border-slate-700 cursor-pointer">
+              Свернуть
+            </button>
+          </div>
+        </div>
+
+        <div id="complaint-body" class="mt-1 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+          <div class="flex-1">
+            <p id="hud-case-desc" class="text-xs sm:text-sm text-slate-200 leading-snug">
+              Пациент жалуется на дискомфорт в области верхних задних зубов. Проведите осмотр зуба 1.6.
+            </p>
+            <div id="hud-hint-box" class="mt-1.5 flex items-start gap-1.5 text-xs font-semibold text-teal-200 bg-teal-950/75 border border-teal-500/35 px-2.5 py-1.5 rounded-xl">
+              <span>💡</span>
+              <span id="hud-hint-text">Выберите стоматологическое зеркало на лотке и кликните по зубу 1.6.</span>
+            </div>
+          </div>
+
+          <!-- Пресеты камеры -->
+          <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+            <button type="button" data-cam="upper" class="cam-preset-btn px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-[11px] sm:text-xs font-bold transition cursor-pointer">Верхняя челюсть</button>
+            <button type="button" data-cam="lower" class="cam-preset-btn px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-[11px] sm:text-xs font-bold transition cursor-pointer">Нижняя челюсть</button>
+            <button type="button" data-cam="focus" class="cam-preset-btn px-2.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-[11px] sm:text-xs font-bold transition shadow-sm cursor-pointer">Фокус на зону</button>
+            <button type="button" data-cam="reset" class="cam-preset-btn px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-[11px] sm:text-xs font-bold transition cursor-pointer">Сброс вида</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Нижний стерильный лоток с инструментами -->
+    <div class="max-w-6xl w-full mx-auto pointer-events-auto">
+      <div class="clinical-glass rounded-2xl sm:rounded-3xl p-2.5 sm:p-3.5">
+        <div class="flex items-center justify-between px-1 mb-2">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            1. Выберите инструмент на лотке → 2. Кликните по целевой 3D-зоне
+          </span>
+          <span id="hud-selected-tool" class="text-xs font-bold text-sky-300 bg-sky-950/80 border border-sky-500/35 px-2.5 py-0.5 rounded-full">
+            Инструмент не выбран
+          </span>
+        </div>
+        <div id="tray-container" class="flex items-stretch gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar py-1 px-0.5">
+          <!-- Карточки инструментов -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: СМЫСЛ И ЗНАЧЕНИЕ ==================== -->
+  <div id="meaning-modal" class="fixed inset-0 z-30 hidden flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm">
+    <div class="clinical-light w-full max-w-lg rounded-3xl p-5 sm:p-7 modal-anim">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-11 h-11 rounded-2xl bg-teal-100 text-teal-800 flex items-center justify-center font-extrabold text-xl shrink-0">
+          ?
+        </div>
+        <div>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-teal-700">Клиническое обоснование</span>
+          <h3 class="text-base sm:text-lg font-extrabold text-slate-900">Смысл и значение действия</h3>
+        </div>
+      </div>
+
+      <p id="meaning-question" class="text-sm sm:text-base font-bold text-slate-800 leading-relaxed mb-4">
+        Вопрос...
+      </p>
+
+      <div id="meaning-options" class="flex flex-col gap-2.5 mb-3"></div>
+
+      <div id="meaning-feedback" class="hidden p-3.5 rounded-2xl text-xs sm:text-sm font-medium leading-relaxed"></div>
+    </div>
+  </div>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: ЗАВЕРШЕНИЕ КЕЙСА ==================== -->
+  <div id="case-done-modal" class="fixed inset-0 z-30 hidden flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
+    <div class="clinical-light w-full max-w-md rounded-3xl p-6 text-center modal-anim">
+      <div class="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-3 text-2xl font-extrabold">
+        ✓
+      </div>
+      <span class="text-xs font-bold uppercase tracking-wider text-emerald-700">Протокол выполнен</span>
+      <h3 id="done-case-title" class="text-xl font-extrabold text-slate-900 mt-1 mb-2">Название кейса</h3>
+      <p id="done-case-text" class="text-xs sm:text-sm text-slate-600 leading-relaxed mb-5">
+        Алгоритм успешно завершён.
+      </p>
+      <button id="btn-next-case" type="button"
+        class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-500 hover:to-cyan-600 text-white font-bold text-sm sm:text-base shadow-lg shadow-teal-600/25 transition cursor-pointer">
+        Перейти к следующему пациенту →
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== ЭКРАН ИТОГОВОГО ДИПЛОМА И КАРТЫ КОМПЕТЕНЦИЙ ==================== -->
+  <div id="diploma-screen" class="fixed inset-0 z-40 hidden bg-slate-950/80 backdrop-blur-md overflow-y-auto p-3 sm:p-6">
+    <div class="clinical-light w-full max-w-4xl mx-auto rounded-3xl p-5 sm:p-8 modal-anim my-4 border-2 border-teal-500/40">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-200">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-widest text-teal-700">Сертификат о прохождении симулятора</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-0.5">Диплом и Карта компетенций</h2>
+          <p id="diploma-holder" class="text-sm font-semibold text-slate-600 mt-1">Практикант: Ординатор</p>
+        </div>
+        <div class="bg-slate-900 text-white px-4 py-3 rounded-2xl flex sm:flex-col justify-between items-center sm:items-end self-stretch sm:self-auto">
+          <span class="text-[11px] uppercase tracking-wider text-slate-400">Квалификационный ранг</span>
+          <span id="diploma-rank" class="text-base sm:text-lg font-extrabold text-teal-400">Врач-стоматолог</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-5 my-6">
+        <div class="md:col-span-5 bg-slate-50 rounded-2xl p-5 border border-slate-200 flex flex-col justify-between">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Итоговая репутация</span>
+            <div class="flex items-baseline gap-2 mt-1">
+              <span id="diploma-rep-score" class="text-4xl sm:text-5xl font-extrabold text-teal-600">100%</span>
+              <span id="diploma-mode-tag" class="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-200 text-slate-700">Интерн</span>
+            </div>
+            <p id="diploma-summary-text" class="text-xs sm:text-sm text-slate-600 mt-3 leading-relaxed">
+              Отличный результат клинической смены!
+            </p>
+          </div>
+          <div class="grid grid-cols-2 gap-2 mt-4 pt-3 border-t border-slate-200 text-center">
+            <div class="bg-white rounded-xl p-2 border border-slate-200/70">
+              <div id="diploma-accuracy" class="text-lg font-extrabold text-slate-900">100%</div>
+              <div class="text-[11px] text-slate-500 font-semibold">Точность действий</div>
+            </div>
+            <div class="bg-white rounded-xl p-2 border border-slate-200/70">
+              <div id="diploma-errors-num" class="text-lg font-extrabold text-rose-600">0</div>
+              <div class="text-[11px] text-slate-500 font-semibold">Ошибок за смену</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="md:col-span-7 bg-slate-50 rounded-2xl p-5 border border-slate-200">
+          <h3 class="text-xs font-extrabold text-slate-900 uppercase tracking-wider mb-3.5">Карта компетенций по 4 клиническим модулям</h3>
+          <div id="competency-chart" class="flex flex-col gap-3.5"></div>
+        </div>
+      </div>
+
+      <div class="mb-6">
+        <h3 class="text-xs font-extrabold text-slate-900 uppercase tracking-wider mb-3">Разбор клинических случаев и допущенных ошибок</h3>
+        <div id="case-review-list" class="flex flex-col gap-2.5 max-h-72 overflow-y-auto pr-1"></div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-slate-200">
+        <button id="btn-back-menu" type="button"
+          class="w-full sm:w-auto px-5 py-3 rounded-2xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-800 font-bold text-sm transition cursor-pointer">
+          В главное меню
+        </button>
+        <button id="btn-restart-shift" type="button"
+          class="w-full sm:w-auto px-7 py-3 rounded-2xl bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-500 hover:to-cyan-600 text-white font-bold text-sm shadow-lg shadow-teal-600/25 transition cursor-pointer">
+          Новая смена (6 новых кейсов)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== НАДЕЖНАЯ ЗАГРУЗКА THREE.JS + ORBITCONTROLS С FALLBACK ==================== -->
+  <script>
+    (function () {
+      'use strict';
+
+      // Загрузчик скриптов с автоматическим переключением на резервный CDN
+      function loadScriptSequential(urls) {
+        return new Promise(function (resolve, reject) {
+          var index = 0;
+          function tryNext() {
+            if (index >= urls.length) {
+              reject(new Error('All CDN sources failed'));
+              return;
+            }
+            var script = document.createElement('script');
+            script.src = urls[index];
+            script.async = true;
+            script.onload = function () { resolve(urls[index]); };
+            script.onerror = function () {
+              index++;
+              tryNext();
+            };
+            document.head.appendChild(script);
+          }
+          tryNext();
+        });
+      }
+
+      // Встроенный резервный контроллер сферической орбиты камеры (работает даже без CDN OrbitControls)
+      function FallbackOrbitControls(camera, domElement) {
+        this.camera = camera;
+        this.domElement = domElement;
+        this.target = new THREE.Vector3(0, 0, 0);
+        this.minDistance = 2.8;
+        this.maxDistance = 13.5;
+        this.enableDamping = true;
+        this.dampingFactor = 0.08;
+
+        var spherical = new THREE.Spherical();
+        var sphericalDelta = new THREE.Spherical();
+        var offset = new THREE.Vector3();
+        var isDragging = false;
+        var prevX = 0;
+        var prevY = 0;
+        var pinchDist = 0;
+
+        offset.copy(camera.position).sub(this.target);
+        spherical.setFromVector3(offset);
+
+        var self = this;
+
+        function onPointerDown(e) {
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+          isDragging = true;
+          prevX = e.clientX;
+          prevY = e.clientY;
+        }
+
+        function onPointerMove(e) {
+          if (!isDragging) return;
+          var dx = e.clientX - prevX;
+          var dy = e.clientY - prevY;
+          prevX = e.clientX;
+          prevY = e.clientY;
+          sphericalDelta.theta -= (2 * Math.PI * dx) / domElement.clientHeight * 0.65;
+          sphericalDelta.phi -= (2 * Math.PI * dy) / domElement.clientHeight * 0.65;
+        }
+
+        function onPointerUp() {
+          isDragging = false;
+        }
+
+        function onWheel(e) {
+          e.preventDefault();
+          var factor = e.deltaY > 0 ? 1.08 : 0.92;
+          spherical.radius = THREE.MathUtils.clamp(spherical.radius * factor, self.minDistance, self.maxDistance);
+        }
+
+        function onTouchStart(e) {
+          if (e.touches.length === 2) {
+            pinchDist = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY
+            );
+          }
+        }
+
+        function onTouchMove(e) {
+          if (e.touches.length === 2) {
+            var newDist = Math.hypot(
+              e.touches[0].clientX - e.touches[1].clientX,
+              e.touches[0].clientY - e.touches[1].clientY
+            );
+            if (pinchDist > 0) {
+              var ratio = pinchDist / newDist;
+              spherical.radius = THREE.MathUtils.clamp(spherical.radius * ratio, self.minDistance, self.maxDistance);
+            }
+            pinchDist = newDist;
+          }
+        }
+
+        domElement.addEventListener('pointerdown', onPointerDown);
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+        domElement.addEventListener('wheel', onWheel, { passive: false });
+        domElement.addEventListener('touchstart', onTouchStart, { passive: true });
+        domElement.addEventListener('touchmove', onTouchMove, { passive: true });
+
+        this.syncFromCamera = function () {
+          offset.copy(self.camera.position).sub(self.target);
+          spherical.setFromVector3(offset);
+          sphericalDelta.set(0, 0, 0);
+        };
+
+        this.update = function () {
+          spherical.theta += sphericalDelta.theta;
+          spherical.phi += sphericalDelta.phi;
+          spherical.phi = THREE.MathUtils.clamp(spherical.phi, 0.25, Math.PI * 0.85);
+          spherical.radius = THREE.MathUtils.clamp(spherical.radius, self.minDistance, self.maxDistance);
+
+          sphericalDelta.theta *= (1 - self.dampingFactor);
+          sphericalDelta.phi *= (1 - self.dampingFactor);
+
+          offset.setFromSpherical(spherical);
+          self.camera.position.copy(self.target).add(offset);
+          self.camera.lookAt(self.target);
+        };
+      }
+
+      // =========================================================================
+      // ПРОЦЕДУРНЫЙ ЗВУКОВОЙ СИНТЕЗАТОР (WEB AUDIO API)
+      // =========================================================================
+      function SoundManager() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      SoundManager.prototype.ensureContext = function () {
+        if (this.muted) return null;
+        if (!this.ctx) {
+          var AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            try { this.ctx = new AudioCtx(); } catch (e) { this.ctx = null; }
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(function () {});
+        }
+        return this.ctx;
+      };
+
+      SoundManager.prototype.playTone = function (type, freqStart, freqEnd, duration, vol) {
+        var ctx = this.ensureContext();
+        if (!ctx) return;
+        var now = ctx.currentTime;
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freqStart, now);
+        if (freqEnd !== freqStart) {
+          osc.frequency.exponentialRampToValueAtTime(freqEnd, now + duration);
+        }
+        gain.gain.setValueAtTime(vol || 0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + duration + 0.02);
+      };
+
+      SoundManager.prototype.click = function () {
+        this.playTone('sine', 720, 960, 0.055, 0.1);
+      };
+
+      SoundManager.prototype.success = function () {
+        var self = this;
+        [523.25, 659.25, 783.99].forEach(function (f, idx) {
+          setTimeout(function () { self.playTone('triangle', f, f * 1.02, 0.22, 0.13); }, idx * 65);
+        });
+      };
+
+      SoundManager.prototype.error = function () {
+        this.playTone('sawtooth', 185, 130, 0.28, 0.14);
+      };
+
+      SoundManager.prototype.drill = function () {
+        this.playTone('sawtooth', 1500, 2300, 0.45, 0.06);
+      };
+
+      SoundManager.prototype.scaler = function () {
+        this.playTone('sine', 3400, 3800, 0.35, 0.05);
+      };
+
+      SoundManager.prototype.monitorBeep = function () {
+        this.playTone('sine', 880, 880, 0.12, 0.11);
+      };
+
+      var sound = new SoundManager();
+
+      // =========================================================================
+      // БИБЛИОТЕКА SVG-ИКОНОК ИНСТРУМЕНТОВ
+      // =========================================================================
+      var SVG_ICONS = {
+        mirror: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><circle cx="23" cy="12" r="7" fill="#bae6fd"/><line x1="6" y1="30" x2="18" y2="17" stroke-width="2.5" stroke-linecap="round"/></svg>',
+        probe: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="30" x2="22" y2="14" stroke-width="2.4" stroke-linecap="round"/><path d="M22 14L27 9L25 6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+        tweezers: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 27L24 10M10 29L26 12" stroke-linecap="round"/><circle cx="26" cy="10" r="3" fill="#f8fafc"/></svg>',
+        spatula: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="15" width="24" height="6" rx="3" fill="#cbd5e1"/></svg>',
+        transport_media: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="13" y="9" width="10" height="21" rx="5" fill="#99f6e4"/><rect x="12" y="5" width="12" height="4" rx="1.5" fill="#0d9488"/></svg>',
+        brush_paste: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="24" x2="24" y2="24" stroke-width="3" stroke-linecap="round"/><rect x="21" y="16" width="9" height="7" rx="1.5" fill="#38bdf8"/></svg>',
+        fluoride: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 27L22 15" stroke-width="2.4" stroke-linecap="round"/><path d="M22 15l5-5c1.5 1.5 1.5 3.5 0 5l-5 0z" fill="#2dd4bf"/></svg>',
+        acid_etch: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="11" y="10" width="8" height="15" rx="2" fill="#60a5fa"/><path d="M19 18h7l4 4" stroke-linecap="round"/></svg>',
+        sealant_uv: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 26l6-12h12l2 4" stroke-width="2.4" stroke-linecap="round"/><circle cx="28" cy="21" r="3.5" fill="#3b82f6" stroke="none"/></svg>',
+        cofferdam: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 7v18a9 9 0 0 0 18 0V7" stroke-linecap="round"/><rect x="11" y="10" width="14" height="13" rx="2" fill="#5eead4" stroke-width="1.2"/></svg>',
+        floss: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="14" height="18" rx="3" fill="#e2e8f0"/><path d="M23 14c4 0 6 4 6 9s-3 6-6 6" stroke="#38bdf8" stroke-dasharray="2 2"/></svg>',
+        turbine: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 23h18l3-5v-4h-4v4" stroke-width="2.4" stroke-linecap="round"/><line x1="26" y1="18" x2="26" y2="25" stroke="#38bdf8" stroke-width="2"/></svg>',
+        low_speed: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 22h15l4-4h3v5" stroke-width="2.4" stroke-linecap="round"/><circle cx="29" cy="25" r="2.2" fill="#94a3b8"/></svg>',
+        pulpo_files: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="23" width="6" height="6" rx="1.5" fill="#f43f5e"/><line x1="14" y1="23" x2="28" y2="9" stroke-width="2"/><path d="M21 16l-2-2m5-1l-2-2" stroke-width="1.5"/></svg>',
+        apex_hypo: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="7" width="18" height="22" rx="3" fill="#bae6fd"/><path d="M13 18h3l2-5 3 9 2-4h2" stroke="#0284c7" stroke-width="2"/></svg>',
+        matrix_wedge: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="17" cy="16" rx="8" ry="5" fill="#cbd5e1"/><polygon points="12,26 28,20 28,26" fill="#facc15"/></svg>',
+        crown_hold: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 12c0-3 2-5 5-5s5 2 5 5c0 4-2 8-2.5 14h-5C15 20 13 16 13 12z" fill="#fff"/><path d="M8 10h4m12 0h4" stroke="#14b8a6" stroke-width="2.5" stroke-linecap="round"/></svg>',
+        milk_saline: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="11" y="11" width="14" height="18" rx="2" fill="#fff"/><polygon points="11,11 18,6 25,11" fill="#bae6fd"/></svg>',
+        gauze_ice: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="11" width="20" height="14" rx="4" fill="#bae6fd"/><path d="M18 14v8M14 18h8" stroke="#0284c7" stroke-width="2"/></svg>',
+        anesthesia: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="10" y="14" width="14" height="7" rx="1.5" fill="#99f6e4"/><line x1="24" y1="17.5" x2="32" y2="17.5"/><line x1="5" y1="17.5" x2="10" y2="17.5" stroke-width="2.5"/></svg>',
+        lower_forceps: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 26h14l5-7m-19 10h15l6-8" stroke-width="2.3" stroke-linecap="round"/></svg>',
+        disinfectant: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="13" width="18" height="15" rx="2" fill="#5eead4"/><path d="M9 17h18" stroke="#0f766e"/></svg>',
+        brush_azopyram: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 7c4 6 7 10 7 14a7 7 0 0 1-14 0c0-4 3-8 7-14z" fill="#e9d5ff" stroke="#7e22ce"/></svg>',
+        autoclave: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="10" y="7" width="16" height="22" rx="2" fill="#fef3c7"/><line x1="13" y1="13" x2="23" y2="13" stroke="#d97706"/></svg>',
+        gauze_tray: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="12" width="22" height="13" rx="3" fill="#f8fafc" stroke-dasharray="3 2"/></svg>',
+        dry_container: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="12" width="20" height="14" rx="4" fill="#bae6fd"/><path d="M13 9h10" stroke-linecap="round"/></svg>',
+        soap_water: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 7c3 5 6 8 6 12a6 6 0 0 1-12 0c0-4 3-7 6-12z" fill="#7dd3fc"/></svg>',
+        alcohol_iodine: '<svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="14" width="22" height="8" rx="3" fill="#fde68a"/><rect x="14" y="14" width="8" height="8" fill="#b45309"/></svg>'
+      };
+
+      // =========================================================================
+      // ПОЛНАЯ БАЗА ИЗ 15 СТОМАТОЛОГИЧЕСКИХ КЕЙСОВ
+      // =========================================================================
+      var CASES_DB = [
+        {
+          id: 1,
+          domain: 'Диагностика и профилактика',
+          title: '«Слепое пятно на шестерке»',
+          sceneType: 'jaw',
+          focusTarget: 'tooth_16',
+          pathology: { tooth: '16', type: 'fissure' },
+          complaint: 'Пациент жалуется на задержку пищи и дискомфорт в области верхнего правого первого моляра (зуб 1.6). Прямой обзор задней стенки невозможен. Проведите осмотр.',
+          tray: [
+            { id: 'mirror', name: 'Стоматологическое зеркало' },
+            { id: 'probe', name: 'Угловой зонд' },
+            { id: 'tweezers', name: 'Пинцет' },
+            { id: 'turbine', name: 'Турбинный наконечник' },
+            { id: 'lower_forceps', name: 'Щипцы для нижней челюсти' },
+            { id: 'fluoride', name: 'Фторлак' }
+          ],
+          steps: [
+            {
+              tool: 'mirror',
+              target: 'tooth_16',
+              hint: 'Выберите «Стоматологическое зеркало» (предварительно согрев его о слизистую щеки) и наведите на зуб 1.6.',
+              anim: 'mirror_approach',
+              toast: 'Зеркало согрето и отводит щеку — открыт полный обзор дистальной стенки зуба 1.6!',
+              quiz: {
+                question: 'Каков физический смысл прикладывания стоматологического зеркала к внутренней поверхности щеки перед осмотром?',
+                options: [
+                  'Проверка температурной чувствительности слизистой оболочки пациента',
+                  'Зеркало принимает температуру тела (~37 °C), что предотвращает конденсацию влаги (запотевание) при выдохе пациента',
+                  'Удаление стерилизационного налёта с отражающей поверхности'
+                ],
+                correct: 1,
+                explanation: 'Тёплый влажный воздух при дыхании мгновенно конденсируется на холодном стекле. Нагрев зеркала до температуры тела исключает точку росы и запотевание.'
+              }
+            },
+            {
+              tool: 'probe',
+              target: 'tooth_16',
+              hint: 'Возьмите «Угловой зонд» и аккуратно проверьте глубину и плотность фиссур моляра 1.6.',
+              anim: 'probe_check',
+              toast: 'Зондирование выполнено: эмаль в фиссурах плотная, зонд не застревает.'
+            }
+          ]
+        },
+        {
+          id: 2,
+          domain: 'Диагностика и профилактика',
+          title: '«Бактериальный десант»',
+          sceneType: 'jaw',
+          focusTarget: 'tooth_36',
+          pathology: { tooth: '36', type: 'plaque' },
+          complaint: 'У подростка множественный активный кариес. Необходимо взять образец зубной бляшки с нижнего левого моляра 3.6 для микробиологического посева на S. mutans и лактобактерии.',
+          tray: [
+            { id: 'tweezers', name: 'Пинцет + ватные валики' },
+            { id: 'spatula', name: 'Металлический шпатель' },
+            { id: 'transport_media', name: 'Транспортная среда' },
+            { id: 'alcohol_iodine', name: 'Спирт 70% и йод 5%' },
+            { id: 'brush_paste', name: 'Щётка и паста' },
+            { id: 'sealant_uv', name: 'Герметик и УФ-лампа' }
+          ],
+          steps: [
+            {
+              tool: 'tweezers',
+              target: 'tooth_36',
+              hint: 'Изолируйте моляр 3.6 от слюны ватными валиками с помощью инструмента «Пинцет + ватные валики».',
+              anim: 'cotton_isolate',
+              toast: 'Зуб 3.6 изолирован от ротовой жидкости, контаминация слюной исключена.'
+            },
+            {
+              tool: 'spatula',
+              target: 'tooth_36',
+              hint: 'Соберите зубной налёт с поверхности моляра 3.6, используя «Металлический шпатель».',
+              anim: 'scrape_plaque',
+              toast: 'Образец зубной бляшки аккуратно забран на стерильный шпатель.'
+            },
+            {
+              tool: 'transport_media',
+              target: 'tray',
+              hint: 'Поместите собранный образец в герметичную пробирку «Транспортная среда» на лотке.',
+              anim: 'seal_sample',
+              toast: 'Пробирка герметично закрыта для доставки в баклабораторию.',
+              quiz: {
+                question: 'Почему образец зубной бляшки необходимо поместить в герметичную пробирку со специальной средой, а не оставить на воздухе?',
+                options: [
+                  'Большинство кариесогенных и пародонтопатогенных бактерий — анаэробы, и кислород воздуха вызывает их гибель',
+                  'На свету бактерии зубного налёта мутируют в грибы рода Candida',
+                  'Транспортная среда растворяет зубную эмаль, попавшую в пробу'
+                ],
+                correct: 0,
+                explanation: 'В глубине биоплёнки преобладают облигатные и факультативные анаэробы. Контакт с атмосферным кислородом убивает их и искажает результат посева.'
+              }
+            }
+          ]
+        },
+        {
+          id: 3,
+          domain: 'Диагностика и профилактика',
+          title: '«Фтор против кислоты»',
+          sceneType: 'jaw',
+          focusTarget: 'tooth_11',
+          pathology: { tooth: '11', type: 'white_spot' },
+          complaint: 'После снятия брекет-системы на центральном резце 1.1 видны матовые белые пятна — очаги деминерализации эмали. Проведите реминерализующую терапию фторлаком.',
+          tray: [
+            { id: 'brush_paste', name: 'Щётка и паста' },
+            { id: 'tweezers', name: 'Пинцет + ватные валики' },
+            { id: 'fluoride', name: 'Фторлак' },
+            { id: 'acid_etch', name: 'Ортофосфорная кислота' },
+            { id: 'turbine', name: 'Турбинный наконечник' },
+            { id: 'lower_forceps', name: 'Щипцы' }
+          ],
+          steps: [
+            {
+              tool: 'brush_paste',
+              target: 'tooth_11',
+              hint: 'Очистите поверхность резца 1.1 с помощью «Щётка и паста» (без масел), чтобы удалить биоплёнку.',
+              anim: 'clean_enamel',
+              toast: 'Налёт и пелликула удалены с вестибулярной поверхности резца 1.1.'
+            },
+            {
+              tool: 'tweezers',
+              target: 'tooth_11',
+              hint: 'Изолируйте и высушите зуб 1.1 («Пинцет + ватные валики»), чтобы влага не мешала фиксации лака.',
+              anim: 'cotton_isolate',
+              toast: 'Поверхность зуба 1.1 изолирована и высушена.'
+            },
+            {
+              tool: 'fluoride',
+              target: 'tooth_11',
+              hint: 'Нанесите «Фторлак» непосредственно на белое пятно резца 1.1.',
+              anim: 'apply_fluoride',
+              toast: 'Фторлак покрыл очаг деминерализации защитной плёнкой!',
+              quiz: {
+                question: 'Каков биохимический механизм противокариозного действия фторидов на зубную эмаль?',
+                options: [
+                  'Фтор замещает гидроксильную группу в гидроксиапатите с образованием кислотоустойчивого фторапатита и подавляет ферменты бактерий',
+                  'Фтор образует непроницаемый металлический слой толщиной 0,5 мм',
+                  'Фтор нейтрализует слюну, превращая её в щёлочь'
+                ],
+                correct: 0,
+                explanation: 'Фторапатит имеет значительно более низкий критический pH растворения в молочной кислоте, а ионы F⁻ ингибируют гликолиз кариесогенных бактерий.'
+              }
+            }
+          ]
+        },
+        {
+          id: 4,
+          domain: 'Диагностика и профилактика',
+          title: '«Запечатать ловушку»',
+          sceneType: 'jaw',
+          focusTarget: 'tooth_37',
+          pathology: { tooth: '37', type: 'fissure' },
+          complaint: 'У школьника 8 класса недавно прорезался нижний второй моляр 3.7 с глубокими узкими фиссурами. Выполните герметизацию фиссур для профилактики кариеса.',
+          tray: [
+            { id: 'brush_paste', name: 'Щётка и паста' },
+            { id: 'acid_etch', name: 'Ортофосфорная кислота' },
+            { id: 'sealant_uv', name: 'Герметик и УФ-лампа' },
+            { id: 'fluoride', name: 'Фторлак' },
+            { id: 'pulpo_files', name: 'Пульпоэкстрактор' },
+            { id: 'matrix_wedge', name: 'Матрица и клин' }
+          ],
+          steps: [
+            {
+              tool: 'brush_paste',
+              target: 'tooth_37',
+              hint: 'Очистите жевательную поверхность моляра 3.7 с помощью «Щётка и паста».',
+              anim: 'clean_enamel',
+              toast: 'Фиссуры моляра 3.7 очищены от налёта.'
+            },
+            {
+              tool: 'acid_etch',
+              target: 'tooth_37',
+              hint: 'Нанесите гель «Ортофосфорная кислота» (37%) на фиссуры зуба 3.7 на 20 секунд, затем смойте и высушите.',
+              anim: 'etch_blue',
+              toast: 'Эмаль протравлена и приобрела матовую микропористую структуру.',
+              quiz: {
+                question: 'Зачем перед внесением герметика гладкую эмаль фиссур протравливают ортофосфорной кислотой?',
+                options: [
+                  'Чтобы полностью растворить эмаль до дентина',
+                  'Для создания микрошероховатостей (микропор), обеспечивающих надёжную адгезию герметика (снижение риска кариеса до 80%)',
+                  'Для обезболивания пульпы перед засвечиванием лампой'
+                ],
+                correct: 1,
+                explanation: 'Кислотное протравливание избирательно растворяет концы эмалевых призм на 10–20 мкм, создавая микрорельеф для затекания и фиксации смолы герметика.'
+              }
+            },
+            {
+              tool: 'sealant_uv',
+              target: 'tooth_37',
+              hint: 'Заполните бороздки моляра 3.7 герметиком и полимеризуйте его («Герметик и УФ-лампа»).',
+              anim: 'uv_flash',
+              toast: 'Герметик отверждён УФ-лампой! Фиссуры надёжно запечатаны.'
+            }
+          ]
+        },
+        {
+          id: 5,
+          domain: 'Терапия и эндодонтия',
+          title: '«Сухое поле»',
+          sceneType: 'jaw',
+          focusTarget: 'tooth_46',
+          pathology: { tooth: '46', type: 'caries' },
+          complaint: 'Предстоит эстетическая реставрация нижнего моляра 4.6 светоотверждаемым композитом. Слюна заливает рабочее поле. Установите систему изоляции коффердам.',
+          tray: [
+            { id: 'floss', name: 'Зубная нить (флосс)' },
+            { id: 'cofferdam', name: 'Коффердам и кламмер' },
+            { id: 'gauze_tray', name: 'Марлевая салфетка' },
+            { id: 'turbine', name: 'Турбинный наконечник' },
+            { id: 'anesthesia', name: 'Проводниковая анестезия' },
+            { id: 'mirror', name: 'Зеркало' }
+          ],
+          steps: [
+            {
+              tool: 'floss',
+              target: 'tooth_46',
+              hint: 'Проверьте проходимость межзубных контактов вокруг моляра 4.6 с помощью «Зубная нить (флосс)».',
+              anim: 'probe_check',
+              toast: 'Межзубные контакты свободны — латексный платок не порвётся при наложении.'
+            },
+            {
+              tool: 'cofferdam',
+              target: 'tooth_46',
+              hint: 'Пробейте отверстие в платке, зафиксируйте «Коффердам и кламмер» на шейке моляра 4.6 и натяните платок на рамку.',
+              anim: 'cofferdam_on',
+              toast: 'Коффердам установлен! Зуб 4.6 полностью изолирован от полости рта.',
+              quiz: {
+                question: 'В чём заключается главный клинический смысл изоляции зуба коффердамом при пломбировании и лечении каналов?',
+                options: [
+                  'Слюна и влага дыхания нарушают адгезию композита к тканям зуба, а платок защищает дыхательные пути от мелких инструментов и антисептиков',
+                  'Латексный платок охлаждает зуб во время препарирования бором',
+                  'Коффердам заменяет местную анестезию за счёт сдавливания десны'
+                ],
+                correct: 0,
+                explanation: 'Даже микроплёнка влаги разрушает химическую связь адгезива с дентином, а попадание гипохлорита натрия или файла в глотку представляет угрозу жизни.'
+              }
+            }
+          ]
+        },
+        {
+          id: 6,
+          domain: 'Терапия и эндодонтия',
+          title: '«Осторожно, пульпа!»',
+          sceneType: 'jaw',
+          focusTarget: 'tooth_26',
+          pathology: { tooth: '26', type: 'deep_caries' },
+          complaint: 'На верхнем левом моляре 2.6 глубокая кариозная полость, но пульпа ещё жива. Отпрепарируйте кариозные ткани в правильной последовательности, не перегрев нерв.',
+          tray: [
+            { id: 'turbine', name: 'Турбинный наконечник с водой' },
+            { id: 'low_speed', name: 'Угловой наконечник (малые об.)' },
+            { id: 'sealant_uv', name: 'Герметик и УФ-лампа' },
+            { id: 'lower_forceps', name: 'Щипцы' },
+            { id: 'fluoride', name: 'Фторлак' },
+            { id: 'mirror', name: 'Зеркало' }
+          ],
+          steps: [
+            {
+              tool: 'turbine',
+              target: 'tooth_26',
+              hint: 'Раскройте полость в пределах прочной эмали зуба 2.6, выбрав «Турбинный наконечник с водой».',
+              anim: 'drill_water',
+              toast: 'Нависающие края эмали убраны на высоких оборотах с водяным охлаждением.',
+              quiz: {
+                question: 'Почему при работе турбинным наконечником (300 000 об/мин) необходима непрерывная подача воздушно-водяного спрея?',
+                options: [
+                  'Трение бора мгновенно нагревает ткани зуба: без охлаждения произойдёт термический ожог и некроз пульпы',
+                  'Вода растворяет эмаль быстрее алмазного бора',
+                  'Спрей нужен только для увлажнения губ пациента'
+                ],
+                correct: 0,
+                explanation: 'Повышение температуры в пульповой камере всего на 5,5 °C приводит к необратимой гибели пульпы. Водяное охлаждение отводит тепло из зоны резания.'
+              }
+            },
+            {
+              tool: 'low_speed',
+              target: 'tooth_26',
+              hint: 'Теперь удалите размягчённый дентин со дна полости зуба 2.6, используя «Угловой наконечник (малые об.)».',
+              anim: 'drill_dentin',
+              toast: 'Инфицированный дентин бережно удалён на малых оборотах, свод пульпы сохранён!'
+            }
+          ]
+        },
+        {
+          id: 7,
+          domain: 'Терапия и эндодонтия',
+          title: '«Путь к апексу»',
+          sceneType: 'jaw',
+          focusTarget: 'tooth_14',
+          pathology: { tooth: '14', type: 'deep_caries' },
+          complaint: 'Инфекция из глубокой полости проникла в пульпу верхнего премоляра 1.4 (острый пульпит). Проведите эндодонтическое лечение корневого канала.',
+          tray: [
+            { id: 'anesthesia', name: 'Инфильтрационная анестезия' },
+            { id: 'pulpo_files', name: 'Пульпоэкстрактор и файлы' },
+            { id: 'apex_hypo', name: 'Апекслокатор и гипохлорит' },
+            { id: 'matrix_wedge', name: 'Матрица и клин' },
+            { id: 'brush_paste', name: 'Щётка и паста' },
+            { id: 'lower_forceps', name: 'Щипцы' }
+          ],
+          steps: [
+            {
+              tool: 'anesthesia',
+              target: 'tooth_14',
+              hint: 'Обезбольте премоляр 1.4, применив «Инфильтрационная анестезия».',
+              anim: 'syringe_inject',
+              toast: 'Анестезия подействовала, лечение пройдёт безболезненно.'
+            },
+            {
+              tool: 'pulpo_files',
+              target: 'tooth_14',
+              hint: 'Удалите воспалённую пульпу и пройдите канал зуба 1.4 инструментом «Пульпоэкстрактор и файлы».',
+              anim: 'drill_dentin',
+              toast: 'Пульпа удалена, первичный доступ в корневой канал открыт.'
+            },
+            {
+              tool: 'apex_hypo',
+              target: 'tooth_14',
+              hint: 'Измерьте точную длину канала и промойте его антисептиком («Апекслокатор и гипохлорит»).',
+              anim: 'spray_clean',
+              toast: 'Рабочая длина определена до апикального сужения, канал продезинфицирован!',
+              quiz: {
+                question: 'Зачем в эндодонтии измеряют длину канала апекслокатором и промывают его гипохлоритом натрия?',
+                options: [
+                  'Чтобы не выйти инструментом за верхушку корня в кость и полностью растворить органические остатки и бактериальную биоплёнку в канале',
+                  'Чтобы укоротить корень зуба на 3 миллиметра',
+                  'Гипохлорит натрия окрашивает эмаль в белый цвет'
+                ],
+                correct: 0,
+                explanation: 'Выход за апекс травмирует периодонт, а недопломбирование оставляет инфекцию. Гипохлорит натрия уникально растворяет некротизированные ткани и убивает микрофлору.'
+              }
+            }
+          ]
+        },
+        {
+          id: 8,
+          domain: 'Терапия и эндодонтия',
+          title: '«Архитектура контакта»',
+          sceneType: 'jaw',
+          focusTarget: 'tooth_25',
+          pathology: { tooth: '25', type: 'fractured_wall' },
+          complaint: 'Кариес разрушил боковую (контактную) стенку верхнего левого премоляра 2.5. Восстановите анатомическую форму контактного пункта перед пломбированием.',
+          tray: [
+            { id: 'cofferdam', name: 'Коффердам и кламмер' },
+            { id: 'matrix_wedge', name: 'Матрица и клин' },
+            { id: 'sealant_uv', name: 'Композит и УФ-лампа' },
+            { id: 'probe', name: 'Угловой зонд' },
+            { id: 'gauze_ice', name: 'Марлевый тампон' },
+            { id: 'disinfectant', name: 'Дезраствор' }
+          ],
+          steps: [
+            {
+              tool: 'cofferdam',
+              target: 'tooth_25',
+              hint: 'Изолируйте премоляр 2.5 от влаги системой «Коффердам и кламмер».',
+              anim: 'cofferdam_on',
+              toast: 'Рабочее поле 2.5 изолировано.'
+            },
+            {
+              tool: 'matrix_wedge',
+              target: 'tooth_25',
+              hint: 'Установите на премоляр 2.5 «Матрица и клин» для формирования боковой стенки.',
+              anim: 'matrix_on',
+              toast: 'Матрица зафиксирована межзубным клином у шейки зуба 2.5!',
+              quiz: {
+                question: 'Какую двойную функцию выполняет межзубный клин при установке матрицы у десны?',
+                options: [
+                  'Плотно прижимает матрицу к шейке зуба (исключая нависающий край пломбы) и слегка расклинивает зубы для плотного контакта после снятия матрицы',
+                  'Останавливает кровотечение из пульпы и отбеливает эмаль',
+                  'Удерживает язык пациента во время засвечивания'
+                ],
+                correct: 0,
+                explanation: 'Без клина пломбировочный материал вытечет под десну и вызовет хронический гингивит, а из-за толщины самой матрицы останется щель между зубами.'
+              }
+            },
+            {
+              tool: 'sealant_uv',
+              target: 'tooth_25',
+              hint: 'Восстановите стенку композитом и полимеризуйте её («Композит и УФ-лампа»).',
+              anim: 'uv_flash',
+              toast: 'Анатомическая стенка и плотный контактный пункт зуба 2.5 восстановлены!'
+            }
+          ]
+        },
+        {
+          id: 9,
+          domain: 'Хирургия и экстренная помощь',
+          title: '«Спасти за 30 минут»',
+          sceneType: 'avulsed',
+          focusTarget: 'avulsed_tooth',
+          complaint: 'На школьной тренировке девятикласснику выбили постоянный верхний резец 1.1. Зуб лежит целым с корнем. У вас есть 30 минут, чтобы правильно сохранить его для реимплантации!',
+          tray: [
+            { id: 'crown_hold', name: 'Захват строго за коронку' },
+            { id: 'milk_saline', name: 'Контейнер с молоком/физраствором' },
+            { id: 'brush_paste', name: 'Жёсткая щётка и мыло' },
+            { id: 'alcohol_iodine', name: 'Спирт 70% и йод 5%' },
+            { id: 'gauze_tray', name: 'Сухая марлевая салфетка' },
+            { id: 'cofferdam', name: 'Шинирование в лунке' }
+          ],
+          steps: [
+            {
+              tool: 'crown_hold',
+              target: 'avulsed_tooth',
+              hint: 'Возьмите выбитый зуб исключительно за белую верхнюю часть — «Захват строго за коронку», не касаясь корня!',
+              anim: 'lift_crown',
+              toast: 'Вы аккуратно подняли зуб за коронку, не повредив поверхность корня.'
+            },
+            {
+              tool: 'milk_saline',
+              target: 'milk_station',
+              hint: 'Аккуратно ополосните зуб и поместите его в «Контейнер с молоком/физраствором» на столе.',
+              anim: 'put_in_milk',
+              toast: 'Зуб погружён в изотоническую среду с нейтральным pH!',
+              quiz: {
+                question: 'Почему выбитый постоянный зуб нельзя тереть щёткой, мыть с мылом/спиртом или везти в сухой салфетке, а нужно поместить в молоко или физраствор?',
+                options: [
+                  'Чтобы сохранить живыми клетки периодонтальной связки на поверхности корня — без них зуб не приживётся в лунке',
+                  'Потому что без молока эмаль коронки треснет через 5 минут',
+                  'Спирт и мыло окрашивают корень в тёмный цвет'
+                ],
+                correct: 0,
+                explanation: 'Реимплантация успешна (особенно в первые 30 минут), только если выживут фибробласты периодонтальной связки на цементе корня. Молоко и физраствор поддерживают их осмотическое давление.'
+              }
+            },
+            {
+              tool: 'cofferdam',
+              target: 'avulsed_tooth',
+              hint: 'В клинике врач возвращает зуб в лунку и выполняет «Шинирование в лунке» к соседним зубам.',
+              anim: 'splint_on',
+              toast: 'Зуб реимплантирован и зафиксирован шиной! Жизнеспособность сохранена.'
+            }
+          ]
+        },
+        {
+          id: 10,
+          domain: 'Хирургия и экстренная помощь',
+          title: '«Кровь после удаления»',
+          sceneType: 'jaw',
+          focusTarget: 'socket_48',
+          pathology: { tooth: '48', type: 'bleeding_socket' },
+          complaint: 'Пациенту удалили нижний зуб мудрости 4.8. Через 15 минут он активно пополоскал рот водой и открылось лунковое кровотечение. Остановите кровь.',
+          tray: [
+            { id: 'gauze_tray', name: 'Стерильный марлевый тампон' },
+            { id: 'gauze_ice', name: 'Прикус 20 мин и холод снаружи' },
+            { id: 'milk_saline', name: 'Полоскание раствором' },
+            { id: 'turbine', name: 'Турбинный наконечник' },
+            { id: 'fluoride', name: 'Фторлак' },
+            { id: 'probe', name: 'Угловой зонд' }
+          ],
+          steps: [
+            {
+              tool: 'gauze_tray',
+              target: 'socket_48',
+              hint: 'Наложите плотный «Стерильный марлевый тампон» прямо поверх кровоточащей лунки зуба 4.8.',
+              anim: 'tampon_socket',
+              toast: 'Марлевый тампон уложен непосредственно на лунку 4.8.'
+            },
+            {
+              tool: 'gauze_ice',
+              target: 'socket_48',
+              hint: 'Обеспечьте компрессию челюстями и приложите холод к щеке («Прикус 20 мин и холод снаружи»).',
+              anim: 'stop_bleeding',
+              toast: 'Компрессия и спазм сосудов от холода полностью остановили кровотечение!',
+              quiz: {
+                question: 'Почему после удаления зуба категорически нельзя активно полоскать рот в первые сутки?',
+                options: [
+                  'Полоскание вымывает из лунки кровяной сгусток — естественную биологическую повязку, что вызывает кровотечение и альвеолит («сухую лунку»)',
+                  'Вода растворяет шовный материал за 2 минуты',
+                  'От полоскания расшатываются соседние зубы'
+                ],
+                correct: 0,
+                explanation: 'Кровяной сгусток герметично закрывает костную рану от микрофлоры полости рта и служит матрицей для формирования новой костной ткани.'
+              }
+            }
+          ]
+        },
+        {
+          id: 11,
+          domain: 'Хирургия и экстренная помощь',
+          title: '«Анатомия обезболивания»',
+          sceneType: 'jaw',
+          focusTarget: 'tooth_36',
+          pathology: { tooth: '36', type: 'inflamed' },
+          complaint: 'Требуется удалить разрушенный нижний левый первый моляр 3.6 с хроническим воспалением у корней. Проведите адекватную анестезию и выберите правильные щипцы.',
+          tray: [
+            { id: 'anesthesia', name: 'Проводниковая анестезия' },
+            { id: 'lower_forceps', name: 'Щипцы для нижней челюсти (90°)' },
+            { id: 'mirror', name: 'Зеркало' },
+            { id: 'sealant_uv', name: 'Герметик и УФ-лампа' },
+            { id: 'fluoride', name: 'Фторлак' },
+            { id: 'floss', name: 'Зубная нить' }
+          ],
+          steps: [
+            {
+              tool: 'anesthesia',
+              target: 'tooth_36',
+              hint: 'Выполните мандибулярную блокаду у входа нерва в кость («Проводниковая анестезия») в области 3.6.',
+              anim: 'syringe_inject',
+              toast: 'Проводниковая анестезия выполнена: нижний альвеолярный нерв блокирован.',
+              quiz: {
+                question: 'Почему на нижней челюсти для удаления моляров применяют проводниковую анестезию, тогда как на верхней достаточно инфильтрационной?',
+                options: [
+                  'Кость нижней челюсти очень плотная и массивная (толстый кортикальный слой), поэтому анестетик не может просочиться сквозь неё к верхушкам корней',
+                  'В верхней челюсти отсутствуют болевые нервные окончания',
+                  'Верхняя челюсть состоит из хрящевой ткани'
+                ],
+                correct: 0,
+                explanation: 'Губчатая пористая кость верхней челюсти легко пропускает анестетик к корням, а плотная компактная кость нижней челюсти требует блокады ствола нерва до его входа в канал.'
+              }
+            },
+            {
+              tool: 'lower_forceps',
+              target: 'tooth_36',
+              hint: 'Возьмите «Щипцы для нижней челюсти (90°)» (щечки изогнуты под прямым углом к ручкам) и удалите моляр 3.6.',
+              anim: 'extract_tooth',
+              toast: 'Разрушенный моляр 3.6 атравматично удалён изогнутыми нижними щипцами!'
+            }
+          ]
+        },
+        {
+          id: 12,
+          domain: 'Асептика и уход',
+          title: '«Невидимый враг»',
+          sceneType: 'sterilization',
+          focusTarget: 'dirty_tools',
+          complaint: 'Приём завершён. На лотке лежат использованные зеркало и зонд со следами крови и слюны. Проведите полный цикл обработки инструментов по СанПиН.',
+          tray: [
+            { id: 'disinfectant', name: 'Дезраствор (погружение)' },
+            { id: 'brush_azopyram', name: 'Ёршик (ПСО) и азопирам' },
+            { id: 'autoclave', name: 'Крафт-пакет и автоклав' },
+            { id: 'milk_saline', name: 'Ополаскивание физраствором' },
+            { id: 'fluoride', name: 'Фторлак' },
+            { id: 'gauze_tray', name: 'Сухая салфетка' }
+          ],
+          steps: [
+            {
+              tool: 'disinfectant',
+              target: 'dirty_tools',
+              hint: 'Сразу погрузите использованные инструменты в «Дезраствор (погружение)», чтобы обеззаразить их до ручной мойки.',
+              anim: 'disinfect_bath',
+              toast: 'Дезинфекция выполнена: вирусы гепатитов и ВИЧ инактивированы.'
+            },
+            {
+              tool: 'brush_azopyram',
+              target: 'dirty_tools',
+              hint: 'Проведите предстерилизационную очистку и контроль скрытой крови («Ёршик (ПСО) и азопирам»).',
+              anim: 'clean_blood',
+              toast: 'Инструменты отмыты ёршиком, азопирамовая проба отрицательная (крови нет)!',
+              quiz: {
+                question: 'Что произойдёт, если пропустить предстерилизационную очистку и сразу положить инструмент со следами крови в автоклав или сухожар?',
+                options: [
+                  'При высокой температуре белки крови свернутся и «прикипят» к металлу, создав защитную капсулу для микроорганизмов',
+                  'Кровь испарится и усилит давление пара в автоклаве',
+                  'Автоклав автоматически промоет инструменты моющим средством'
+                ],
+                correct: 0,
+                explanation: 'Термическая коагуляция белков фиксирует органические загрязнения на поверхности металла и делает последующую стерилизацию неэффективной.'
+              }
+            },
+            {
+              tool: 'autoclave',
+              target: 'dirty_tools',
+              hint: 'Упакуйте сухие чистые инструменты в «Крафт-пакет и автоклав» для стерилизации паром под давлением.',
+              anim: 'autoclave_pack',
+              toast: 'Стерилизация завершена! Инструменты герметично запечатаны в крафт-пакеты.'
+            }
+          ]
+        },
+        {
+          id: 13,
+          domain: 'Асептика и уход',
+          title: '«Уход за пациентом в реанимации»',
+          sceneType: 'jaw',
+          focusTarget: 'tooth_31',
+          pathology: { tooth: '31', type: 'plaque' },
+          complaint: 'Тяжелобольной пациент на постельном режиме не может самостоятельно чистить зубы. Проведите безопасную гигиеническую обработку полости рта.',
+          tray: [
+            { id: 'gauze_tray', name: 'Поворот головы набок + лоток' },
+            { id: 'spatula', name: 'Шпатель и пинцет с антисептиком' },
+            { id: 'tweezers', name: 'Марлевая салфетка для языка' },
+            { id: 'turbine', name: 'Турбинный наконечник' },
+            { id: 'lower_forceps', name: 'Щипцы' },
+            { id: 'acid_etch', name: 'Ортофосфорная кислота' }
+          ],
+          steps: [
+            {
+              tool: 'gauze_tray',
+              target: 'tooth_31',
+              hint: 'Первым делом придайте пациенту безопасное положение: «Поворот головы набок + лоток» к углу рта.',
+              anim: 'tilt_jaw',
+              toast: 'Голова пациента повернута набок, лоток подведён к подбородку.',
+              quiz: {
+                question: 'Зачем перед обработкой полости рта лежачему или ослабленному пациенту обязательно поворачивают голову набок?',
+                options: [
+                  'Чтобы антисептический раствор и слизь свободно стекали в лоток и не попали в дыхательные пути (профилактика аспирационной пневмонии)',
+                  'Чтобы улучшить приток крови к дёснам',
+                  'Для более яркого освещения задних зубов'
+                ],
+                correct: 0,
+                explanation: 'У тяжелобольных угнетён глотательный и кашлевой рефлекс: попадание жидкости в трахею приводит к тяжёлой аспирационной пневмонии.'
+              }
+            },
+            {
+              tool: 'spatula',
+              target: 'tooth_31',
+              hint: 'Отведите щеку шпателем и протрите зубы с наружной и внутренней стороны («Шпатель и пинцет с антисептиком»).',
+              anim: 'clean_enamel',
+              toast: 'Зубные ряды и преддверие рта очищены от налёта.'
+            },
+            {
+              tool: 'tweezers',
+              target: 'tooth_31',
+              hint: 'Оберните кончик языка салфеткой и снимите налёт («Марлевая салфетка для языка»).',
+              anim: 'spray_clean',
+              toast: 'Гигиенический уход за полостью рта тяжелобольного выполнен безопасно!'
+            }
+          ]
+        },
+        {
+          id: 14,
+          domain: 'Асептика и уход',
+          title: '«Ловушка для грибка»',
+          sceneType: 'denture',
+          focusTarget: 'denture_prop',
+          complaint: 'Пожилой пациент жалуется на жжение во рту и белый творожистый налёт (кандидоз). Выяснилось, что ночью он хранит съёмный протез в стакане с водой. Организуйте правильный уход.',
+          tray: [
+            { id: 'brush_paste', name: 'Очистка протеза щёткой' },
+            { id: 'disinfectant', name: 'Дезинфекция в растворе' },
+            { id: 'dry_container', name: 'Сухой вентилируемый контейнер' },
+            { id: 'milk_saline', name: 'Стакан с обычной водой' },
+            { id: 'acid_etch', name: 'Ортофосфорная кислота' },
+            { id: 'turbine', name: 'Турбинный наконечник' }
+          ],
+          steps: [
+            {
+              tool: 'brush_paste',
+              target: 'denture_prop',
+              hint: 'Извлеките протез перед сном и очистите его от остатков пищи («Очистка протеза щёткой»).',
+              anim: 'clean_denture',
+              toast: 'Механический налёт с базиса съёмного протеза удалён.'
+            },
+            {
+              tool: 'disinfectant',
+              target: 'denture_prop',
+              hint: 'Проведите противогрибковую обработку («Дезинфекция в растворе») и ополосните протез.',
+              anim: 'disinfect_bath',
+              toast: 'Дезинфекция протеза проведена.'
+            },
+            {
+              tool: 'dry_container',
+              target: 'dry_box_station',
+              hint: 'Поместите высушенный протез на ночь в «Сухой вентилируемый контейнер» на столе.',
+              anim: 'denture_to_box',
+              toast: 'Протез помещён на хранение в чистый сухой контейнер!',
+              quiz: {
+                question: 'Почему хранение съёмного акрилового протеза ночью в стакане с водой провоцирует кандидоз полости рта?',
+                options: [
+                  'Влажная среда комнатной температуры и микропоры пластмассы создают идеальный инкубатор для размножения дрожжеподобных грибов рода Candida',
+                  'Водопроводная вода разъедает искусственные зубы протеза',
+                  'В воде протез теряет форму из-за низкой температуры'
+                ],
+                correct: 0,
+                explanation: 'Грибы Candida albicans бурно размножаются во влажной среде на пористой поверхности акрила, вызывая протезный стоматит и жжение слизистой.'
+              }
+            }
+          ]
+        },
+        {
+          id: 15,
+          domain: 'Асептика и уход',
+          title: '«Авария в кабинете»',
+          sceneType: 'accident',
+          focusTarget: 'gloved_hand',
+          complaint: 'При разборе столика ассистент уколол палец использованным эндодонтическим файлом через перчатку, выступила капля крови. Действуйте по протоколу экстренной профилактики ВИЧ и гепатитов!',
+          tray: [
+            { id: 'gauze_tray', name: 'Снять перчатки наизнанку' },
+            { id: 'soap_water', name: 'Мыло и вода (не давить кровь!)' },
+            { id: 'alcohol_iodine', name: 'Спирт 70% и йод 5% + пластырь' },
+            { id: 'disinfectant', name: 'Хлорный дезраствор на рану' },
+            { id: 'turbine', name: 'Турбинный наконечник' },
+            { id: 'probe', name: 'Угловой зонд' }
+          ],
+          steps: [
+            {
+              tool: 'gauze_tray',
+              target: 'gloved_hand',
+              hint: 'Немедленно выполните «Снять перчатки наизнанку» рабочей поверхностью внутрь и сбросьте в отходы класса Б.',
+              anim: 'remove_glove',
+              toast: 'Загрязнённая перчатка безопасно снята без размазывания крови.'
+            },
+            {
+              tool: 'soap_water',
+              target: 'gloved_hand',
+              hint: 'Вымойте руки под проточной водой: «Мыло и вода (не давить кровь!)».',
+              anim: 'wash_hand',
+              toast: 'Руки вымыты с мылом под проточной водой.',
+              quiz: {
+                question: 'Почему при проколе или порезе загрязнённым инструментом запрещено сильно сжимать палец и выдавливать кровь из ранки?',
+                options: [
+                  'Сильное сдавливание травмирует капилляры и окружающие ткани, усиливая микроциркуляцию и «втирание» вируса в кровоток',
+                  'Выдавливание крови полностью нейтрализует действие спирта и йода',
+                  'Это нарушает правила заполнения медицинского журнала'
+                ],
+                correct: 0,
+                explanation: 'Согласно санитарным правилам, кровь должна стекать свободно без механического выдавливания, чтобы не травмировать сосудистую стенку и не ускорять всасывание возбудителя.'
+              }
+            },
+            {
+              tool: 'alcohol_iodine',
+              target: 'gloved_hand',
+              hint: 'Обработайте кожу и ранку: «Спирт 70% и йод 5% + пластырь», затем зафиксируйте случай в журнале аварий.',
+              anim: 'iodine_hand',
+              toast: 'Кожа обработана 70% спиртом, ранка — 5% йодом, заклеена пластырем!'
+            }
+          ]
+        }
+      ];
+
+      // =========================================================================
+      // ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ ПОСЛЕ ЗАГРУЗКИ THREE.JS И DOM
+      // =========================================================================
+      function bootstrapApp() {
+        var OrbitCtrlClass = (window.THREE && window.THREE.OrbitControls) ? window.THREE.OrbitControls : FallbackOrbitControls;
+
+        // Состояние симулятора
+        var appState = {
+          mode: 'intern', // 'intern' | 'expert'
+          studentName: 'Ординатор',
+          shiftQueue: [],
+          caseIndex: 0,
+          stepIndex: 0,
+          selectedTool: null,
+          reputation: 100,
+          modalLocked: false,
+          totalActions: 0,
+          correctActions: 0,
+          mistakes: [],
+          domainStats: {
+            'Диагностика и профилактика': { cases: 0, errors: 0 },
+            'Терапия и эндодонтия': { cases: 0, errors: 0 },
+            'Хирургия и экстренная помощь': { cases: 0, errors: 0 },
+            'Асептика и уход': { cases: 0, errors: 0 }
+          }
+        };
+
+        // Элементы DOM
+        var canvasContainer = document.getElementById('canvas-container');
+        var tooltipEl = document.getElementById('object-tooltip');
+
+        // 1. Создание 3D-сцены
+        var scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f172a);
+        scene.fog = new THREE.FogExp2(0x0f172a, 0.032);
+
+        var camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 2.0, 8.2);
+
+        var renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        canvasContainer.appendChild(renderer.domElement);
+
+        var controls = new OrbitCtrlClass(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+        controls.minDistance = 3.0;
+        controls.maxDistance = 13.5;
+
+        // 2. Освещение операционной
+        var hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x1e293b, 0.85);
+        scene.add(hemiLight);
+
+        var keyLight = new THREE.DirectionalLight(0xffffff, 1.15);
+        keyLight.position.set(4, 8, 6);
+        keyLight.castShadow = true;
+        keyLight.shadow.mapSize.width = 1024;
+        keyLight.shadow.mapSize.height = 1024;
+        scene.add(keyLight);
+
+        var rimLight = new THREE.DirectionalLight(0x2dd4bf, 0.55);
+        rimLight.position.set(-5, 3, -5);
+        scene.add(rimLight);
+
+        var lampGlow = new THREE.PointLight(0x38bdf8, 0.65, 16);
+        lampGlow.position.set(0, 4.5, 2.5);
+        scene.add(lampGlow);
+
+        // Пол с медицинской сеткой и стерильный лоток
+        var floorGrid = new THREE.GridHelper(24, 24, 0x14b8a6, 0x1e293b);
+        floorGrid.position.y = -2.45;
+        scene.add(floorGrid);
+
+        var tableMesh = new THREE.Mesh(
+          new THREE.CylinderGeometry(6.8, 6.8, 0.25, 48),
+          new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.2 })
+        );
+        tableMesh.position.y = -2.58;
+        tableMesh.receiveShadow = true;
+        scene.add(tableMesh);
+
+        // Кликабельный стерильный лоток в 3D
+        var trayGroup = new THREE.Group();
+        var steelMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85, roughness: 0.22 });
+        var trayMesh = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.12, 1.5), steelMat);
+        trayMesh.userData = { targetId: 'tray', label: 'Стерильный инструментальный лоток' };
+        trayGroup.add(trayMesh);
+
+        var borderF = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.22, 0.08), steelMat);
+        borderF.position.set(0, 0.06, 0.75);
+        var borderB = borderF.clone();
+        borderB.position.z = -0.75;
+        trayGroup.add(borderF, borderB);
+        trayGroup.position.set(0, -2.35, 2.35);
+        scene.add(trayGroup);
+
+        var interactiveTargets = [trayMesh];
+        var toothRegistry = {};
+        var jawRoot = new THREE.Group();
+        scene.add(jawRoot);
+
+        // 3. Генерация 3D-зубов и челюстных дуг (FDI 11-48)
+        function buildToothGeo(kind) {
+          if (kind === 'incisor') {
+            var g1 = new THREE.BoxGeometry(0.36, 0.62, 0.22, 3, 3, 3);
+            var p1 = g1.attributes.position;
+            for (var i = 0; i < p1.count; i++) {
+              if (p1.getY(i) < 0) p1.setX(i, p1.getX(i) * 0.72);
+              else p1.setZ(i, p1.getZ(i) * 0.65);
+            }
+            g1.computeVertexNormals();
+            return g1;
+          }
+          if (kind === 'canine') {
+            var g2 = new THREE.ConeGeometry(0.22, 0.68, 12);
+            g2.scale(0.95, 1, 0.85);
+            return g2;
+          }
+          if (kind === 'premolar') {
+            var g3 = new THREE.CylinderGeometry(0.24, 0.21, 0.56, 14);
+            g3.scale(1.05, 1, 0.95);
+            return g3;
+          }
+          var g4 = new THREE.BoxGeometry(0.46, 0.54, 0.44, 4, 4, 4);
+          var p4 = g4.attributes.position;
+          for (var j = 0; j < p4.count; j++) {
+            var x = p4.getX(j), y = p4.getY(j), z = p4.getZ(j);
+            if (Math.sqrt(x * x + z * z) > 0.2) {
+              p4.setX(j, x * 0.88);
+              p4.setZ(j, z * 0.88);
+            }
+            if (y > 0.2 && Math.abs(x) < 0.08 && Math.abs(z) < 0.08) {
+              p4.setY(j, y - 0.06);
+            }
+          }
+          g4.computeVertexNormals();
+          return g4;
+        }
+
+        function initJawModels() {
+          var gumMat = new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.42 });
+
+          function createArch(isUpper) {
+            var pts = [];
+            for (var i = 0; i <= 20; i++) {
+              var t = (i / 20) * Math.PI;
+              pts.push(new THREE.Vector3(Math.cos(t) * 2.05, isUpper ? 0.85 : -0.65, Math.sin(t) * 2.45 - 0.6));
+            }
+            var archMesh = new THREE.Mesh(
+              new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 36, 0.34, 14, false),
+              gumMat
+            );
+            archMesh.userData = { targetId: 'jaw_arch', label: isUpper ? 'Верхняя челюсть' : 'Нижняя челюсть' };
+            interactiveTargets.push(archMesh);
+            jawRoot.add(archMesh);
+          }
+
+          createArch(true);
+          createArch(false);
+
+          var specs = [
+            { num: 8, kind: 'molar', title: 'Третий моляр (зуб мудрости)' },
+            { num: 7, kind: 'molar', title: 'Второй моляр' },
+            { num: 6, kind: 'molar', title: 'Первый моляр' },
+            { num: 5, kind: 'premolar', title: 'Второй премоляр' },
+            { num: 4, kind: 'premolar', title: 'Первый премоляр' },
+            { num: 3, kind: 'canine', title: 'Клык' },
+            { num: 2, kind: 'incisor', title: 'Боковой резец' },
+            { num: 1, kind: 'incisor', title: 'Центральный резец' }
+          ];
+
+          function buildQuadrant(qNum, isUpper, isRightPatient) {
+            specs.forEach(function (sp, idx) {
+              var prog = idx / 7;
+              var ang = 0.11 * Math.PI + prog * (0.36 * Math.PI);
+              var sign = isRightPatient ? -1 : 1;
+              var x = sign * Math.cos(ang) * 2.02;
+              var z = Math.sin(ang) * 2.42 - 0.58;
+              var y = isUpper ? 0.56 : -0.36;
+
+              var code = '' + qNum + sp.num;
+              var mat = new THREE.MeshStandardMaterial({ color: 0xfefce8, roughness: 0.24 });
+              var mesh = new THREE.Mesh(buildToothGeo(sp.kind), mat);
+              mesh.position.set(x, y, z);
+              mesh.lookAt(0, y, -0.58);
+              if (!isUpper && sp.kind === 'canine') mesh.rotation.x += Math.PI;
+              mesh.castShadow = true;
+
+              var targetId = 'tooth_' + code;
+              mesh.userData = {
+                targetId: targetId,
+                toothCode: code,
+                label: 'Зуб ' + qNum + '.' + sp.num + ' (' + sp.title + ')'
+              };
+
+              var fxGroup = new THREE.Group();
+              mesh.add(fxGroup);
+              jawRoot.add(mesh);
+              interactiveTargets.push(mesh);
+
+              toothRegistry[code] = {
+                mesh: mesh,
+                basePos: mesh.position.clone(),
+                isUpper: isUpper,
+                fxGroup: fxGroup
+              };
+            });
+          }
+
+          buildQuadrant(1, true, true);
+          buildQuadrant(2, true, false);
+          buildQuadrant(3, false, false);
+          buildQuadrant(4, false, true);
+        }
+
+        initJawModels();
+
+        // 4. Специальные 3D-сцены для кейсов 9, 12, 14, 15
+        var specialScenes = {};
+
+        function initSpecialModels() {
+          // Кейс 9: Выбитый зуб 1.1 + контейнер с молоком/физраствором
+          var avulsedRoot = new THREE.Group();
+          var cloth = new THREE.Mesh(
+            new THREE.BoxGeometry(2.6, 0.08, 1.8),
+            new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.9 })
+          );
+          cloth.position.set(-0.7, -0.4, 0);
+          avulsedRoot.add(cloth);
+
+          var toothHolder = new THREE.Group();
+          var crown = new THREE.Mesh(
+            new THREE.BoxGeometry(0.65, 0.95, 0.36),
+            new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 })
+          );
+          crown.position.y = 0.45;
+          var rootCone = new THREE.Mesh(
+            new THREE.ConeGeometry(0.3, 1.25, 16),
+            new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.5 })
+          );
+          rootCone.rotation.x = Math.PI;
+          rootCone.position.y = -0.6;
+          toothHolder.add(crown, rootCone);
+          toothHolder.position.set(-0.7, 0.1, 0);
+          toothHolder.rotation.z = Math.PI / 2.3;
+          avulsedRoot.add(toothHolder);
+
+          crown.userData = { targetId: 'avulsed_tooth', label: 'Коронка выбитого зуба 1.1' };
+          rootCone.userData = { targetId: 'avulsed_tooth', label: 'Корень выбитого зуба 1.1' };
+          interactiveTargets.push(crown, rootCone);
+
+          // Станция: Контейнер с молоком/физраствором
+          var milkStation = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.55, 0.5, 1.25, 20),
+            new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85 })
+          );
+          milkStation.position.set(1.35, 0.25, 0);
+          milkStation.userData = { targetId: 'milk_station', label: 'Контейнер с молоком / физраствором' };
+          interactiveTargets.push(milkStation);
+          avulsedRoot.add(milkStation);
+
+          avulsedRoot.userData = { toothHolder: toothHolder };
+          avulsedRoot.visible = false;
+          scene.add(avulsedRoot);
+          specialScenes.avulsed = avulsedRoot;
+
+          // Кейс 12: Стерилизация инструментов
+          var sterRoot = new THREE.Group();
+          var mHandle = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.06, 0.06, 2.5, 12),
+            new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.85, roughness: 0.2 })
+          );
+          mHandle.rotation.z = Math.PI / 3;
+          var mGlass = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.36, 0.36, 0.06, 20),
+            new THREE.MeshStandardMaterial({ color: 0xbae6fd, metalness: 0.9, roughness: 0.1 })
+          );
+          mGlass.rotation.x = Math.PI / 2;
+          mGlass.position.set(1.1, 0.62, 0);
+
+          var bloodDrop = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15, 12, 12),
+            new THREE.MeshStandardMaterial({ color: 0xdc2626 })
+          );
+          bloodDrop.position.set(0.85, 0.45, 0.07);
+
+          sterRoot.add(mHandle, mGlass, bloodDrop);
+          [mHandle, mGlass, bloodDrop].forEach(function (obj) {
+            obj.userData = { targetId: 'dirty_tools', label: 'Использованные стоматологические инструменты' };
+            interactiveTargets.push(obj);
+          });
+          sterRoot.userData = { bloodDrop: bloodDrop, mGlass: mGlass };
+          sterRoot.visible = false;
+          scene.add(sterRoot);
+          specialScenes.sterilization = sterRoot;
+
+          // Кейс 14: Съёмный протез + сухой вентилируемый контейнер
+          var dentRoot = new THREE.Group();
+          var dentHolder = new THREE.Group();
+          var pts = [];
+          for (var i = 0; i <= 16; i++) {
+            var t = (i / 16) * Math.PI;
+            pts.push(new THREE.Vector3(Math.cos(t) * 1.25, 0, Math.sin(t) * 1.4 - 0.4));
+          }
+          var acryl = new THREE.Mesh(
+            new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.24, 12, false),
+            new THREE.MeshStandardMaterial({ color: 0xfb7185, roughness: 0.35 })
+          );
+          dentHolder.add(acryl);
+          for (var k = 1; k <= 10; k++) {
+            var tk = (k / 11) * Math.PI;
+            var aTooth = new THREE.Mesh(
+              new THREE.BoxGeometry(0.22, 0.32, 0.18),
+              new THREE.MeshStandardMaterial({ color: 0xffffff })
+            );
+            aTooth.position.set(Math.cos(tk) * 1.25, 0.24, Math.sin(tk) * 1.4 - 0.4);
+            aTooth.lookAt(0, 0.24, -0.4);
+            dentHolder.add(aTooth);
+          }
+          dentHolder.position.set(-0.7, 0.1, 0);
+          dentHolder.traverse(function (m) {
+            if (m.isMesh) {
+              m.userData = { targetId: 'denture_prop', label: 'Съёмный акриловый зубной протез' };
+              interactiveTargets.push(m);
+            }
+          });
+          dentRoot.add(dentHolder);
+
+          var dryBox = new THREE.Mesh(
+            new THREE.BoxGeometry(1.35, 0.65, 1.35),
+            new THREE.MeshStandardMaterial({ color: 0x14b8a6, transparent: true, opacity: 0.85 })
+          );
+          dryBox.position.set(1.45, 0.1, 0);
+          dryBox.userData = { targetId: 'dry_box_station', label: 'Сухой вентилируемый контейнер' };
+          interactiveTargets.push(dryBox);
+          dentRoot.add(dryBox);
+
+          dentRoot.userData = { dentHolder: dentHolder };
+          dentRoot.visible = false;
+          scene.add(dentRoot);
+          specialScenes.denture = dentRoot;
+
+          // Кейс 15: Рука в перчатке при проколе иглой/файлом
+          var handRoot = new THREE.Group();
+          var palm = new THREE.Mesh(
+            new THREE.BoxGeometry(1.25, 1.45, 0.36),
+            new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.4 })
+          );
+          handRoot.add(palm);
+
+          var fOffsets = [-0.44, -0.15, 0.15, 0.44];
+          var fHeights = [0.9, 1.12, 1.0, 0.78];
+          fOffsets.forEach(function (fx, idx) {
+            var fn = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.12, 0.13, fHeights[idx], 12),
+              new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.4 })
+            );
+            fn.position.set(fx, 0.72 + fHeights[idx] / 2, 0);
+            handRoot.add(fn);
+          });
+
+          var puncture = new THREE.Mesh(
+            new THREE.SphereGeometry(0.085, 12, 12),
+            new THREE.MeshStandardMaterial({ color: 0xdc2626 })
+          );
+          puncture.position.set(-0.15, 1.5, 0.14);
+          handRoot.add(puncture);
+
+          handRoot.traverse(function (m) {
+            if (m.isMesh) {
+              m.userData = { targetId: 'gloved_hand', label: 'Кисть ассистента (прокол перчатки)' };
+              interactiveTargets.push(m);
+            }
+          });
+          handRoot.userData = { puncture: puncture };
+          handRoot.visible = false;
+          scene.add(handRoot);
+          specialScenes.accident = handRoot;
+        }
+
+        initSpecialModels();
+
+        // Временная лунка для кейса 10
+        var tempBleedingSocket = null;
+
+        // 5. Подготовка 3D-сцены под конкретный кейс
+        function prepareCaseVisuals(cObj) {
+          // Очистка эффектов со всех зубов
+          Object.keys(toothRegistry).forEach(function (code) {
+            var rec = toothRegistry[code];
+            rec.mesh.visible = true;
+            rec.mesh.position.copy(rec.basePos);
+            rec.mesh.material.color.setHex(0xfefce8);
+            rec.mesh.material.emissive.setHex(0x000000);
+            while (rec.fxGroup.children.length > 0) {
+              rec.fxGroup.remove(rec.fxGroup.children[0]);
+            }
+          });
+          jawRoot.rotation.set(0, 0, 0);
+
+          if (tempBleedingSocket) {
+            jawRoot.remove(tempBleedingSocket);
+            tempBleedingSocket = null;
+          }
+
+          jawRoot.visible = (cObj.sceneType === 'jaw');
+          specialScenes.avulsed.visible = (cObj.sceneType === 'avulsed');
+          specialScenes.sterilization.visible = (cObj.sceneType === 'sterilization');
+          specialScenes.denture.visible = (cObj.sceneType === 'denture');
+          specialScenes.accident.visible = (cObj.sceneType === 'accident');
+
+          // Сброс спецсцен
+          if (specialScenes.avulsed.userData.toothHolder) {
+            specialScenes.avulsed.userData.toothHolder.position.set(-0.7, 0.1, 0);
+            specialScenes.avulsed.userData.toothHolder.rotation.set(0, 0, Math.PI / 2.3);
+          }
+          if (specialScenes.sterilization.userData.bloodDrop) {
+            specialScenes.sterilization.userData.bloodDrop.visible = true;
+          }
+          if (specialScenes.denture.userData.dentHolder) {
+            specialScenes.denture.userData.dentHolder.position.set(-0.7, 0.1, 0);
+          }
+          if (specialScenes.accident) {
+            specialScenes.accident.traverse(function (m) {
+              if (m.isMesh && m !== specialScenes.accident.userData.puncture) {
+                m.material.color.setHex(0x38bdf8);
+              }
+            });
+            specialScenes.accident.userData.puncture.material.color.setHex(0xdc2626);
+          }
+
+          // Отрисовка патологии на проблемном зубе
+          if (cObj.sceneType === 'jaw' && cObj.pathology) {
+            var pRec = toothRegistry[cObj.pathology.tooth];
+            if (pRec) {
+              var pType = cObj.pathology.type;
+              if (pType === 'caries' || pType === 'deep_caries') {
+                var spot = new THREE.Mesh(
+                  new THREE.SphereGeometry(pType === 'deep_caries' ? 0.18 : 0.13, 12, 12),
+                  new THREE.MeshStandardMaterial({ color: 0x3f1d0b, roughness: 0.9 })
+                );
+                spot.position.set(0, pRec.isUpper ? -0.18 : 0.18, 0.08);
+                pRec.fxGroup.add(spot);
+              } else if (pType === 'white_spot') {
+                var wSpot = new THREE.Mesh(
+                  new THREE.SphereGeometry(0.14, 12, 12),
+                  new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 })
+                );
+                wSpot.position.set(0, 0, 0.12);
+                pRec.fxGroup.add(wSpot);
+              } else if (pType === 'fissure' || pType === 'plaque') {
+                var fSpot = new THREE.Mesh(
+                  new THREE.SphereGeometry(0.14, 12, 12),
+                  new THREE.MeshStandardMaterial({ color: pType === 'plaque' ? 0xd97706 : 0x78350f })
+                );
+                fSpot.position.set(0, pRec.isUpper ? -0.2 : 0.2, 0);
+                pRec.fxGroup.add(fSpot);
+              } else if (pType === 'fractured_wall') {
+                pRec.mesh.material.color.setHex(0xfde047);
+              } else if (pType === 'inflamed') {
+                pRec.mesh.material.color.setHex(0xfca5a5);
+              } else if (pType === 'bleeding_socket') {
+                pRec.mesh.visible = false;
+                tempBleedingSocket = new THREE.Mesh(
+                  new THREE.CylinderGeometry(0.21, 0.21, 0.16, 16),
+                  new THREE.MeshStandardMaterial({ color: 0xdc2626 })
+                );
+                tempBleedingSocket.position.copy(pRec.basePos);
+                tempBleedingSocket.position.y -= 0.12;
+                tempBleedingSocket.userData = { targetId: 'socket_48', label: 'Кровоточащая лунка удалённого зуба 4.8' };
+                interactiveTargets.push(tempBleedingSocket);
+                jawRoot.add(tempBleedingSocket);
+              }
+            }
+          }
+
+          setCameraView('focus');
+        }
+
+        // 3D-анимации и визуальные изменения при выполнении шага
+        function triggerStepAnimation(animKey, cObj) {
+          var code = cObj.focusTarget.replace('tooth_', '');
+          var rec = toothRegistry[code];
+
+          if (animKey === 'cotton_isolate' && rec) {
+            var roll = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.1, 0.1, 0.85, 12),
+              new THREE.MeshStandardMaterial({ color: 0xffffff })
+            );
+            roll.rotation.z = Math.PI / 2;
+            roll.position.set(0, rec.isUpper ? 0.24 : -0.24, 0.28);
+            rec.fxGroup.add(roll);
+          } else if (animKey === 'clean_enamel' && rec) {
+            while (rec.fxGroup.children.length > 0) rec.fxGroup.remove(rec.fxGroup.children[0]);
+            rec.mesh.material.color.setHex(0xffffff);
+            sound.scaler();
+          } else if (animKey === 'apply_fluoride' && rec) {
+            var coat = new THREE.Mesh(
+              new THREE.SphereGeometry(0.22, 12, 12),
+              new THREE.MeshStandardMaterial({ color: 0x2dd4bf, transparent: true, opacity: 0.65 })
+            );
+            rec.fxGroup.add(coat);
+          } else if (animKey === 'etch_blue' && rec) {
+            var etch = new THREE.Mesh(
+              new THREE.SphereGeometry(0.2, 12, 12),
+              new THREE.MeshStandardMaterial({ color: 0x2563eb, transparent: true, opacity: 0.72 })
+            );
+            etch.position.set(0, rec.isUpper ? -0.18 : 0.18, 0);
+            rec.fxGroup.add(etch);
+          } else if (animKey === 'uv_flash' && rec) {
+            while (rec.fxGroup.children.length > 0) rec.fxGroup.remove(rec.fxGroup.children[0]);
+            rec.mesh.material.emissive.setHex(0x0284c7);
+            setTimeout(function () { if (rec) rec.mesh.material.emissive.setHex(0x000000); }, 700);
+          } else if (animKey === 'cofferdam_on' && rec) {
+            var clamp = new THREE.Mesh(
+              new THREE.TorusGeometry(0.27, 0.045, 10, 20),
+              new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.2 })
+            );
+            clamp.rotation.x = Math.PI / 2;
+            var sheet = new THREE.Mesh(
+              new THREE.PlaneGeometry(2.5, 2.0),
+              new THREE.MeshStandardMaterial({ color: 0x14b8a6, transparent: true, opacity: 0.72, side: THREE.DoubleSide })
+            );
+            rec.fxGroup.add(clamp, sheet);
+          } else if (animKey === 'drill_water' || animKey === 'drill_dentin') {
+            sound.drill();
+            if (rec) {
+              while (rec.fxGroup.children.length > 0) rec.fxGroup.remove(rec.fxGroup.children[0]);
+              var prep = new THREE.Mesh(
+                new THREE.SphereGeometry(0.16, 12, 12),
+                new THREE.MeshStandardMaterial({ color: 0xfef08a })
+              );
+              prep.position.set(0, rec.isUpper ? -0.18 : 0.18, 0.05);
+              rec.fxGroup.add(prep);
+            }
+          } else if (animKey === 'matrix_on' && rec) {
+            var band = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.28, 0.28, 0.46, 20, 1, true),
+              new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.9, roughness: 0.2, side: THREE.DoubleSide })
+            );
+            rec.fxGroup.add(band);
+          } else if (animKey === 'tampon_socket' && tempBleedingSocket) {
+            var pad = new THREE.Mesh(
+              new THREE.BoxGeometry(0.46, 0.28, 0.46),
+              new THREE.MeshStandardMaterial({ color: 0xffffff })
+            );
+            pad.position.y = 0.16;
+            tempBleedingSocket.add(pad);
+          } else if (animKey === 'extract_tooth' && rec) {
+            rec.mesh.visible = false;
+          } else if (animKey === 'lift_crown') {
+            specialScenes.avulsed.userData.toothHolder.position.y = 0.65;
+            specialScenes.avulsed.userData.toothHolder.rotation.z = 0;
+          } else if (animKey === 'put_in_milk') {
+            specialScenes.avulsed.userData.toothHolder.position.set(1.35, 0.3, 0);
+          } else if (animKey === 'clean_blood') {
+            specialScenes.sterilization.userData.bloodDrop.visible = false;
+            sound.scaler();
+          } else if (animKey === 'tilt_jaw') {
+            jawRoot.rotation.z = 0.42;
+            jawRoot.rotation.y = 0.35;
+          } else if (animKey === 'denture_to_box') {
+            specialScenes.denture.userData.dentHolder.position.set(1.45, 0.2, 0);
+            specialScenes.denture.userData.dentHolder.scale.set(0.55, 0.55, 0.55);
+          } else if (animKey === 'remove_glove') {
+            specialScenes.accident.traverse(function (m) {
+              if (m.isMesh && m !== specialScenes.accident.userData.puncture) {
+                m.material.color.setHex(0xffedd5);
+              }
+            });
+          } else if (animKey === 'iodine_hand') {
+            specialScenes.accident.userData.puncture.material.color.setHex(0xb45309);
+          }
+        }
+
+        // 6. Управление камерой и пресетами
+        var desiredCamPos = new THREE.Vector3(0, 2.0, 8.2);
+        var desiredTarget = new THREE.Vector3(0, 0.1, 0);
+        var isCamLerping = false;
+
+        function setCameraView(preset) {
+          var cObj = appState.shiftQueue[appState.caseIndex];
+          if (preset === 'upper') {
+            desiredCamPos.set(0, -1.5, 6.2);
+            desiredTarget.set(0, 0.65, 0.2);
+          } else if (preset === 'lower') {
+            desiredCamPos.set(0, 3.6, 6.2);
+            desiredTarget.set(0, -0.45, 0.2);
+          } else if (preset === 'reset') {
+            desiredCamPos.set(0, 2.0, 8.2);
+            desiredTarget.set(0, 0.1, 0);
+          } else if (preset === 'focus' && cObj) {
+            if (cObj.sceneType === 'jaw') {
+              var code = cObj.focusTarget.replace('tooth_', '').replace('socket_', '');
+              var rec = toothRegistry[code];
+              if (rec) {
+                desiredTarget.copy(rec.basePos);
+                var n = rec.basePos.clone().normalize();
+                desiredCamPos.set(
+                  rec.basePos.x + n.x * 2.3,
+                  rec.basePos.y + (rec.isUpper ? -1.1 : 1.8),
+                  rec.basePos.z + 3.4
+                );
+              }
+            } else {
+              desiredCamPos.set(0, 1.4, 6.2);
+              desiredTarget.set(0, 0.0, 0.2);
+            }
+          }
+          isCamLerping = true;
+        }
+
+        document.querySelectorAll('.cam-preset-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            sound.click();
+            setCameraView(btn.getAttribute('data-cam'));
+          });
+        });
+
+        // 7. Raycasting по 3D-объектам (защита от ложного срабатывания при вращении камеры)
+        var raycaster = new THREE.Raycaster();
+        var mouseVec = new THREE.Vector2();
+        var downCoord = { x: 0, y: 0 };
+
+        function isHierarchyVisible(obj) {
+          var cur = obj;
+          while (cur) {
+            if (!cur.visible) return false;
+            cur = cur.parent;
+          }
+          return true;
+        }
+
+        renderer.domElement.addEventListener('pointerdown', function (e) {
+          downCoord.x = e.clientX;
+          downCoord.y = e.clientY;
+          isCamLerping = false;
+        });
+
+        renderer.domElement.addEventListener('pointermove', function (e) {
+          if (appState.modalLocked || document.getElementById('hud-overlay').classList.contains('hidden')) {
+            tooltipEl.classList.add('hidden');
+            return;
+          }
+          mouseVec.x = (e.clientX / window.innerWidth) * 2 - 1;
+          mouseVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
+          raycaster.setFromCamera(mouseVec, camera);
+
+          var visibleList = interactiveTargets.filter(isHierarchyVisible);
+          var hits = raycaster.intersectObjects(visibleList, false);
+
+          if (hits.length > 0 && hits[0].object.userData && hits[0].object.userData.label) {
+            tooltipEl.textContent = hits[0].object.userData.label;
+            tooltipEl.style.left = Math.min(e.clientX + 12, window.innerWidth - 230) + 'px';
+            tooltipEl.style.top = Math.max(e.clientY - 30, 65) + 'px';
+            tooltipEl.classList.remove('hidden');
+            renderer.domElement.style.cursor = 'pointer';
+          } else {
+            tooltipEl.classList.add('hidden');
+            renderer.domElement.style.cursor = 'grab';
+          }
+        });
+
+        renderer.domElement.addEventListener('pointerup', function (e) {
+          var moveDist = Math.hypot(e.clientX - downCoord.x, e.clientY - downCoord.y);
+          if (moveDist >= 6) return; // Это было вращение камеры, а не клик
+          if (appState.modalLocked || document.getElementById('hud-overlay').classList.contains('hidden')) return;
+
+          mouseVec.x = (e.clientX / window.innerWidth) * 2 - 1;
+          mouseVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
+          raycaster.setFromCamera(mouseVec, camera);
+
+          var visibleList = interactiveTargets.filter(isHierarchyVisible);
+          var hits = raycaster.intersectObjects(visibleList, false);
+
+          if (hits.length > 0 && hits[0].object.userData) {
+            onTargetClicked(hits[0].object.userData.targetId, hits[0].object.userData.label);
+          }
+        });
+
+        // 8. Игровая логика: проверка инструмента, шага и смысла
+        function pushToast(text, kind) {
+          var box = document.getElementById('toast-box');
+          var el = document.createElement('div');
+          var styles = {
+            ok: 'bg-emerald-600 text-white border-emerald-400',
+            err: 'bg-rose-600 text-white border-rose-400',
+            warn: 'bg-amber-500 text-slate-950 border-amber-300',
+            info: 'bg-slate-900 text-teal-200 border-teal-500/50'
+          };
+          el.className = 'px-4 py-2.5 rounded-2xl border shadow-xl text-xs sm:text-sm font-bold text-center modal-anim ' + (styles[kind] || styles.info);
+          el.textContent = text;
+          box.appendChild(el);
+          setTimeout(function () {
+            el.style.opacity = '0';
+            el.style.transition = 'opacity 0.25s ease';
+            setTimeout(function () { el.remove(); }, 260);
+          }, 2400);
+        }
+
+        function recordError(details) {
+          sound.error();
+          var cObj = appState.shiftQueue[appState.caseIndex];
+          var step = cObj.steps[appState.stepIndex];
+          var penalty = appState.mode === 'intern' ? 10 : 20;
+
+          appState.reputation = Math.max(0, appState.reputation - penalty);
+          appState.totalActions += 1;
+          appState.domainStats[cObj.domain].errors += 1;
+          appState.mistakes.push({
+            caseTitle: cObj.title,
+            domain: cObj.domain,
+            stepNum: appState.stepIndex + 1,
+            details: details,
+            correctWay: step.hint
+          });
+
+          refreshReputationUI();
+          var hud = document.getElementById('hud-overlay');
+          hud.classList.add('shake-anim');
+          setTimeout(function () { hud.classList.remove('shake-anim'); }, 380);
+        }
+
+        function refreshReputationUI() {
+          var txt = document.getElementById('hud-reputation-text');
+          var bar = document.getElementById('hud-reputation-bar');
+          txt.textContent = appState.reputation + '%';
+          bar.style.width = appState.reputation + '%';
+
+          if (appState.reputation >= 75) {
+            txt.className = 'text-emerald-400';
+            bar.className = 'h-full bg-emerald-500 rounded-full transition-all duration-300';
+          } else if (appState.reputation >= 45) {
+            txt.className = 'text-amber-400';
+            bar.className = 'h-full bg-amber-500 rounded-full transition-all duration-300';
+          } else {
+            txt.className = 'text-rose-400';
+            bar.className = 'h-full bg-rose-500 rounded-full transition-all duration-300';
+          }
+        }
+
+        function renderInstrumentTray() {
+          var cObj = appState.shiftQueue[appState.caseIndex];
+          var curStep = cObj.steps[appState.stepIndex];
+          var trayEl = document.getElementById('tray-container');
+          trayEl.innerHTML = '';
+
+          cObj.tray.forEach(function (item) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            var isSelected = (appState.selectedTool === item.id);
+            var isSuggested = (appState.mode === 'intern' && curStep && curStep.tool === item.id);
+
+            btn.className = 'shrink-0 w-24 sm:w-28 p-2 sm:p-2.5 rounded-2xl border-2 border-slate-700 bg-slate-900/90 hover:border-sky-400 flex flex-col items-center justify-between gap-1.5 transition cursor-pointer ' +
+              (isSelected ? 'tool-active' : '') + ' ' + (isSuggested && !isSelected ? 'tool-hint' : '');
+
+            btn.innerHTML =
+              '<div class="w-8 h-8 sm:w-9 sm:h-9 text-teal-300 flex items-center justify-center">' +
+              (SVG_ICONS[item.id] || SVG_ICONS.mirror) +
+              '</div>' +
+              '<span class="text-[11px] sm:text-xs font-bold text-slate-100 text-center leading-tight line-clamp-2">' +
+              item.name +
+              '</span>';
+
+            btn.addEventListener('click', function () {
+              if (appState.modalLocked) return;
+              sound.click();
+              appState.selectedTool = item.id;
+              document.getElementById('hud-selected-tool').textContent = 'Выбрано: ' + item.name;
+              renderInstrumentTray();
+            });
+
+            trayEl.appendChild(btn);
+          });
+        }
+
+        function refreshStepUI() {
+          var cObj = appState.shiftQueue[appState.caseIndex];
+          var curStep = cObj.steps[appState.stepIndex];
+          document.getElementById('hud-step-counter').textContent = 'Этап ' + (appState.stepIndex + 1) + ' из ' + cObj.steps.length;
+
+          var hintBox = document.getElementById('hud-hint-box');
+          if (appState.mode === 'intern' && curStep) {
+            hintBox.classList.remove('hidden');
+            document.getElementById('hud-hint-text').textContent = curStep.hint;
+          } else {
+            hintBox.classList.add('hidden');
+          }
+          renderInstrumentTray();
+        }
+
+        function startCase(idx) {
+          appState.caseIndex = idx;
+          appState.stepIndex = 0;
+          appState.selectedTool = null;
+          appState.modalLocked = false;
+
+          var cObj = appState.shiftQueue[idx];
+          document.getElementById('hud-case-counter').textContent = 'Кейс ' + (idx + 1) + ' / ' + appState.shiftQueue.length;
+          document.getElementById('hud-case-category').textContent = cObj.domain;
+          document.getElementById('hud-case-title').textContent = cObj.title;
+          document.getElementById('hud-case-desc').textContent = cObj.complaint;
+          document.getElementById('hud-selected-tool').textContent = 'Инструмент не выбран';
+
+          prepareCaseVisuals(cObj);
+          refreshStepUI();
+        }
+
+        function onTargetClicked(targetId, targetLabel) {
+          var cObj = appState.shiftQueue[appState.caseIndex];
+          var curStep = cObj.steps[appState.stepIndex];
+
+          if (!appState.selectedTool) {
+            sound.click();
+            pushToast('Сначала выберите нужный инструмент на нижнем лотке!', 'warn');
+            return;
+          }
+
+          var toolObj = cObj.tray.find(function (t) { return t.id === appState.selectedTool; });
+
+          if (appState.selectedTool !== curStep.tool) {
+            recordError('На этапе ' + (appState.stepIndex + 1) + ' выбран неверный инструмент «' + (toolObj ? toolObj.name : '') + '».');
+            pushToast('Нарушен порядок алгоритма! Инструмент «' + (toolObj ? toolObj.name : '') + '» сейчас не подходит.', 'err');
+            return;
+          }
+
+          if (targetId !== curStep.target) {
+            recordError('Инструмент «' + (toolObj ? toolObj.name : '') + '» применён к неверной зоне (' + (targetLabel || targetId) + ').');
+            pushToast('Неверная точка приложения! Вы выбрали: ' + (targetLabel || 'другой объект'), 'err');
+            return;
+          }
+
+          // Успешный шаг!
+          appState.totalActions += 1;
+          appState.correctActions += 1;
+          sound.success();
+          triggerStepAnimation(curStep.anim, cObj);
+          pushToast(curStep.toast, 'ok');
+
+          if (curStep.quiz) {
+            showMeaningModal(curStep.quiz);
+          } else {
+            advanceStep();
+          }
+        }
+
+        function showMeaningModal(quiz) {
+          appState.modalLocked = true;
+          var modal = document.getElementById('meaning-modal');
+          var qEl = document.getElementById('meaning-question');
+          var optsEl = document.getElementById('meaning-options');
+          var fbEl = document.getElementById('meaning-feedback');
+
+          qEl.textContent = quiz.question;
+          optsEl.innerHTML = '';
+          fbEl.classList.add('hidden');
+
+          quiz.options.forEach(function (optText, idx) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'w-full text-left p-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50 hover:border-teal-600 hover:bg-teal-50/60 text-xs sm:text-sm font-semibold text-slate-800 transition cursor-pointer';
+            btn.textContent = optText;
+
+            btn.addEventListener('click', function () {
+              Array.from(optsEl.children).forEach(function (b) { b.disabled = true; });
+              appState.totalActions += 1;
+
+              if (idx === quiz.correct) {
+                appState.correctActions += 1;
+                sound.success();
+                btn.className = 'w-full text-left p-3.5 rounded-2xl border-2 border-emerald-600 bg-emerald-50 text-xs sm:text-sm font-bold text-emerald-950';
+                fbEl.className = 'p-3.5 rounded-2xl bg-emerald-100 text-emerald-950 text-xs sm:text-sm font-medium leading-relaxed block';
+                fbEl.innerHTML = '<strong>Верно!</strong> ' + quiz.explanation;
+              } else {
+                recordError('Ошибка в обосновании смысла действия: «' + quiz.question + '»');
+                btn.className = 'w-full text-left p-3.5 rounded-2xl border-2 border-rose-600 bg-rose-50 text-xs sm:text-sm font-bold text-rose-950';
+                optsEl.children[quiz.correct].className = 'w-full text-left p-3.5 rounded-2xl border-2 border-emerald-600 bg-emerald-50 text-xs sm:text-sm font-bold text-emerald-950';
+                fbEl.className = 'p-3.5 rounded-2xl bg-rose-100 text-rose-950 text-xs sm:text-sm font-medium leading-relaxed block';
+                fbEl.innerHTML = '<strong>Неверно.</strong> ' + quiz.explanation;
+              }
+
+              var nextBtn = document.createElement('button');
+              nextBtn.type = 'button';
+              nextBtn.className = 'mt-3 w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm transition cursor-pointer';
+              nextBtn.textContent = 'Продолжить приём →';
+              nextBtn.addEventListener('click', function () {
+                modal.classList.add('hidden');
+                appState.modalLocked = false;
+                advanceStep();
+              });
+              fbEl.appendChild(nextBtn);
+            });
+
+            optsEl.appendChild(btn);
+          });
+
+          modal.classList.remove('hidden');
+        }
+
+        function advanceStep() {
+          var cObj = appState.shiftQueue[appState.caseIndex];
+          appState.selectedTool = null;
+          document.getElementById('hud-selected-tool').textContent = 'Инструмент не выбран';
+
+          if (appState.stepIndex + 1 < cObj.steps.length) {
+            appState.stepIndex += 1;
+            refreshStepUI();
+          } else {
+            appState.modalLocked = true;
+            document.getElementById('done-case-title').textContent = cObj.title;
+            document.getElementById('done-case-text').textContent =
+              'Все ' + cObj.steps.length + ' этапа клинического алгоритма выполнены. Текущая репутация врача: ' + appState.reputation + '%.';
+            document.getElementById('case-done-modal').classList.remove('hidden');
+          }
+        }
+
+        // 9. Итоговый диплом и карта компетенций
+        function showDiploma() {
+          sound.monitorBeep();
+          setTimeout(function () { sound.success(); }, 180);
+
+          document.getElementById('hud-overlay').classList.add('hidden');
+          var screen = document.getElementById('diploma-screen');
+          screen.classList.remove('hidden');
+
+          var holderName = (appState.studentName || '').trim() || 'Ординатор';
+          document.getElementById('diploma-holder').textContent = 'Практикант: ' + holderName;
+          document.getElementById('diploma-rep-score').textContent = appState.reputation + '%';
+          document.getElementById('diploma-mode-tag').textContent =
+            appState.mode === 'intern' ? 'Интерн (с подсказками)' : 'Врач-эксперт (без подсказок)';
+
+          var acc = appState.totalActions > 0 ? Math.round((appState.correctActions / appState.totalActions) * 100) : 100;
+          document.getElementById('diploma-accuracy').textContent = acc + '%';
+          document.getElementById('diploma-errors-num').textContent = String(appState.mistakes.length);
+
+          var rank = 'Практикант-стажёр';
+          var summary = 'Рекомендуем повторно пройти смену в режиме «Интерн», уделяя внимание порядку асептики и смыслу манипуляций.';
+          if (appState.reputation >= 90) {
+            rank = appState.mode === 'expert' ? 'Главный врач клиники' : 'Ведущий врач-стоматолог';
+            summary = 'Блестящий результат! Вы безупречно владеете клиническими алгоритмами, инструментарием и понимаете биохимический смысл процедур.';
+          } else if (appState.reputation >= 70) {
+            rank = 'Врач-стоматолог';
+            summary = 'Уверенный клинический уровень! Вы успешно справились с приёмом большинства пациентов.';
+          } else if (appState.reputation >= 45) {
+            rank = 'Ассистент стоматолога';
+            summary = 'Базовые навыки освоены, однако допущены ошибки в последовательности действий. Изучите разбор ниже.';
+          }
+          document.getElementById('diploma-rank').textContent = rank;
+          document.getElementById('diploma-summary-text').textContent = summary;
+
+          // Карта компетенций
+          var chartEl = document.getElementById('competency-chart');
+          chartEl.innerHTML = '';
+          Object.keys(appState.domainStats).forEach(function (dom) {
+            var st = appState.domainStats[dom];
+            var pct = st.cases === 0 ? 100 : Math.max(15, Math.round(100 - (st.errors / (st.cases * 2)) * 100));
+            var sub = st.cases === 0 ? 'Не встречалось в смене' : ('Кейсов: ' + st.cases + ', ошибок: ' + st.errors);
+
+            var row = document.createElement('div');
+            row.innerHTML =
+              '<div class="flex justify-between text-xs font-bold mb-1">' +
+              '<span class="text-slate-800">' + dom + ' <span class="text-slate-400 font-normal">(' + sub + ')</span></span>' +
+              '<span class="text-teal-700">' + pct + '%</span>' +
+              '</div>' +
+              '<div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">' +
+              '<div class="h-full bg-gradient-to-r from-teal-600 to-cyan-600 rounded-full" style="width:' + pct + '%"></div>' +
+              '</div>';
+            chartEl.appendChild(row);
+          });
+
+          // Разбор ошибок
+          var revEl = document.getElementById('case-review-list');
+          revEl.innerHTML = '';
+          if (appState.mistakes.length === 0) {
+            revEl.innerHTML =
+              '<div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm font-bold">' +
+              'За всю рабочую смену не допущено ни одной ошибки! Все 6 пациентов получили помощь по высшему клиническому стандарту.' +
+              '</div>';
+          } else {
+            appState.mistakes.forEach(function (m, i) {
+              var card = document.createElement('div');
+              card.className = 'p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs sm:text-sm';
+              card.innerHTML =
+                '<div class="flex items-center justify-between font-extrabold text-rose-950 mb-1">' +
+                '<span>' + (i + 1) + '. ' + m.caseTitle + ' (' + m.domain + ')</span>' +
+                '<span class="text-[11px] px-2 py-0.5 rounded bg-rose-200 text-rose-900">Этап ' + m.stepNum + '</span>' +
+                '</div>' +
+                '<p class="text-rose-800 font-semibold mb-1">Ошибка: ' + m.details + '</p>' +
+                '<p class="text-slate-700 text-xs"><strong>Правильный алгоритм:</strong> ' + m.correctWay + '</p>';
+              revEl.appendChild(card);
+            });
+          }
+        }
+
+        // 10. Обработчики кнопок интерфейса
+        function setDifficultyUI(mode) {
+          appState.mode = mode;
+          var bIntern = document.getElementById('btn-mode-intern');
+          var bExpert = document.getElementById('btn-mode-expert');
+          if (mode === 'intern') {
+            bIntern.className = 'text-left p-4 rounded-2xl border-2 border-teal-600 bg-teal-50/90 transition cursor-pointer';
+            bExpert.className = 'text-left p-4 rounded-2xl border-2 border-slate-200 bg-white hover:border-slate-400 transition cursor-pointer';
+          } else {
+            bExpert.className = 'text-left p-4 rounded-2xl border-2 border-slate-800 bg-slate-100 transition cursor-pointer';
+            bIntern.className = 'text-left p-4 rounded-2xl border-2 border-slate-200 bg-white hover:border-teal-400 transition cursor-pointer';
+          }
+        }
+
+        function updateHintPill() {
+          var dot = document.getElementById('hint-indicator-dot');
+          var txt = document.getElementById('hint-indicator-text');
+          if (appState.mode === 'intern') {
+            dot.className = 'w-2 h-2 rounded-full bg-teal-400';
+            txt.textContent = 'Интерн';
+          } else {
+            dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+            txt.textContent = 'Эксперт';
+          }
+        }
+
+        function beginNewShift() {
+          sound.ensureContext();
+          sound.click();
+
+          var nameVal = document.getElementById('input-student-name').value.trim();
+          appState.studentName = nameVal || 'Ординатор';
+          appState.reputation = 100;
+          appState.totalActions = 0;
+          appState.correctActions = 0;
+          appState.mistakes = [];
+          appState.domainStats = {
+            'Диагностика и профилактика': { cases: 0, errors: 0 },
+            'Терапия и эндодонтия': { cases: 0, errors: 0 },
+            'Хирургия и экстренная помощь': { cases: 0, errors: 0 },
+            'Асептика и уход': { cases: 0, errors: 0 }
+          };
+
+          // Случайные 6 уникальных кейсов из 15
+          var pool = CASES_DB.slice();
+          for (var i = pool.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = pool[i];
+            pool[i] = pool[j];
+            pool[j] = tmp;
+          }
+          appState.shiftQueue = pool.slice(0, 6);
+          appState.shiftQueue.forEach(function (c) {
+            appState.domainStats[c.domain].cases += 1;
+          });
+
+          refreshReputationUI();
+          updateHintPill();
+
+          document.getElementById('start-screen').classList.add('hidden');
+          document.getElementById('diploma-screen').classList.add('hidden');
+          document.getElementById('hud-overlay').classList.remove('hidden');
+
+          startCase(0);
+        }
+
+        document.getElementById('btn-mode-intern').addEventListener('click', function () {
+          sound.click();
+          setDifficultyUI('intern');
+        });
+
+        document.getElementById('btn-mode-expert').addEventListener('click', function () {
+          sound.click();
+          setDifficultyUI('expert');
+        });
+
+        document.getElementById('btn-start-shift').addEventListener('click', beginNewShift);
+        document.getElementById('btn-restart-shift').addEventListener('click', beginNewShift);
+
+        document.getElementById('btn-back-menu').addEventListener('click', function () {
+          sound.click();
+          document.getElementById('diploma-screen').classList.add('hidden');
+          document.getElementById('hud-overlay').classList.add('hidden');
+          document.getElementById('start-screen').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-next-case').addEventListener('click', function () {
+          sound.click();
+          document.getElementById('case-done-modal').classList.add('hidden');
+          if (appState.caseIndex + 1 < appState.shiftQueue.length) {
+            startCase(appState.caseIndex + 1);
+          } else {
+            showDiploma();
+          }
+        });
+
+        document.getElementById('btn-toggle-hints').addEventListener('click', function () {
+          sound.click();
+          appState.mode = (appState.mode === 'intern') ? 'expert' : 'intern';
+          updateHintPill();
+          refreshStepUI();
+          pushToast(appState.mode === 'intern' ? 'Режим «Интерн»: подсказки включены' : 'Режим «Врач-эксперт»: подсказки отключены', 'info');
+        });
+
+        document.getElementById('btn-toggle-sound').addEventListener('click', function () {
+          sound.muted = !sound.muted;
+          document.getElementById('icon-sound-on').classList.toggle('hidden', sound.muted);
+          document.getElementById('icon-sound-off').classList.toggle('hidden', !sound.muted);
+          if (!sound.muted) sound.click();
+        });
+
+        document.getElementById('btn-toggle-banner').addEventListener('click', function () {
+          var body = document.getElementById('complaint-body');
+          var btn = document.getElementById('btn-toggle-banner');
+          var isHidden = body.classList.toggle('hidden');
+          btn.textContent = isHidden ? 'Развернуть' : 'Свернуть';
+        });
+
+        // 11. Главный цикл рендера
+        var clock = new THREE.Clock();
+
+        function renderLoop() {
+          requestAnimationFrame(renderLoop);
+          var t = clock.getElapsedTime();
+
+          if (isCamLerping) {
+            camera.position.lerp(desiredCamPos, 0.085);
+            controls.target.lerp(desiredTarget, 0.085);
+            if (typeof controls.syncFromCamera === 'function') {
+              controls.syncFromCamera();
+            }
+            if (camera.position.distanceTo(desiredCamPos) < 0.04) {
+              isCamLerping = false;
+            }
+          }
+
+          // Мягкая пульсация целевого зуба в режиме «Интерн»
+          var activeCase = appState.shiftQueue[appState.caseIndex];
+          if (activeCase && !document.getElementById('hud-overlay').classList.contains('hidden')) {
+            if (activeCase.sceneType === 'jaw') {
+              var code = activeCase.focusTarget.replace('tooth_', '');
+              var rec = toothRegistry[code];
+              if (rec) {
+                if (appState.mode === 'intern') {
+                  var wave = (Math.sin(t * 4.5) + 1) * 0.5;
+                  rec.mesh.material.emissive.setRGB(0.02, 0.24 * wave, 0.25 * wave);
+                } else {
+                  rec.mesh.material.emissive.setHex(0x000000);
+                }
+              }
+            }
+          }
+
+          controls.update();
+          renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', function () {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        renderLoop();
+      }
+
+      // Запуск после DOMContentLoaded с каскадной загрузкой Three.js
+      document.addEventListener('DOMContentLoaded', function () {
+        loadScriptSequential([
+          'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
+          'https://unpkg.com/three@0.128.0/build/three.min.js'
+        ])
+          .then(function () {
+            return loadScriptSequential([
+              'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js',
+              'https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js'
+            ]).catch(function () {
+              // Если CDN OrbitControls недоступен, используем встроенный FallbackOrbitControls
+              return 'fallback-controls';
+            });
+          })
+          .then(function () {
+            try {
+              bootstrapApp();
+            } catch (err) {
+              console.error('Initialization error:', err);
+            }
+          })
+          .catch(function (err) {
+            console.error('Three.js load failed:', err);
+          });
+      });
+    })();
+  </script>
+</body>
+</html>

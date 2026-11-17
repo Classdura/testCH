@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Хирургический симулятор: Практикум (8–11 класс)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+  body { font-family: 'Inter', sans-serif; background: #020617; color: #f8fafc; overflow: hidden; touch-action: none; }
+  .tool-card { transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease; }
+  .tool-card:hover { transform: translateY(-2px); border-color: #38bdf8; background: rgba(30, 41, 59, 0.95); }
+  .tool-active { border-color: #10b981 !important; background: rgba(6, 78, 59, 0.45) !important; box-shadow: 0 0 14px rgba(16, 185, 129, 0.35); }
+  .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+  .custom-scroll::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+  .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 99px; }
+  @keyframes pulseGlow { 0%, 100% { opacity: 0.95; } 50% { opacity: 0.55; } }
+  .animate-pulse-soft { animation: pulseGlow 1.8s infinite; }
+</style>
+</head>
+<body class="h-screen w-screen flex flex-col">
+
+<!-- ВЕРХНИЙ HUD ОПЕРАЦИОННОЙ -->
+<header class="bg-slate-900/95 border-b border-slate-800 px-3 py-2 sm:px-5 flex items-center justify-between gap-2 shrink-0 z-20">
+  <div class="flex items-center gap-2.5 min-w-0">
+    <div class="w-9 h-9 rounded-xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-teal-400 font-extrabold text-lg shrink-0">+</div>
+    <div class="min-w-0">
+      <div class="flex items-center gap-2">
+        <h1 class="text-xs sm:text-sm font-extrabold tracking-wide text-slate-100 truncate">ХИРУРГИЧЕСКИЙ ПРАКТИКУМ</h1>
+        <span id="hud-case-num" class="bg-teal-950 text-teal-300 border border-teal-700/60 text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0">Кейс 1 / 15</span>
+      </div>
+      <p id="hud-case-title" class="text-[11px] sm:text-xs text-slate-400 truncate">Загрузка операции...</p>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+    <!-- Кардиомонитор ЭКГ -->
+    <div class="hidden sm:flex items-center gap-2 bg-slate-950 px-2.5 py-1 rounded-xl border border-emerald-500/40">
+      <canvas id="ecg-canvas" width="84" height="28" class="block"></canvas>
+      <div class="text-right leading-none">
+        <div class="text-[9px] text-emerald-400/80 font-bold">ЧСС</div>
+        <div id="hud-bpm" class="text-xs font-extrabold text-emerald-400 tabular-nums">74</div>
+      </div>
+      <div class="h-4 w-px bg-slate-800"></div>
+      <div class="text-right leading-none">
+        <div class="text-[9px] text-sky-400/80 font-bold">SpO₂</div>
+        <div id="hud-spo2" class="text-xs font-extrabold text-sky-400 tabular-nums">99%</div>
+      </div>
+    </div>
+
+    <!-- Очки и Ошибки -->
+    <div class="flex items-center gap-2.5 bg-slate-800/80 px-2.5 py-1.5 rounded-xl border border-slate-700/70 text-xs">
+      <div><span class="text-slate-400 hidden md:inline">Очки: </span><span id="hud-score" class="font-bold text-emerald-400">1000</span></div>
+      <div class="h-3.5 w-px bg-slate-700"></div>
+      <div><span class="text-slate-400 hidden md:inline">Ошибки: </span><span id="hud-errors" class="font-bold text-rose-400">0</span></div>
+    </div>
+
+    <!-- Звук -->
+    <button id="btn-sound" class="bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 p-2 rounded-xl cursor-pointer" title="Звук операционной">
+      <svg id="icon-snd-on" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+      <svg id="icon-snd-off" class="w-4 h-4 hidden text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
+    </button>
+
+    <!-- Подсказка / Теория -->
+    <button id="btn-theory" class="bg-sky-600 hover:bg-sky-500 text-white font-semibold px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs shadow-lg shadow-sky-950 flex items-center gap-1.5 cursor-pointer">
+      <span>📖</span><span>Подсказка / Теория</span>
+    </button>
+  </div>
+</header>
+
+<!-- ОСНОВНАЯ РАБОЧАЯ ОБЛАСТЬ -->
+<main class="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
+
+  <!-- СТОЛИК ОПЕРАЦИОННОЙ СЕСТРЫ (ИНСТРУМЕНТЫ) -->
+  <aside class="lg:w-72 xl:w-80 bg-slate-900/90 border-b lg:border-b-0 lg:border-r border-slate-800 flex flex-col shrink-0 max-h-[34vh] lg:max-h-none z-10">
+    <div class="px-3 py-2 border-b border-slate-800/90 flex items-center justify-between">
+      <span class="text-[11px] font-bold uppercase tracking-wider text-teal-400">Инструментальный столик</span>
+      <span class="text-[10px] text-slate-400">Перетащите или кликните</span>
+    </div>
+    <div id="tools-grid" class="p-2 grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-2 gap-1.5 overflow-y-auto custom-scroll flex-1"></div>
+  </aside>
+
+  <!-- ЦЕНТРАЛЬНЫЙ ОПЕРАЦИОННЫЙ СТОЛ (CANVAS + ПАНЕЛЬ ЗАДАЧИ) -->
+  <section class="flex-1 flex flex-col min-h-0 relative bg-slate-950">
+    <!-- Инструктаж текущего шага -->
+    <div class="bg-slate-900/95 border-b border-slate-800 px-3 py-2 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <span id="step-badge" class="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase">Этап 1</span>
+          <span id="tool-status-badge" class="text-[11px] font-medium text-slate-400 truncate">Инструмент не выбран</span>
+        </div>
+        <p id="step-instruction" class="text-xs sm:text-sm font-semibold text-slate-100 mt-0.5 leading-snug">Выберите инструмент...</p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <div class="w-28 sm:w-36 bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
+          <div id="step-progress-bar" class="bg-gradient-to-r from-teal-500 to-emerald-400 h-full w-0 transition-all duration-150"></div>
+        </div>
+        <span id="step-progress-text" class="text-xs font-bold text-emerald-400 w-9 text-right tabular-nums">0%</span>
+      </div>
+    </div>
+
+    <!-- Интерактивный Canvas -->
+    <div id="canvas-wrapper" class="flex-1 relative min-h-0 w-full overflow-hidden cursor-crosshair">
+      <canvas id="surgery-canvas" class="block w-full h-full"></canvas>
+
+      <!-- Всплывающее уведомление (Toast) -->
+      <div id="toast-box" class="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-30 transition-all duration-200 opacity-0 -translate-y-2 max-w-md w-[92%]">
+        <div id="toast-inner" class="rounded-xl px-4 py-2.5 shadow-2xl border backdrop-blur-md text-xs sm:text-sm flex items-start gap-2.5">
+          <span id="toast-icon" class="text-base leading-none mt-0.5">⚠️</span>
+          <div>
+            <div id="toast-title" class="font-bold">Сообщение</div>
+            <div id="toast-msg" class="text-xs opacity-90 mt-0.5 leading-relaxed">Текст</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Плашка перехода к следующему кейсу -->
+      <div id="case-complete-banner" class="hidden absolute inset-0 bg-slate-950/75 backdrop-blur-sm z-20 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-emerald-500/40 rounded-2xl p-6 max-w-md w-full text-center shadow-2xl">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl mx-auto mb-3">✓</div>
+          <h3 class="text-lg font-extrabold text-white">Операция выполнена!</h3>
+          <p id="case-complete-summary" class="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">Алгоритм соблюдён верно.</p>
+          <button id="btn-next-case" class="mt-5 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl text-sm shadow-lg shadow-emerald-950 transition cursor-pointer">
+            Следующий клинический случай →
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ПРИЗРАК ПЕРЕТАСКИВАЕМОГО ИНСТРУМЕНТА (POINTER DRAG) -->
+<div id="drag-ghost" class="hidden fixed pointer-events-none z-50 bg-slate-800/95 border-2 border-teal-400 text-white px-3 py-1.5 rounded-xl shadow-2xl text-xs font-bold flex items-center gap-2 -translate-x-1/2 -translate-y-1/2">
+  <span id="drag-ghost-icon"></span>
+  <span id="drag-ghost-name"></span>
+</div>
+
+<!-- МОДАЛЬНОЕ ОКНО: ПОДСКАЗКА / ТЕОРИЯ И АЛГОРИТМ -->
+<div id="theory-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 flex items-center justify-center p-3 sm:p-5">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+    <div class="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-900">
+      <div class="flex items-center gap-2">
+        <span class="text-sky-400 text-lg">📖</span>
+        <h2 id="modal-theory-title" class="font-extrabold text-sm sm:text-base text-white">Теория и алгоритм</h2>
+      </div>
+      <button id="btn-close-theory" class="text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 w-8 h-8 rounded-lg flex items-center justify-center font-bold cursor-pointer">✕</button>
+    </div>
+    <div class="p-5 overflow-y-auto custom-scroll space-y-4 text-xs sm:text-sm">
+      <div class="bg-sky-950/40 border border-sky-800/50 rounded-xl p-3.5">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-sky-400 mb-1">Хирургическая теория</div>
+        <p id="modal-theory-text" class="text-slate-200 leading-relaxed"></p>
+      </div>
+      <div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mb-2">Правильный клинический алгоритм</div>
+        <ol id="modal-algorithm-list" class="space-y-2 text-slate-200"></ol>
+      </div>
+    </div>
+    <div class="px-5 py-3 border-t border-slate-800 bg-slate-900/90 flex justify-end">
+      <button id="btn-close-theory-bottom" class="bg-sky-600 hover:bg-sky-500 text-white font-semibold px-4 py-2 rounded-xl text-xs sm:text-sm cursor-pointer">Вернуться к операции</button>
+    </div>
+  </div>
+</div>
+
+<!-- ИТОГОВЫЙ ЭКРАН ПРАКТИКУМА -->
+<div id="final-modal" class="hidden fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+    <div class="p-6 border-b border-slate-800 text-center bg-gradient-to-b from-teal-950/40 to-slate-900">
+      <div class="inline-block bg-teal-500/20 border border-teal-400/40 text-teal-300 text-xs font-bold px-3 py-1 rounded-full mb-2">ПРАКТИКУМ ЗАВЕРШЁН</div>
+      <h2 class="text-xl sm:text-2xl font-extrabold text-white">Результаты хирургической смены</h2>
+      <div class="grid grid-cols-3 gap-3 mt-4 max-w-md mx-auto">
+        <div class="bg-slate-800/90 p-3 rounded-xl border border-slate-700">
+          <div class="text-[11px] text-slate-400">Итоговый балл</div>
+          <div id="final-score" class="text-lg sm:text-xl font-extrabold text-emerald-400">1000</div>
+        </div>
+        <div class="bg-slate-800/90 p-3 rounded-xl border border-slate-700">
+          <div class="text-[11px] text-slate-400">Ошибки</div>
+          <div id="final-errors" class="text-lg sm:text-xl font-extrabold text-rose-400">0</div>
+        </div>
+        <div class="bg-slate-800/90 p-3 rounded-xl border border-slate-700">
+          <div class="text-[11px] text-slate-400">Оценка</div>
+          <div id="final-grade" class="text-lg sm:text-xl font-extrabold text-sky-400">5 (Отлично)</div>
+        </div>
+      </div>
+    </div>
+    <div class="p-5 overflow-y-auto custom-scroll flex-1">
+      <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Разбор допущенных ошибок:</div>
+      <div id="final-mistakes-list" class="space-y-2 text-xs sm:text-sm"></div>
+    </div>
+    <div class="p-4 border-t border-slate-800 bg-slate-900 flex justify-center">
+      <button id="btn-restart" class="bg-teal-600 hover:bg-teal-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm shadow-lg shadow-teal-950 cursor-pointer">
+        ↻ Пройти заново (новый случайный порядок)
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * ============================================================================
+ * 1. ЗВУКОВОЙ СИНТЕЗАТОР ОПЕРАЦИОННОЙ (WEB AUDIO API)
+ * ============================================================================
+ */
+class ORSound {
+  constructor() { this.ctx = null; this.enabled = true; }
+  init() {
+    if (!this.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) this.ctx = new AC();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+  }
+  beep(freq = 880, dur = 0.05, vol = 0.03, type = 'sine') {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, this.ctx.currentTime);
+    g.gain.setValueAtTime(vol, this.ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + dur);
+    o.connect(g); g.connect(this.ctx.destination);
+    o.start(); o.stop(this.ctx.currentTime + dur);
+  }
+  clink() { this.beep(2400, 0.07, 0.04, 'triangle'); setTimeout(() => this.beep(3500, 0.04, 0.025), 25); }
+  slice() { this.beep(620, 0.05, 0.03, 'sawtooth'); }
+  error() { this.beep(210, 0.16, 0.07, 'sawtooth'); setTimeout(() => this.beep(165, 0.22, 0.07, 'sawtooth'), 120); }
+  success() { this.beep(587, 0.09, 0.05); setTimeout(() => this.beep(880, 0.15, 0.06), 85); }
+}
+const sfx = new ORSound();
+
+/**
+ * ============================================================================
+ * 2. СПРАВОЧНИК ХИРУРГИЧЕСКИХ ИНСТРУМЕНТОВ (15 ИНСТРУМЕНТОВ + SVG)
+ * ============================================================================
+ */
+const TOOLS = [
+  { id: 'antiseptic', name: 'Антисептик / Гель', cat: 'Обработка', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><rect x="12" y="10" width="12" height="20" rx="3" fill="#0284c7"/><rect x="15" y="5" width="6" height="5" rx="1" fill="#94a3b8"/><path d="M18 16v8M14 20h8" stroke="#e0f2fe" stroke-width="2" stroke-linecap="round"/></svg>' },
+  { id: 'gloves', name: 'Стерильные перчатки', cat: 'Асептика', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><path d="M12 28V15a2 2 0 014 0v5h1V12a2 2 0 014 0v8h1V13a2 2 0 014 0v11c0 4-3 6-7 6h-3c-2.5 0-4-1-4-2z" fill="#38bdf8" opacity="0.9"/><path d="M12 25h12" stroke="#0284c7" stroke-width="2"/></svg>' },
+  { id: 'drapes', name: 'Пелёнки и цапки', cat: 'Изоляция', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><rect x="6" y="8" width="24" height="20" rx="3" fill="#0d9488" stroke="#5eead4" stroke-width="1.5"/><rect x="13" y="13" width="10" height="10" rx="1" fill="#0f172a"/></svg>' },
+  { id: 'scalpel', name: 'Скальпель брюшистый', cat: 'Разъединение', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><path d="M6 28L20 14l3 3L9 31z" fill="#64748b"/><path d="M20 14l9-8c1.5 2.5.5 6.5-3 9l-3 2z" fill="#f8fafc"/></svg>' },
+  { id: 'scissors', name: 'Ножницы Купера', cat: 'Разъединение', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><circle cx="10" cy="26" r="4" fill="none" stroke="#94a3b8" stroke-width="2"/><circle cx="26" cy="26" r="4" fill="none" stroke="#94a3b8" stroke-width="2"/><path d="M12 23L24 7M24 23L12 7" stroke="#e2e8f0" stroke-width="2.2" stroke-linecap="round"/></svg>' },
+  { id: 'forceps_anat', name: 'Анатомический пинцет', cat: 'Захват (мягкий)', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><path d="M8 28L26 8M11 30L28 10" stroke="#cbd5e1" stroke-width="2.2" stroke-linecap="round"/><path d="M25 9h3v2" stroke="#38bdf8" stroke-width="1.5" fill="none"/></svg>' },
+  { id: 'forceps_surg', name: 'Хирургический пинцет', cat: 'Захват (зубцы)', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><path d="M8 28L26 8M11 30L28 10" stroke="#cbd5e1" stroke-width="2.2" stroke-linecap="round"/><path d="M25 8l2 2-2 2M28 10l-2 2" stroke="#f43f5e" stroke-width="1.8" fill="none"/></svg>' },
+  { id: 'clamp', name: 'Зажим Москит/Бильрот', cat: 'Гемостаз', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><circle cx="10" cy="27" r="3.5" fill="none" stroke="#fbbf24" stroke-width="2"/><circle cx="22" cy="27" r="3.5" fill="none" stroke="#fbbf24" stroke-width="2"/><path d="M12 24L25 7M20 24L27 8" stroke="#e2e8f0" stroke-width="2.2" stroke-linecap="round"/></svg>' },
+  { id: 'needle_holder', name: 'Иглодержатель + игла', cat: 'Соединение', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><path d="M8 28L22 14" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/><path d="M21 15c2-5 8-5 9 0" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/></svg>' },
+  { id: 'suture_thread', name: 'Лигатура / Нить', cat: 'Фиксация', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><path d="M8 22c5-10 15-10 20 0s-15 10-20 0z" fill="none" stroke="#a78bfa" stroke-width="2.4"/><circle cx="18" cy="18" r="2.5" fill="#f8fafc"/></svg>' },
+  { id: 'tourniquet', name: 'Жгут Эсмарха', cat: 'Артер. гемостаз', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><rect x="7" y="13" width="22" height="10" rx="5" fill="#e11d48"/><path d="M13 13v10M23 13v10" stroke="#fecdd3" stroke-width="1.8"/></svg>' },
+  { id: 'gauze', name: 'Марлевый шарик', cat: 'Осушение', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><circle cx="18" cy="18" r="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/><path d="M12 15h12M12 21h12M15 12v12M21 12v12" stroke="#cbd5e1" stroke-width="1"/></svg>' },
+  { id: 'drain', name: 'Резиновый дренаж', cat: 'Дренирование', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><path d="M10 26L26 10" stroke="#fb923c" stroke-width="6" stroke-linecap="round"/><path d="M10 26L26 10" stroke="#fed7aa" stroke-width="2" stroke-dasharray="3 3"/></svg>' },
+  { id: 'trocar', name: 'Лапаро-манипулятор', cat: 'Эндоскопия', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><rect x="7" y="23" width="7" height="7" rx="1.5" fill="#0284c7"/><path d="M13 24L27 10" stroke="#e2e8f0" stroke-width="2.5"/><path d="M27 10l3-1M27 10l-1-3" stroke="#38bdf8" stroke-width="2"/></svg>' },
+  { id: 'checklist', name: 'Чек-лист ВОЗ / Шприц', cat: 'Протокол / ПХО', svg: '<svg viewBox="0 0 36 36" class="w-7 h-7"><rect x="9" y="6" width="18" height="24" rx="2.5" fill="#f8fafc"/><path d="M13 13l2 2 4-4M13 20l2 2 4-4" stroke="#10b981" stroke-width="2" fill="none" stroke-linecap="round"/></svg>' }
+];
+
+/**
+ * ============================================================================
+ * 3. БАЗА ИЗ 15 ХИРУРГИЧЕСКИХ КЕЙСОВ (ТЕОРИЯ + АЛГОРИТМ + ИНТЕРАКТИВНЫЕ ШАГИ)
+ * ============================================================================
+ */
+const CASES_DB = [
+  {
+    id: 1,
+    title: '1. «Невидимая угроза» — Асептика и надевание перчаток',
+    theory: 'Асептика — комплекс мероприятий по предупреждению попадания инфекции в рану. Сначала кожу рук обрабатывают антисептическим гелем. Затем первую стерильную перчатку надевают на левую руку, беря её строго за внутренний вывернутый отворот. Вторую перчатку поддевают пальцами уже одетой стерильной руки за внешний отворот и натягивают на правую кисть.',
+    algorithm: [
+      'Обработать обе кисти рук антисептическим гелем до полного очищения от микрофлоры.',
+      'Взять первую перчатку за отворот на левой кисти и натянуть её вдоль руки к запястью.',
+      'Поддеть вторую перчатку одетой рукой за внешний отворот и натянуть на правую кисть.'
+    ],
+    steps: [
+      { tool: 'antiseptic', text: 'Шаг 1/3: Поводите антисептиком по обеим кистям рук, чтобы смыть 100% зелёных «микробов».', type: 'scrub', center: {x:0.5,y:0.5}, radius: 0.28, hintLabel: 'Обработайте пальцы и ладони' },
+      { tool: 'gloves', text: 'Шаг 2/3: Нажмите на отворот перчатки у кончиков пальцев ЛЕВОЙ руки и тяните вниз к запястью!', type: 'line', p1: {x:0.35,y:0.28}, p2: {x:0.35,y:0.74}, hintLabel: 'Тяните перчатку вниз ↓' },
+      { tool: 'gloves', text: 'Шаг 3/3: Подденьте вторую перчатку у пальцев ПРАВОЙ руки и натяните её вниз к запястью!', type: 'line', p1: {x:0.65,y:0.28}, p2: {x:0.65,y:0.74}, hintLabel: 'Тяните вторую перчатку ↓' }
+    ]
+  },
+  {
+    id: 2,
+    title: '2. «Слепая зона» — Ограничение операционного поля',
+    theory: 'После обработки кожи антисептиком место предполагаемого разреза изолируют 4 стерильными пелёнками, чтобы исключить контактный занос бактерий с соседних участков тела пациента.',
+    algorithm: [
+      'Поочерёдно уложить 4 стерильные простыни вокруг зоны операции: верхнюю, нижнюю, левую и правую.',
+      'Зафиксировать углы белья бельевыми цапками.'
+    ],
+    steps: [
+      { tool: 'drapes', text: 'Поочерёдно кликните по 4 пульсирующим меткам вокруг зоны операции (верх → низ → лево → право).', type: 'zones', targets: [{x:0.5,y:0.25},{x:0.5,y:0.75},{x:0.27,y:0.5},{x:0.73,y:0.5}], hintLabel: 'Уложить стерильную простыню' }
+    ]
+  },
+  {
+    id: 3,
+    title: '3. «Слоёный пирог» — Послойное рассечение брюшной стенки',
+    theory: 'Хирургический доступ требует строго послойного рассечения тканей: сначала кожа скальпелем в один уверенный проход, затем подкожная клетчатка, после чего фасцию приподнимают анатомическим пинцетом в виде конуса и безопасно рассекают ножницами.',
+    algorithm: [
+      'Рассечь кожу скальпелем строго по разметке (края кожи разойдутся, открыв жировую клетчатку).',
+      'Приподнять фасцию анатомическим пинцетом в виде конуса.',
+      'Рассечь приподнятую фасцию ножницами Купера.'
+    ],
+    steps: [
+      { tool: 'scalpel', text: 'Проведите скальпелем линейный разрез кожи слева направо по разметке.', type: 'line', p1: {x:0.28,y:0.5}, p2: {x:0.72,y:0.5}, hintLabel: 'Ведите скальпель по линии →' },
+      { tool: 'forceps_anat', text: 'Удерживайте пинцет на фасции в центре раны, приподнимая её конусом вверх.', type: 'tension', optMin: 0.55, optMax: 0.90, failOver: false },
+      { tool: 'scissors', text: 'Рассеките приподнятую фасцию ножницами Купера слева направо.', type: 'line', p1: {x:0.32,y:0.5}, p2: {x:0.68,y:0.5}, hintLabel: 'Рассечь фасцию →' }
+    ]
+  },
+  {
+    id: 4,
+    title: '4. «Фонтан» — Временный и окончательный гемостаз в ране',
+    theory: 'Перед закрытием раны обязателен тщательный гемостаз для профилактики вторичных кровотечений и гематом. Рану осушают промакивающими движениями, пульсирующий сосуд пережимают зажимом и перевязывают лигатурой.',
+    algorithm: [
+      'Осушить рану марлевым шариком промакивающими движениями.',
+      'Наложить кровоостанавливающий зажим точно на кровоточащий конец артерии.',
+      'Подвести лигатуру и завязать узел с оптимальным натяжением.'
+    ],
+    steps: [
+      { tool: 'gauze', text: 'Промокните скопившуюся кровь в ране марлевым шариком.', type: 'scrub', center: {x:0.5,y:0.5}, radius: 0.22, hintLabel: 'Осушите рану' },
+      { tool: 'clamp', text: 'Кликните точно по пульсирующему концу артерии в центре раны, чтобы наложить зажим.', type: 'zones', targets: [{x:0.5,y:0.5}], hintLabel: 'Пережать сосуд' },
+      { tool: 'suture_thread', text: 'Затяните лигатуру на сосуде в зелёной зоне (не перетяните, чтобы не прорезать стенку!).', type: 'tension', optMin: 0.52, optMax: 0.80, failOver: true }
+    ]
+  },
+  {
+    id: 5,
+    title: '5. «Жгут на время» — Остановка артериального кровотечения',
+    theory: 'Кровоостанавливающий жгут Эсмарха накладывают выше раны поверх мягкой тканевой прокладки до прекращения пульса ниже жгута, с обязательной фиксацией времени наложения.',
+    algorithm: [
+      'Затянуть жгут Эсмарха выше места ранения до исчезновения артериального кровотечения (зелёная зона).',
+      'Оформить сопроводительную бирку со временем наложения жгута.'
+    ],
+    steps: [
+      { tool: 'tourniquet', text: 'Удерживайте и тяните жгут на плече выше раны до попадания в зелёную зону.', type: 'tension', optMin: 0.60, optMax: 0.86, failOver: true },
+      { tool: 'checklist', text: 'Кликните по бирке на жгуте, чтобы записать точное время наложения.', type: 'zones', targets: [{x:0.38,y:0.36}], hintLabel: 'Записать время' }
+    ]
+  },
+  {
+    id: 6,
+    title: '6. «Морской узел хирурга» — Дозированное натяжение',
+    theory: 'Слабо затянутый узел приводит к расхождению краёв раны, а чрезмерно затянутый — к ишемии и некрозу тканей. Второй узел вяжется в обратном направлении для надёжной фиксации.',
+    algorithm: [
+      'Свести края раны первым хирургическим узлом с умеренным натяжением.',
+      'Зафиксировать узел вторым контрольным перехлёстом нитей.'
+    ],
+    steps: [
+      { tool: 'suture_thread', text: 'Стяните синюю и белую нити первого узла в зелёную зону (красная зона — некроз тканей!).', type: 'tension', optMin: 0.50, optMax: 0.78, failOver: true },
+      { tool: 'suture_thread', text: 'Закрепите второй фиксирующий узел в оптимальной зоне.', type: 'tension', optMin: 0.50, optMax: 0.82, failOver: true }
+    ]
+  },
+  {
+    id: 7,
+    title: '7. «Простой узловой шов» — Сопоставление краёв кожи',
+    theory: 'Узловой шов обеспечивает плотное сопоставление краёв раны без образования полостей. Вкол и выкол выполняют симметрично на расстоянии 0,5 см от краёв разреза.',
+    algorithm: [
+      'Взять иглодержатель Гегара с хирургической иглой.',
+      'Наложить 4 симметричных узловых стежка поперёк линии разреза.'
+    ],
+    steps: [
+      { tool: 'needle_holder', text: 'Последовательно кликните по 4 точкам разметки вдоль раны для наложения узловых швов.', type: 'zones', targets: [{x:0.35,y:0.5},{x:0.45,y:0.5},{x:0.55,y:0.5},{x:0.65,y:0.5}], hintLabel: 'Наложить стежок' }
+    ]
+  },
+  {
+    id: 8,
+    title: '8. «Тайный стежок» — Внутрикожный косметический шов',
+    theory: 'Внутрикожный непрерывный шов (по Холстеду) проходит в толще дермы параллельно поверхности кожи, не оставляя следов от вколов на эпидермисе.',
+    algorithm: [
+      'Провести непрерывную нить зигзагообразно в толще краёв раны от одного угла к другому.',
+      'Подтянуть концы нити до полного смыкания краёв кожи.'
+    ],
+    steps: [
+      { tool: 'needle_holder', text: 'Проведите внутрикожный шов непрерывным движением от левого угла раны к правому.', type: 'line', p1: {x:0.28,y:0.5}, p2: {x:0.72,y:0.5}, hintLabel: 'Вести иглу в толще дермы →' },
+      { tool: 'suture_thread', text: 'Аккуратно натяните концы косметической нити до сопоставления краёв.', type: 'tension', optMin: 0.55, optMax: 0.85, failOver: true }
+    ]
+  },
+  {
+    id: 9,
+    title: '9. «Герметичный контур» — Кисетный и Z-образный швы',
+    theory: 'При аппендэктомии вокруг основания отростка на куполе слепой кишки накладывают серозно-мышечный кисетный шов, погружают культю анатомическим пинцетом внутрь и укрепляют Z-образным швом.',
+    algorithm: [
+      'Наложить круговой серозно-мышечный кисетный шов вокруг культи.',
+      'Погрузить культю анатомическим пинцетом в просвет кишки и затянуть кисет.',
+      'Укрепить область погружения Z-образным швом.'
+    ],
+    steps: [
+      { tool: 'needle_holder', text: 'Наложите 4 серозно-мышечных стежка кисетного шва по кругу вокруг культи.', type: 'zones', targets: [{x:0.5,y:0.32},{x:0.68,y:0.5},{x:0.5,y:0.68},{x:0.32,y:0.5}], hintLabel: 'Стежок кисета' },
+      { tool: 'forceps_anat', text: 'Погрузите культю внутрь кишки, удерживая давление до полного вправления.', type: 'tension', optMin: 0.65, optMax: 0.95, failOver: false },
+      { tool: 'needle_holder', text: 'Наложите укрепляющий Z-образный шов поверх погружённой культи.', type: 'line', p1: {x:0.38,y:0.42}, p2: {x:0.62,y:0.58}, hintLabel: 'Наложить Z-шов' }
+    ]
+  },
+  {
+    id: 10,
+    title: '10. «Снятие швов без инфекции»',
+    theory: 'При снятии швов нельзя протягивать наружную (нестерильную) часть нити через глубокий шовный канал. Узелок подтягивают вверх до появления чистого белого подкожного участка нити и пересекают его у самой кожи.',
+    algorithm: [
+      'Обработать линию рубца антисептиком.',
+      'Подтянуть узелок анатомическим пинцетом до появления чистого белого участка нити.',
+      'Пересечь ножницами чистую нить у поверхности кожи и извлечь.'
+    ],
+    steps: [
+      { tool: 'antiseptic', text: 'Обработайте линию зажившего рубца антисептиком.', type: 'line', p1: {x:0.3,y:0.5}, p2: {x:0.7,y:0.5}, hintLabel: 'Обработать рубец →' },
+      { tool: 'forceps_anat', text: 'Потяните узелок пинцетом вверх, пока из кожи не покажется чистый белый участок нити.', type: 'tension', optMin: 0.58, optMax: 0.88, failOver: true },
+      { tool: 'scissors', text: 'Кликните по чистому белому участку нити у самой кожи, чтобы пересечь её.', type: 'zones', targets: [{x:0.5,y:0.54}], hintLabel: 'Перерезать чистую нить' }
+    ]
+  },
+  {
+    id: 11,
+    title: '11. «Ревизия и ПХО» — Первичная хирургическая обработка',
+    theory: 'ПХО проводится в первые 24 часа после травмы для перевода загрязнённой размозжённой раны в чистую резаную, способную зажить первичным натяжением.',
+    algorithm: [
+      'Удалить пинцетом инородные тела из раны.',
+      'Промыть рану антисептиком.',
+      'Экономно иссечь скальпелем нежизнеспособные загрязнённые края раны и ушить.'
+    ],
+    steps: [
+      { tool: 'forceps_surg', text: 'Удалите инородные частицы из раны, кликнув по всем 3 фрагментам.', type: 'zones', targets: [{x:0.42,y:0.47},{x:0.52,y:0.53},{x:0.60,y:0.48}], hintLabel: 'Удалить осколок' },
+      { tool: 'scalpel', text: 'Экономно иссеките размозжённый загрязнённый край раны скальпелем.', type: 'line', p1: {x:0.32,y:0.5}, p2: {x:0.68,y:0.5}, hintLabel: 'Иссечь край раны →' },
+      { tool: 'needle_holder', text: 'Ушейте очищенную рану первичными узловыми швами.', type: 'zones', targets: [{x:0.38,y:0.5},{x:0.5,y:0.5},{x:0.62,y:0.5}], hintLabel: 'Наложить шов' }
+    ]
+  },
+  {
+    id: 12,
+    title: '12. «Ubi pus, ibi evacua» — Вскрытие и дренирование абсцесса',
+    theory: 'Главный закон гнойной хирургии: «Где гной — там вскрой». Полость вскрывают в нижней точке для оттока, разрушают перемычки зажимом и оставляют дренаж (наглухо зашивать нельзя!).',
+    algorithm: [
+      'Вскрыть полость гнойника скальпелем.',
+      'Развести края и разрушить карманы тупым путём (зажимом).',
+      'Установить резиновый дренаж-выпускник для оттока экссудата.'
+    ],
+    steps: [
+      { tool: 'scalpel', text: 'Выполните разрез над флюктуирующим очагом абсцесса.', type: 'line', p1: {x:0.35,y:0.5}, p2: {x:0.65,y:0.5}, hintLabel: 'Вскрыть гнойник →' },
+      { tool: 'clamp', text: 'Проведите ревизию полости зажимом, разрушая гнойные карманы.', type: 'scrub', center: {x:0.5,y:0.5}, radius: 0.18, hintLabel: 'Развести карманы' },
+      { tool: 'drain', text: 'Установите резиновый дренаж в полость раны для свободного оттока.', type: 'zones', targets: [{x:0.5,y:0.5}], hintLabel: 'Установить дренаж' }
+    ]
+  },
+  {
+    id: 13,
+    title: '13. «Ювелир в замочной скважине» — Основы лапароскопии',
+    theory: 'При лапароскопии инструменты вводятся через троакары (порты), а хирург смотрит на монитор. Из-за точки опоры в брюшной стенке движения инструментов инвертированы (эффект рычага).',
+    algorithm: [
+      'Ввести лапароскопический манипулятор в порт.',
+      'С учётом инверсии осей навести кончик инструмента на патологические очаги и коагулировать их.'
+    ],
+    steps: [
+      { tool: 'trocar', text: 'Внимание: управление на мониторе ИНВЕРТИРОВАНО! Наведите кончик инструмента на все 3 мишени.', type: 'zones', inverted: true, targets: [{x:0.34,y:0.36},{x:0.66,y:0.42},{x:0.48,y:0.68}], hintLabel: 'Коагулировать очаг' }
+    ]
+  },
+  {
+    id: 14,
+    title: '14. «Выбор инструмента» — Анатомический и хирургический пинцеты',
+    theory: 'Анатомический пинцет имеет мягкие поперечные насечки и применяется для нежных тканей (сосуды, кишка), чтобы не раздавить их. Хирургический пинцет снабжён острыми зубчиками для надёжного удержания плотной кожи и апоневроза.',
+    algorithm: [
+      'Осторожно отвести стенку магистрального сосуда анатомическим пинцетом.',
+      'Надёжно зафиксировать плотный край апоневроза хирургическим пинцетом.'
+    ],
+    steps: [
+      { tool: 'forceps_anat', text: 'Этап 1: Бережно захватите нежный кровеносный сосуд (слева) подходящим пинцетом.', type: 'zones', targets: [{x:0.36,y:0.5}], hintLabel: 'Нежный сосуд' },
+      { tool: 'forceps_surg', text: 'Этап 2: Плотно зафиксируйте грубый край апоневроза (справа) пинцетом с зубцами.', type: 'zones', targets: [{x:0.64,y:0.5}], hintLabel: 'Плотный апоневроз' }
+    ]
+  },
+  {
+    id: 15,
+    title: '15. «Чек-лист безопасности ВОЗ» — Тайм-аут и счёт материала',
+    theory: 'Перед разрезом бригада проводит «Тайм-аут» (сверка пациента, стороны операции, аллергий). Перед ушиванием раны операционная сестра обязана пересчитать все салфетки и инструменты для исключения оставления инородных тел.',
+    algorithm: [
+      'Провести предоперационный «Тайм-аут» по чек-листу безопасности.',
+      'При выявлении недостачи материала провести ревизию раны и извлечь забытую салфетку.'
+    ],
+    steps: [
+      { tool: 'checklist', text: 'Кликните по маркировке операционного поля, чтобы подтвердить протокол «Тайм-аут» перед операцией.', type: 'zones', targets: [{x:0.5,y:0.32}], hintLabel: 'Подтвердить Тайм-аут' },
+      { tool: 'forceps_anat', text: 'Счёт салфеток не сходится! Извлеките забытую марлевую салфетку из глубины раны.', type: 'zones', targets: [{x:0.52,y:0.55}], hintLabel: 'Извлечь салфетку' }
+    ]
+  }
+];
+
+/**
+ * ============================================================================
+ * 4. ГЛОБАЛЬНОЕ СОСТОЯНИЕ СИМУЛЯТОРА И ПРОЦЕДУРНЫЕ ТЕКСТУРЫ
+ * ============================================================================
+ */
+const state = {
+  cases: [],
+  caseIdx: 0,
+  stepIdx: 0,
+  phase: 'select_tool', // select_tool | perform_action | step_done
+  selectedTool: null,
+  score: 1000,
+  errors: 0,
+  mistakesLog: [],
+  pointerDown: false,
+  progress: 0,
+  stepData: {},
+  pointer: { nx: 0.5, ny: 0.5 },
+  particles: [],
+  animTime: 0,
+  bpm: 74,
+  ecgPhase: 0,
+  ecgHist: new Array(84).fill(0.5),
+  lastBeat: 0,
+  draggingToolId: null
+};
+
+const canvas = document.getElementById('surgery-canvas');
+const ctx = canvas.getContext('2d');
+const wrapper = document.getElementById('canvas-wrapper');
+const ecgCanvas = document.getElementById('ecg-canvas');
+const ecgCtx = ecgCanvas.getContext('2d');
+
+const Textures = {};
+function buildTextures() {
+  // Кожа с порами
+  const sc = document.createElement('canvas'); sc.width = 96; sc.height = 96;
+  const sctx = sc.getContext('2d');
+  sctx.fillStyle = '#e6ad8c'; sctx.fillRect(0, 0, 96, 96);
+  for (let i = 0; i < 240; i++) {
+    sctx.fillStyle = i % 2 ? 'rgba(160,90,65,0.14)' : 'rgba(255,228,210,0.14)';
+    sctx.beginPath(); sctx.arc(Math.random()*96, Math.random()*96, 0.9, 0, Math.PI*2); sctx.fill();
+  }
+  Textures.skin = ctx.createPattern(sc, 'repeat');
+
+  // Подкожно-жировая клетчатка
+  const fc = document.createElement('canvas'); fc.width = 64; fc.height = 64;
+  const fctx = fc.getContext('2d');
+  fctx.fillStyle = '#eab308'; fctx.fillRect(0, 0, 64, 64);
+  for (let i = 0; i < 26; i++) {
+    fctx.fillStyle = i % 2 ? '#fef08a' : '#ca8a04';
+    fctx.beginPath(); fctx.arc(Math.random()*64, Math.random()*64, 4 + Math.random()*4, 0, Math.PI*2); fctx.fill();
+  }
+  Textures.fat = ctx.createPattern(fc, 'repeat');
+
+  // Стерильная простыня
+  const dc = document.createElement('canvas'); dc.width = 48; dc.height = 48;
+  const dctx = dc.getContext('2d');
+  dctx.fillStyle = '#082f3a'; dctx.fillRect(0, 0, 48, 48);
+  dctx.strokeStyle = 'rgba(45,212,191,0.09)';
+  for (let i = 0; i < 48; i += 4) {
+    dctx.beginPath(); dctx.moveTo(i, 0); dctx.lineTo(i, 48); dctx.stroke();
+    dctx.beginPath(); dctx.moveTo(0, i); dctx.lineTo(48, i); dctx.stroke();
+  }
+  Textures.drape = ctx.createPattern(dc, 'repeat');
+
+  // Серозная оболочка кишки
+  const bc = document.createElement('canvas'); bc.width = 96; bc.height = 96;
+  const bctx = bc.getContext('2d');
+  bctx.fillStyle = '#f29b9b'; bctx.fillRect(0, 0, 96, 96);
+  bctx.strokeStyle = 'rgba(190,18,60,0.3)'; bctx.lineWidth = 1.2;
+  for (let i = 0; i < 10; i++) {
+    const x = Math.random()*96, y = Math.random()*96;
+    bctx.beginPath(); bctx.moveTo(x, y); bctx.quadraticCurveTo(x+20, y-12, x+40, y+10); bctx.stroke();
+  }
+  Textures.bowel = ctx.createPattern(bc, 'repeat');
+}
+
+/**
+ * ============================================================================
+ * 4.1. АНАТОМИЧЕСКИЕ ВЕКТОРНЫЕ ОТРИСОВКИ РУК, ПЕРЧАТОК, КОНЕЧНОСТЕЙ И ТОРСА
+ * ============================================================================
+ */
+function drawAnatomicHand(ctx, cx, cy, scale, isRight, gloveProgress, germsAlpha) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  if (isRight) ctx.scale(-1, 1);
+
+  const traceHandPath = () => {
+    ctx.beginPath();
+    // Предплечье и запястье
+    ctx.moveTo(-26 * scale, 135 * scale);
+    ctx.lineTo(-24 * scale, 48 * scale);
+    // Большой палец (отведён влево для левой кисти)
+    ctx.quadraticCurveTo(-48 * scale, 35 * scale, -64 * scale, 8 * scale);
+    ctx.arc(-57 * scale, 3 * scale, 8 * scale, Math.PI * 0.9, -Math.PI * 0.15, false);
+    ctx.quadraticCurveTo(-40 * scale, 18 * scale, -32 * scale, 12 * scale);
+    // Указательный палец
+    ctx.lineTo(-32 * scale, -62 * scale);
+    ctx.arc(-24 * scale, -62 * scale, 8 * scale, Math.PI, 0, false);
+    ctx.lineTo(-16 * scale, -14 * scale);
+    // Средний палец
+    ctx.lineTo(-14 * scale, -74 * scale);
+    ctx.arc(-6 * scale, -74 * scale, 8 * scale, Math.PI, 0, false);
+    ctx.lineTo(2 * scale, -14 * scale);
+    // Безымянный палец
+    ctx.lineTo(4 * scale, -66 * scale);
+    ctx.arc(12 * scale, -66 * scale, 7.5 * scale, Math.PI, 0, false);
+    ctx.lineTo(19.5 * scale, -10 * scale);
+    // Мизинец
+    ctx.lineTo(21 * scale, -48 * scale);
+    ctx.arc(27.5 * scale, -48 * scale, 6.5 * scale, Math.PI, 0, false);
+    ctx.lineTo(34 * scale, 35 * scale);
+    // Внешний край ладони и предплечья
+    ctx.quadraticCurveTo(32 * scale, 52 * scale, 26 * scale, 135 * scale);
+    ctx.closePath();
+  };
+
+  // Тень под рукой
+  ctx.save();
+  ctx.translate(6, 10);
+  traceHandPath();
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fill();
+  ctx.restore();
+
+  // Базовая кожа руки
+  traceHandPath();
+  ctx.fillStyle = Textures.skin || '#e6ad8c';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(120, 53, 15, 0.45)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Линии ладони и суставов пальцев
+  ctx.save();
+  traceHandPath();
+  ctx.clip();
+  ctx.strokeStyle = 'rgba(136, 65, 42, 0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-22 * scale, 15 * scale);
+  ctx.quadraticCurveTo(0, 5 * scale, 24 * scale, 22 * scale);
+  ctx.moveTo(-15 * scale, 32 * scale);
+  ctx.quadraticCurveTo(5 * scale, 24 * scale, 20 * scale, 40 * scale);
+  ctx.stroke();
+
+  // Бактериальный налёт (исчезает при обработке антисептиком)
+  if (germsAlpha > 0.02) {
+    ctx.fillStyle = `rgba(34, 197, 94, ${germsAlpha * 0.35})`;
+    ctx.fillRect(-80 * scale, -90 * scale, 140 * scale, 230 * scale);
+    const spots = [[-22,-45],[-6,-55],[12,-48],[26,-32],[-48,4],[-10,12],[10,25],[-15,48],[8,65]];
+    spots.forEach(([sx, sy], idx) => {
+      ctx.fillStyle = `rgba(74, 222, 128, ${germsAlpha * 0.85})`;
+      ctx.beginPath();
+      ctx.arc(sx * scale, sy * scale, (4 + (idx % 3) * 2) * scale, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  // Натягивание стерильной голубой перчатки сверху вниз (от пальцев к запястью)
+  if (gloveProgress > 0.01) {
+    const topY = -85 * scale;
+    const totalH = 225 * scale;
+    const curH = totalH * gloveProgress;
+    const cuffY = topY + curH;
+
+    const grad = ctx.createLinearGradient(-50 * scale, 0, 40 * scale, 0);
+    grad.addColorStop(0, '#0284c7');
+    grad.addColorStop(0.5, '#38bdf8');
+    grad.addColorStop(1, '#0369a1');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-80 * scale, topY, 130 * scale, curH);
+
+    // Вывернутая манжета перчатки (валик в месте натяжения)
+    ctx.fillStyle = '#bae6fd';
+    ctx.strokeStyle = '#0369a1';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(-70 * scale, cuffY - 9 * scale, 115 * scale, 16 * scale, 7 * scale);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.restore();
+}
+
+function drawAnatomicArmBleed(ctx, cx, cy, minD, tourniquetLevel) {
+  ctx.save();
+  // Контур руки на операционном столе
+  ctx.fillStyle = Textures.skin || '#e6ad8c';
+  ctx.strokeStyle = 'rgba(120,53,15,0.45)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - minD * 0.42, cy - minD * 0.13);
+  ctx.quadraticCurveTo(cx, cy - minD * 0.11, cx + minD * 0.35, cy - minD * 0.08);
+  ctx.arc(cx + minD * 0.36, cy, minD * 0.08, -Math.PI/2, Math.PI/2);
+  ctx.quadraticCurveTo(cx, cy + minD * 0.11, cx - minD * 0.42, cy + minD * 0.13);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Магистральная артерия под кожей (пунктир)
+  ctx.strokeStyle = 'rgba(220, 38, 38, 0.35)';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(cx - minD * 0.38, cy);
+  ctx.lineTo(cx + minD * 0.14, cy);
+  ctx.stroke();
+
+  // Рваная артериальная рана на предплечье (справа)
+  const rx = cx + minD * 0.14, ry = cy;
+  ctx.fillStyle = '#7f1d1d';
+  ctx.beginPath();
+  ctx.ellipse(rx, ry, 24, 12, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#dc2626';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Интенсивность кровотечения снижается при затягивании жгута
+  const bleedFactor = Math.max(0, 1 - tourniquetLevel * 1.35);
+  if (bleedFactor > 0.05) {
+    const pulse = 1 + Math.sin(state.animTime * 9) * 0.25;
+    ctx.fillStyle = `rgba(220, 38, 38, ${0.85 * bleedFactor})`;
+    ctx.beginPath();
+    ctx.arc(rx, ry, 18 * bleedFactor * pulse, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Тканевая прокладка и жгут Эсмарха на плече (левее раны)
+  const tx = cx - minD * 0.14;
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(tx - 24, cy - minD * 0.125, 48, minD * 0.25);
+
+  const squeeze = tourniquetLevel * 8;
+  ctx.fillStyle = '#e11d48';
+  ctx.strokeStyle = '#881337';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(tx - 16, cy - minD * 0.12 + squeeze, 32, minD * 0.24 - squeeze * 2, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Бирка для записи времени
+  ctx.fillStyle = '#fef08a';
+  ctx.strokeStyle = '#ca8a04';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(tx - 22, cy - minD * 0.22, 44, 24, 5);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#713f12';
+  ctx.font = 'bold 9px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(state.stepIdx > 0 && state.progress >= 1 ? '14:25 ✓' : 'ВРЕМЯ?', tx, cy - minD * 0.22 + 15);
+  ctx.restore();
+}
+
+function drawTorsoField(ctx, cx, cy, minD) {
+  ctx.save();
+  // Анатомический контур живота / грудной клетки с талией
+  ctx.fillStyle = Textures.skin || '#e6ad8c';
+  ctx.strokeStyle = 'rgba(120,53,15,0.4)';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - minD * 0.34, cy - minD * 0.32);
+  ctx.quadraticCurveTo(cx - minD * 0.28, cy, cx - minD * 0.35, cy + minD * 0.32);
+  ctx.lineTo(cx + minD * 0.35, cy + minD * 0.32);
+  ctx.quadraticCurveTo(cx + minD * 0.28, cy, cx + minD * 0.34, cy - minD * 0.32);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Белая линия живота и пупок для анатомической узнаваемости
+  ctx.strokeStyle = 'rgba(160,90,65,0.22)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - minD * 0.28);
+  ctx.lineTo(cx, cy + minD * 0.28);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(136,65,42,0.35)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + minD * 0.08, 7, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawRealisticToolCursor(ctx, toolId, ix, iy) {
+  ctx.save();
+  ctx.translate(ix, iy);
+  // Мягкая тень инструмента на тканях
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.beginPath();
+  ctx.ellipse(22, 26, 26, 7, 0.72, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (toolId === 'scalpel') {
+    // Брюшистый скальпель с металлическим лезвием
+    ctx.fillStyle = '#475569';
+    ctx.beginPath(); ctx.roundRect(14, 10, 46, 8, 3); ctx.rotate(0.75); ctx.fill();
+    ctx.restore(); ctx.save(); ctx.translate(ix, iy);
+    ctx.fillStyle = '#f8fafc'; ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(14, 2, 18, 14); ctx.lineTo(12, 18); ctx.closePath(); ctx.fill(); ctx.stroke();
+  } else if (toolId === 'gloves') {
+    // Стерильная перчатка в руке
+    ctx.fillStyle = '#38bdf8'; ctx.strokeStyle = '#0284c7'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(-10, -8, 28, 22, 8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#bae6fd'; ctx.fillRect(-10, 6, 28, 6);
+  } else if (toolId === 'antiseptic') {
+    // Флакон с антисептиком и капля геля
+    ctx.fillStyle = '#0284c7'; ctx.beginPath(); ctx.roundRect(4, 4, 22, 32, 6); ctx.fill();
+    ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+  } else if (toolId === 'gauze') {
+    // Марлевый тампон
+    ctx.fillStyle = '#f8fafc'; ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  } else if (toolId === 'needle_holder' || toolId === 'suture_thread') {
+    // Иглодержатель с изогнутой хирургической иглой и нитью
+    ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(6, 6); ctx.lineTo(46, 42); ctx.stroke();
+    ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(-4, -2, 10, -0.4, 2.2); ctx.stroke();
+    ctx.strokeStyle = '#8b5cf6'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-12, 5); ctx.quadraticCurveTo(-24, 20, -10, 34); ctx.stroke();
+  } else {
+    // Бранши пинцета / зажима / ножниц
+    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(44, 34); ctx.moveTo(2, -3); ctx.lineTo(48, 28); ctx.stroke();
+    ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.arc(0, 0, 3.5, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function resizeCanvas() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = wrapper.clientWidth, h = wrapper.clientHeight;
+  canvas.width = Math.max(1, Math.floor(w * dpr));
+  canvas.height = Math.max(1, Math.floor(h * dpr));
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resizeCanvas);
+
+/**
+ * ============================================================================
+ * 5. ИНИЦИАЛИЗАЦИЯ СТОЛИКА ИНСТРУМЕНТОВ И DRAG-AND-DROP (МЫШЬ + ТАЧ + HTML5)
+ * ============================================================================
+ */
+function renderToolsPanel() {
+  const grid = document.getElementById('tools-grid');
+  grid.innerHTML = '';
+  TOOLS.forEach(tool => {
+    const card = document.createElement('div');
+    card.className = 'tool-card bg-slate-800/80 border border-slate-700/80 rounded-xl p-2 flex flex-col items-center text-center cursor-grab active:cursor-grabbing';
+    card.dataset.toolId = tool.id;
+    card.draggable = true;
+    card.innerHTML = `
+      <div class="pointer-events-none">${tool.svg}</div>
+      <div class="text-[10px] sm:text-[11px] font-bold text-slate-100 leading-tight mt-1 pointer-events-none">${tool.name}</div>
+      <div class="text-[9px] text-slate-400 mt-0.5 pointer-events-none">${tool.cat}</div>
+    `;
+
+    // HTML5 Drag & Drop
+    card.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/plain', tool.id);
+      startCustomDrag(tool, e.clientX, e.clientY);
+    });
+    card.addEventListener('dragend', () => endCustomDrag(null, null));
+
+    // Универсальный Pointer Drag + Клик для мобильных и десктопа
+    card.addEventListener('pointerdown', e => {
+      sfx.init();
+      startCustomDrag(tool, e.clientX, e.clientY);
+    });
+
+    grid.appendChild(card);
+  });
+}
+
+const dragGhost = document.getElementById('drag-ghost');
+function startCustomDrag(tool, x, y) {
+  state.draggingToolId = tool.id;
+  document.getElementById('drag-ghost-icon').innerHTML = tool.svg;
+  document.getElementById('drag-ghost-name').textContent = tool.name;
+  dragGhost.style.left = x + 'px';
+  dragGhost.style.top = y + 'px';
+  dragGhost.classList.remove('hidden');
+}
+
+function endCustomDrag(clientX, clientY) {
+  if (!state.draggingToolId) return;
+  const droppedToolId = state.draggingToolId;
+  state.draggingToolId = null;
+  dragGhost.classList.add('hidden');
+
+  if (clientX !== null && clientY !== null) {
+    const rect = wrapper.getBoundingClientRect();
+    const insideCanvas = clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+    if (insideCanvas) {
+      handleToolDropOnField(droppedToolId);
+      return;
+    }
+  }
+  // Если просто кликнули по карточке инструмента — тоже экипируем для удобства
+  handleToolDropOnField(droppedToolId);
+}
+
+window.addEventListener('pointermove', e => {
+  if (state.draggingToolId) {
+    dragGhost.style.left = e.clientX + 'px';
+    dragGhost.style.top = e.clientY + 'px';
+  }
+});
+window.addEventListener('pointerup', e => {
+  if (state.draggingToolId) endCustomDrag(e.clientX, e.clientY);
+});
+wrapper.addEventListener('dragover', e => e.preventDefault());
+wrapper.addEventListener('drop', e => {
+  e.preventDefault();
+  const id = e.dataTransfer.getData('text/plain') || state.draggingToolId;
+  state.draggingToolId = null;
+  dragGhost.classList.add('hidden');
+  if (id) handleToolDropOnField(id);
+});
+
+function handleToolDropOnField(toolId) {
+  const curCase = state.cases[state.caseIdx];
+  if (!curCase) return;
+  const step = curCase.steps[state.stepIdx];
+  const toolObj = TOOLS.find(t => t.id === toolId);
+
+  if (toolId !== step.tool) {
+    state.errors++;
+    state.score = Math.max(0, state.score - 25);
+    state.bpm = Math.min(145, state.bpm + 15);
+    sfx.error();
+    const logEntry = `${curCase.title}: неверно выбран инструмент «${toolObj ? toolObj.name : toolId}»`;
+    if (!state.mistakesLog.includes(logEntry)) state.mistakesLog.push(logEntry);
+    showToast('error', `Неподходящий инструмент: ${toolObj.name}`, 'Оцените этап операции или откройте «Подсказка / Теория» вверху справа.');
+    updateHUD();
+    return;
+  }
+
+  // Верный инструмент!
+  state.selectedTool = toolId;
+  state.phase = 'perform_action';
+  sfx.clink();
+  document.querySelectorAll('.tool-card').forEach(c => {
+    c.classList.toggle('tool-active', c.dataset.toolId === toolId);
+  });
+  showToast('success', `Взят инструмент: ${toolObj.name}`, step.text);
+  updateHUD();
+}
+
+/**
+ * ============================================================================
+ * 6. УПРАВЛЕНИЕ КЕЙСАМИ, ШАГАМИ И HUD
+ * ============================================================================
+ */
+function shuffleArray(arr) {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function initCourse() {
+  state.cases = shuffleArray(CASES_DB);
+  state.caseIdx = 0;
+  state.score = 1000;
+  state.errors = 0;
+  state.mistakesLog = [];
+  document.getElementById('final-modal').classList.add('hidden');
+  loadCase(0);
+}
+
+function loadCase(idx) {
+  state.caseIdx = idx;
+  state.stepIdx = 0;
+  state.particles = [];
+  document.getElementById('case-complete-banner').classList.add('hidden');
+  setupStep(0);
+}
+
+function setupStep(sIdx) {
+  state.stepIdx = sIdx;
+  state.phase = 'select_tool';
+  state.selectedTool = null;
+  state.pointerDown = false;
+  state.progress = 0;
+  state.stepData = { completedZones: [], scrubTrail: [], tension: 0 };
+  document.querySelectorAll('.tool-card').forEach(c => c.classList.remove('tool-active'));
+  updateHUD();
+}
+
+function updateHUD() {
+  const curCase = state.cases[state.caseIdx];
+  if (!curCase) return;
+  const step = curCase.steps[state.stepIdx];
+  document.getElementById('hud-case-num').textContent = `Кейс ${state.caseIdx + 1} / ${state.cases.length}`;
+  document.getElementById('hud-case-title').textContent = curCase.title;
+  document.getElementById('hud-score').textContent = state.score;
+  document.getElementById('hud-errors').textContent = state.errors;
+  document.getElementById('step-badge').textContent = `Этап ${state.stepIdx + 1} из ${curCase.steps.length}`;
+  document.getElementById('step-instruction').textContent = step.text;
+
+  const toolObj = TOOLS.find(t => t.id === state.selectedTool);
+  const badge = document.getElementById('tool-status-badge');
+  if (toolObj) {
+    badge.textContent = `В руке: ${toolObj.name} — выполните действие на поле`;
+    badge.className = 'text-[11px] font-bold text-emerald-400 truncate';
+  } else {
+    badge.textContent = 'Перетащите нужный инструмент со столика на операционное поле';
+    badge.className = 'text-[11px] font-medium text-amber-300 truncate';
+  }
+
+  const pct = Math.round(state.progress * 100);
+  document.getElementById('step-progress-bar').style.width = pct + '%';
+  document.getElementById('step-progress-text').textContent = pct + '%';
+}
+
+function completeStep() {
+  state.pointerDown = false;
+  state.progress = 1;
+  updateHUD();
+  sfx.success();
+
+  const curCase = state.cases[state.caseIdx];
+  if (state.stepIdx + 1 < curCase.steps.length) {
+    showToast('success', 'Этап выполнен!', 'Переходим к следующему этапу алгоритма.');
+    setTimeout(() => setupStep(state.stepIdx + 1), 450);
+  } else {
+    document.getElementById('case-complete-summary').textContent = `Вы успешно выполнили операцию «${curCase.title}» с соблюдением хирургического протокола.`;
+    document.getElementById('case-complete-banner').classList.remove('hidden');
+  }
+}
+
+document.getElementById('btn-next-case').addEventListener('click', () => {
+  if (state.caseIdx + 1 < state.cases.length) {
+    loadCase(state.caseIdx + 1);
+  } else {
+    showFinalScreen();
+  }
+});
+
+function showFinalScreen() {
+  document.getElementById('case-complete-banner').classList.add('hidden');
+  document.getElementById('final-score').textContent = state.score;
+  document.getElementById('final-errors').textContent = state.errors;
+  const grade = state.errors === 0 ? '5 (Блестяще)' : state.errors <= 4 ? '4 (Хорошо)' : '3 (Зачёт)';
+  document.getElementById('final-grade').textContent = grade;
+
+  const list = document.getElementById('final-mistakes-list');
+  if (state.mistakesLog.length === 0) {
+    list.innerHTML = '<div class="bg-emerald-950/40 border border-emerald-700/50 text-emerald-300 p-3 rounded-xl">Ни одной ошибки за всю хирургическую смену! Идеальное знание алгоритмов.</div>';
+  } else {
+    list.innerHTML = state.mistakesLog.map(m => `<div class="bg-rose-950/35 border border-rose-800/50 text-rose-200 p-2.5 rounded-xl">• ${m}</div>`).join('');
+  }
+  document.getElementById('final-modal').classList.remove('hidden');
+}
+
+document.getElementById('btn-restart').addEventListener('click', initCourse);
+
+/**
+ * ============================================================================
+ * 7. МОДАЛЬНОЕ ОКНО «ПОДСКАЗКА / ТЕОРИЯ» И ВСПЛЫВАЮЩИЕ УВЕДОМЛЕНИЯ
+ * ============================================================================
+ */
+let toastTimer = null;
+function showToast(kind, title, msg) {
+  const box = document.getElementById('toast-box');
+  const inner = document.getElementById('toast-inner');
+  const icon = document.getElementById('toast-icon');
+  document.getElementById('toast-title').textContent = title;
+  document.getElementById('toast-msg').textContent = msg;
+
+  if (kind === 'error') {
+    inner.className = 'rounded-xl px-4 py-2.5 shadow-2xl border backdrop-blur-md text-xs sm:text-sm flex items-start gap-2.5 bg-rose-950/90 border-rose-500/60 text-rose-100';
+    icon.textContent = '⚠️';
+  } else if (kind === 'success') {
+    inner.className = 'rounded-xl px-4 py-2.5 shadow-2xl border backdrop-blur-md text-xs sm:text-sm flex items-start gap-2.5 bg-emerald-950/90 border-emerald-500/60 text-emerald-100';
+    icon.textContent = '✅';
+  } else {
+    inner.className = 'rounded-xl px-4 py-2.5 shadow-2xl border backdrop-blur-md text-xs sm:text-sm flex items-start gap-2.5 bg-slate-900/95 border-sky-500/50 text-sky-100';
+    icon.textContent = 'ℹ️';
+  }
+
+  box.classList.remove('opacity-0', '-translate-y-2');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => box.classList.add('opacity-0', '-translate-y-2'), 3400);
+}
+
+function openTheoryModal() {
+  const curCase = state.cases[state.caseIdx];
+  if (!curCase) return;
+  document.getElementById('modal-theory-title').textContent = curCase.title;
+  document.getElementById('modal-theory-text').textContent = curCase.theory;
+  document.getElementById('modal-algorithm-list').innerHTML = curCase.algorithm.map((a, i) => `
+    <li class="flex items-start gap-2.5 bg-slate-800/70 p-2.5 rounded-xl border border-slate-700/60">
+      <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center justify-center text-xs font-bold shrink-0">${i + 1}</span>
+      <span>${a}</span>
+    </li>
+  `).join('');
+  document.getElementById('theory-modal').classList.remove('hidden');
+}
+document.getElementById('btn-theory').addEventListener('click', openTheoryModal);
+document.getElementById('btn-close-theory').addEventListener('click', () => document.getElementById('theory-modal').classList.add('hidden'));
+document.getElementById('btn-close-theory-bottom').addEventListener('click', () => document.getElementById('theory-modal').classList.add('hidden'));
+
+document.getElementById('btn-sound').addEventListener('click', () => {
+  sfx.enabled = !sfx.enabled;
+  if (sfx.enabled) sfx.init();
+  document.getElementById('icon-snd-on').classList.toggle('hidden', !sfx.enabled);
+  document.getElementById('icon-snd-off').classList.toggle('hidden', sfx.enabled);
+});
+
+/**
+ * ============================================================================
+ * 8. ФИЗИЧЕСКИЕ ДЕЙСТВИЯ НА CANVAS (РАЗРЕЗЫ, НАТЯЖЕНИЕ, ЗОНЫ, ОСУШЕНИЕ)
+ * ============================================================================
+ */
+function getNormCoords(clientX, clientY) {
+  const r = wrapper.getBoundingClientRect();
+  return {
+    nx: Math.max(0, Math.min(1, (clientX - r.left) / r.width)),
+    ny: Math.max(0, Math.min(1, (clientY - r.top) / r.height))
+  };
+}
+
+function spawnParticles(nx, ny, color, count = 5) {
+  for (let i = 0; i < count; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const spd = 0.001 + Math.random() * 0.0035;
+    state.particles.push({ x: nx, y: ny, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd, r: 2 + Math.random()*3, alpha: 0.9, color });
+  }
+  if (state.particles.length > 120) state.particles.splice(0, state.particles.length - 120);
+}
+
+canvas.addEventListener('pointerdown', e => {
+  sfx.init();
+  const { nx, ny } = getNormCoords(e.clientX, e.clientY);
+  state.pointer = { nx, ny };
+
+  if (state.phase !== 'perform_action') {
+    showToast('info', 'Сначала возьмите инструмент', 'Перетащите нужный инструмент со столика слева/снизу на операционное поле.');
+    return;
+  }
+
+  state.pointerDown = true;
+  const curCase = state.cases[state.caseIdx];
+  const step = curCase.steps[state.stepIdx];
+
+  // Проверка точечных кликов (zones)
+  if (step.type === 'zones') {
+    const effX = step.inverted ? (1 - nx) : nx;
+    const effY = step.inverted ? (1 - ny) : ny;
+    step.targets.forEach((t, idx) => {
+      if (!state.stepData.completedZones.includes(idx) && Math.hypot(effX - t.x, effY - t.y) < 0.09) {
+        state.stepData.completedZones.push(idx);
+        sfx.clink();
+        if (curCase.id === 13) spawnParticles(t.x, t.y, '#fbbf24', 8); // коагуляция в лапароскопии
+        state.progress = state.stepData.completedZones.length / step.targets.length;
+        updateHUD();
+        if (state.progress >= 1) completeStep();
+      }
+    });
+  }
+});
+
+canvas.addEventListener('pointermove', e => {
+  const { nx, ny } = getNormCoords(e.clientX, e.clientY);
+  state.pointer = { nx, ny };
+  if (!state.pointerDown || state.phase !== 'perform_action') return;
+
+  const curCase = state.cases[state.caseIdx];
+  const step = curCase.steps[state.stepIdx];
+
+  // 1. Проведение линии (разрез, антисептик, непрерывный шов)
+  if (step.type === 'line') {
+    const { p1, p2 } = step;
+    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+    const lenSq = dx*dx + dy*dy;
+    const t = Math.max(0, Math.min(1, ((nx - p1.x)*dx + (ny - p1.y)*dy) / lenSq));
+    const px = p1.x + t*dx, py = p1.y + t*dy;
+    if (Math.hypot(nx - px, ny - py) < 0.08 && t > state.progress && t - state.progress < 0.25) {
+      state.progress = t;
+      if (state.selectedTool === 'scalpel') {
+        spawnParticles(px, py, '#dc2626', 2);
+        if (Math.random() < 0.25) sfx.slice();
+      } else if (state.selectedTool === 'antiseptic') {
+        spawnParticles(px, py, 'rgba(217,119,6,0.65)', 2);
+      }
+      updateHUD();
+      if (state.progress >= 0.96) completeStep();
+    }
+  }
+
+  // 2. Осушение / промывание / ревизия (scrub)
+  if (step.type === 'scrub') {
+    if (Math.hypot(nx - step.center.x, ny - step.center.y) <= step.radius * 1.25) {
+      state.stepData.scrubTrail.push({ x: nx, y: ny });
+      if (state.stepData.scrubTrail.length > 45) state.stepData.scrubTrail.shift();
+      if (curCase.id === 12) spawnParticles(nx, ny, '#fef08a', 2); // гнойный экссудат
+      state.progress = Math.min(1, state.progress + 0.022);
+      updateHUD();
+      if (state.progress >= 1) completeStep();
+    }
+  }
+});
+
+window.addEventListener('pointerup', () => {
+  if (!state.pointerDown) return;
+  state.pointerDown = false;
+  if (state.phase !== 'perform_action') return;
+
+  const curCase = state.cases[state.caseIdx];
+  const step = curCase.steps[state.stepIdx];
+
+  // Завершение удержания натяжения при отпускании кнопки
+  if (step.type === 'tension') {
+    const v = state.stepData.tension;
+    if (v >= step.optMin && v <= step.optMax) {
+      completeStep();
+    } else if (v > step.optMax && step.failOver) {
+      state.errors++;
+      state.score = Math.max(0, state.score - 25);
+      sfx.error();
+      state.mistakesLog.push(`${curCase.title}: чрезмерное натяжение (риск некроза/прорезывания)`);
+      showToast('error', 'Перетяжка! Риск некроза или разрыва', 'Отпустите кнопку, когда индикатор находится в ЗЕЛЁНОЙ зоне.');
+      state.stepData.tension = 0;
+      state.progress = 0;
+      updateHUD();
+    } else {
+      showToast('info', 'Недостаточное натяжение', 'Удерживайте кнопку мыши/палец до попадания бегунка в зелёную зону.');
+      state.stepData.tension = 0;
+      state.progress = 0;
+      updateHUD();
+    }
+  }
+});
+
+/**
+ * ============================================================================
+ * 9. ОТРИСОВКА ОПЕРАЦИОННОЙ СЦЕНЫ, ТКАНЕЙ, ЭКГ И ИНСТРУМЕНТА В КУРСОРЕ
+ * ============================================================================
+ */
+function updateECG() {
+  const curCase = state.cases[state.caseIdx];
+  const isBleed = curCase && (curCase.id === 4 || curCase.id === 5) && state.stepIdx === 0;
+  const targetBpm = isBleed ? 122 : 74;
+  state.bpm += (targetBpm - state.bpm) * 0.03;
+  const dispBpm = Math.round(state.bpm);
+  document.getElementById('hud-bpm').textContent = dispBpm;
+  document.getElementById('hud-spo2').textContent = isBleed ? '95%' : '99%';
+
+  const interval = 60 / state.bpm;
+  state.ecgPhase += 0.016;
+  const t = state.ecgPhase % interval;
+  let v = 0.5;
+  if (t < 0.04) v = 0.42;
+  else if (t < 0.08) v = 0.55;
+  else if (t < 0.11) v = 0.08;
+  else if (t < 0.15) v = 0.85;
+  else if (t < 0.22) v = 0.35;
+
+  state.ecgHist.push(v);
+  if (state.ecgHist.length > 84) state.ecgHist.shift();
+  ecgCtx.clearRect(0, 0, 84, 28);
+  ecgCtx.strokeStyle = dispBpm > 100 ? '#fb7185' : '#34d399';
+  ecgCtx.lineWidth = 1.6;
+  ecgCtx.beginPath();
+  state.ecgHist.forEach((val, i) => {
+    const y = val * 24 + 2;
+    i === 0 ? ecgCtx.moveTo(i, y) : ecgCtx.lineTo(i, y);
+  });
+  ecgCtx.stroke();
+}
+
+function drawScene() {
+  state.animTime += 0.03;
+  const w = wrapper.clientWidth, h = wrapper.clientHeight;
+  ctx.clearRect(0, 0, w, h);
+
+  // Фон стерильного операционного стола + свет бестеневой лампы
+  ctx.fillStyle = Textures.drape || '#082f3a';
+  ctx.fillRect(0, 0, w, h);
+  const lamp = ctx.createRadialGradient(w*0.5, h*0.5, w*0.05, w*0.5, h*0.5, w*0.65);
+  lamp.addColorStop(0, 'rgba(255,255,255,0.08)');
+  lamp.addColorStop(1, 'rgba(2,6,23,0.68)');
+  ctx.fillStyle = lamp;
+  ctx.fillRect(0, 0, w, h);
+
+  updateECG();
+
+  const curCase = state.cases[state.caseIdx];
+  if (!curCase) { requestAnimationFrame(drawScene); return; }
+  const step = curCase.steps[state.stepIdx];
+
+  // Обновление шкалы натяжения при удержании
+  if (state.pointerDown && state.phase === 'perform_action' && step.type === 'tension') {
+    state.stepData.tension = Math.min(1, state.stepData.tension + 0.014);
+    state.progress = state.stepData.tension;
+    updateHUD();
+  }
+
+  const cx = w * 0.5, cy = h * 0.5, minD = Math.min(w, h);
+
+  // Отрисовка анатомического объекта под текущий кейс
+  if (curCase.id === 1) {
+    // Реалистичные анатомические кисти рук с пальцами и поэтапным натягиванием перчаток
+    const handScale = Math.min(w, h) / 360;
+    const germsAlpha = state.stepIdx === 0 ? Math.max(0, 1 - state.progress) : 0;
+    const leftGlove = state.stepIdx === 1 ? state.progress : (state.stepIdx > 1 ? 1 : 0);
+    const rightGlove = state.stepIdx === 2 ? state.progress : (state.stepIdx > 2 ? 1 : 0);
+
+    drawAnatomicHand(ctx, w * 0.35, h * 0.52, handScale, false, leftGlove, germsAlpha);
+    drawAnatomicHand(ctx, w * 0.65, h * 0.52, handScale, true, rightGlove, germsAlpha);
+
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = 'bold 11px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('ЛЕВАЯ КИСТЬ', w * 0.35, h * 0.90);
+    ctx.fillText('ПРАВАЯ КИСТЬ', w * 0.65, h * 0.90);
+  } else if (curCase.id === 5) {
+    // Анатомическая рука с артериальным кровотечением и жгутом Эсмарха
+    const tLevel = state.stepIdx === 0 ? state.stepData.tension : 0.75;
+    drawAnatomicArmBleed(ctx, cx, cy, minD, tLevel);
+  } else if (curCase.id === 6) {
+    // Крупный план нежных тканей с перекрещенными синей и белой хирургическими нитями
+    drawTorsoField(ctx, cx, cy, minD);
+    const pull = state.stepData.tension * 45;
+    ctx.fillStyle = Textures.fat || '#ca8a04';
+    ctx.beginPath(); ctx.ellipse(cx, cy, minD * 0.24, Math.max(8, 36 - pull * 0.6), 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#be123c'; ctx.lineWidth = 3; ctx.stroke();
+
+    // Синяя и белая нити хирургического узла
+    ctx.lineWidth = 4.5; ctx.lineCap = 'round';
+    ctx.strokeStyle = '#38bdf8';
+    ctx.beginPath(); ctx.moveTo(cx - 110 - pull, cy - 35); ctx.quadraticCurveTo(cx, cy + 12, cx + 110 + pull, cy + 35); ctx.stroke();
+    ctx.strokeStyle = '#f8fafc';
+    ctx.beginPath(); ctx.moveTo(cx + 110 + pull, cy - 35); ctx.quadraticCurveTo(cx, cy - 12, cx - 110 - pull, cy + 35); ctx.stroke();
+    // Узел в центре
+    ctx.fillStyle = '#a78bfa'; ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2); ctx.fill();
+  } else if (curCase.id === 9) {
+    // Реалистичный купол слепой кишки с мышечными лентами (taeniae) и сосудами
+    ctx.fillStyle = Textures.bowel || '#f29b9b';
+    ctx.beginPath(); ctx.arc(cx, cy, minD*0.30, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#be123c'; ctx.lineWidth = 3.5; ctx.stroke();
+    // Мышечные ленты слепой кишки
+    ctx.strokeStyle = 'rgba(255,228,230,0.45)'; ctx.lineWidth = 10;
+    ctx.beginPath(); ctx.arc(cx, cy, minD*0.24, -0.8, 0.8); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, minD*0.24, 2.3, 3.9); ctx.stroke();
+
+    const rStump = state.stepIdx === 1 ? Math.max(4, 24*(1-state.progress)) : (state.stepIdx > 1 ? 4 : 24);
+    ctx.fillStyle = '#881337'; ctx.beginPath(); ctx.arc(cx, cy, rStump, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fda4af'; ctx.lineWidth = 2; ctx.stroke();
+  } else if (curCase.id === 13) {
+    // Монитор лапароскопии (брюшная полость в круге)
+    ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(cx, cy, minD*0.40, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 4; ctx.stroke();
+    ctx.fillStyle = 'rgba(244,63,94,0.28)'; ctx.beginPath(); ctx.arc(cx, cy, minD*0.34, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#38bdf8'; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('ЭНДОВИДЕОМОНИТОР (ОСИ ИНВЕРТИРОВАНЫ)', cx, cy - minD * 0.43);
+  } else {
+    // Анатомический торс/живот пациента вместо прямоугольника
+    drawTorsoField(ctx, cx, cy, minD);
+
+    // Изображение раны / полости / сосуда по контексту кейса
+    if ([3,4,7,8,10,11,12,14,15].includes(curCase.id)) {
+      const openFactor = (curCase.id === 3 && state.stepIdx === 0) ? state.progress :
+                         ([7,8].includes(curCase.id) && state.stepIdx > 0) ? 0.12 : 1;
+      if (openFactor > 0.02) {
+        ctx.fillStyle = curCase.id === 12 ? '#fef08a' : (Textures.fat || '#ca8a04');
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, w*0.21, 34 * openFactor, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle = '#9f1239'; ctx.lineWidth = 3; ctx.stroke();
+      }
+      // Кровоточащий сосуд в кейсе 4
+      if (curCase.id === 4) {
+        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.moveTo(cx - minD*0.18, cy); ctx.lineTo(cx, cy); ctx.stroke();
+        if (state.stepIdx === 0) {
+          ctx.fillStyle = `rgba(185,28,28,${Math.max(0.1, 0.9 - state.progress*0.85)})`;
+          ctx.beginPath(); ctx.arc(cx, cy, minD*0.15, 0, Math.PI*2); ctx.fill();
+        }
+      }
+      // Рубец и узел при снятии швов в кейсе 10
+      if (curCase.id === 10) {
+        const lift = state.stepIdx === 1 ? state.stepData.tension * 34 : (state.stepIdx === 2 ? 34 : 0);
+        ctx.strokeStyle = '#9f1239'; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(w*0.3, cy); ctx.lineTo(w*0.7, cy); ctx.stroke();
+        // Белая стерильная подкожная часть нити при подтягивании
+        if (lift > 4) {
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3.5;
+          ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - lift * 0.55); ctx.stroke();
+        }
+        // Тёмная наружная часть нити и узелок
+        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 3.5;
+        ctx.beginPath(); ctx.moveTo(cx, cy - lift * 0.55); ctx.lineTo(cx, cy - lift - 10); ctx.stroke();
+        ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.arc(cx, cy - lift - 10, 5, 0, Math.PI * 2); ctx.fill();
+      }
+      // Сосуд и апоневроз в кейсе 14
+      if (curCase.id === 14) {
+        ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 10;
+        ctx.beginPath(); ctx.moveTo(w*0.36, cy-42); ctx.lineTo(w*0.36, cy+42); ctx.stroke();
+        ctx.fillStyle = '#f1f5f9'; ctx.beginPath(); ctx.roundRect(w*0.60, cy-38, 32, 76, 6); ctx.fill();
+      }
+      // Забытая салфетка в кейсе 15
+      if (curCase.id === 15 && state.stepIdx === 1) {
+        ctx.fillStyle = '#f8fafc'; ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.roundRect(w*0.49, h*0.51, 38, 28, 6); ctx.fill(); ctx.stroke();
+      }
+    }
+    // Накрытые стерильные пелёнки в кейсе 2
+    if (curCase.id === 2) {
+      const done = state.stepData.completedZones.length;
+      ctx.fillStyle = 'rgba(13,148,136,0.92)';
+      if (done >= 1) ctx.fillRect(cx - minD*0.36, cy - minD*0.32, minD*0.72, minD*0.18);
+      if (done >= 2) ctx.fillRect(cx - minD*0.36, cy + minD*0.14, minD*0.72, minD*0.18);
+      if (done >= 3) ctx.fillRect(cx - minD*0.36, cy - minD*0.14, minD*0.20, minD*0.28);
+      if (done >= 4) ctx.fillRect(cx + minD*0.16, cy - minD*0.14, minD*0.20, minD*0.28);
+    }
+  }
+
+  // Отрисовка частиц крови / гноя / антисептика
+  for (let i = state.particles.length - 1; i >= 0; i--) {
+    const p = state.particles[i];
+    p.x += p.vx; p.y += p.vy; p.alpha -= 0.015;
+    if (p.alpha <= 0) { state.particles.splice(i, 1); continue; }
+    ctx.save(); ctx.globalAlpha = p.alpha; ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(w*p.x, h*p.y, p.r, 0, Math.PI*2); ctx.fill(); ctx.restore();
+  }
+
+  // Интерактивные подсказки-ориентиры на поле (когда инструмент взят)
+  if (state.phase === 'perform_action') {
+    if (step.type === 'line') {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(56,189,248,0.9)'; ctx.lineWidth = 3.5; ctx.setLineDash([8,6]);
+      ctx.beginPath(); ctx.moveTo(w*step.p1.x, h*step.p1.y); ctx.lineTo(w*step.p2.x, h*step.p2.y); ctx.stroke();
+      ctx.setLineDash([]);
+      // Пульсирующая стартовая точка
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath(); ctx.arc(w*step.p1.x, h*step.p1.y, 9 + Math.sin(state.animTime*5)*2, 0, Math.PI*2); ctx.fill();
+      // Пройденная часть траектории
+      ctx.strokeStyle = '#10b981'; ctx.lineWidth = 4.5;
+      ctx.beginPath(); ctx.moveTo(w*step.p1.x, h*step.p1.y);
+      ctx.lineTo(w*(step.p1.x + (step.p2.x-step.p1.x)*state.progress), h*(step.p1.y + (step.p2.y-step.p1.y)*state.progress));
+      ctx.stroke();
+      if (step.hintLabel) {
+        ctx.fillStyle = '#e0f2fe'; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(step.hintLabel, w*(step.p1.x+step.p2.x)/2, h*Math.min(step.p1.y, step.p2.y) - 14);
+      }
+      ctx.restore();
+    } else if (step.type === 'zones') {
+      step.targets.forEach((t, idx) => {
+        const done = state.stepData.completedZones.includes(idx);
+        const pulse = 16 + Math.sin(state.animTime*4)*3;
+        ctx.beginPath(); ctx.arc(w*t.x, h*t.y, done ? 12 : pulse, 0, Math.PI*2);
+        ctx.fillStyle = done ? 'rgba(16,185,129,0.85)' : 'rgba(56,189,248,0.32)'; ctx.fill();
+        ctx.strokeStyle = done ? '#34d399' : '#38bdf8'; ctx.lineWidth = 2.5; ctx.stroke();
+        if (!done && step.hintLabel && idx === state.stepData.completedZones.length) {
+          ctx.fillStyle = '#e0f2fe'; ctx.font = 'bold 10px Inter, sans-serif'; ctx.textAlign = 'center';
+          ctx.fillText(step.hintLabel, w*t.x, h*t.y - pulse - 6);
+        }
+      });
+    } else if (step.type === 'scrub') {
+      ctx.beginPath(); ctx.arc(w*step.center.x, h*step.center.y, minD*step.radius, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(56,189,248,0.85)'; ctx.setLineDash([6,6]); ctx.lineWidth = 2.5; ctx.stroke(); ctx.setLineDash([]);
+      if (step.hintLabel) {
+        ctx.fillStyle = '#e0f2fe'; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(step.hintLabel, w*step.center.x, h*step.center.y - minD*step.radius - 10);
+      }
+    } else if (step.type === 'tension') {
+      // Шкала дозированного натяжения (зелёная и красная зоны)
+      const bw = Math.min(280, w*0.65), bh = 22, bx = cx - bw/2, by = h - 54;
+      ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 11); ctx.fill();
+      ctx.strokeStyle = '#475569'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = '#10b981';
+      ctx.fillRect(bx + bw*step.optMin, by+2, bw*(step.optMax - step.optMin), bh-4);
+      if (step.failOver) {
+        ctx.fillStyle = '#ef4444';
+        ctx.fillRect(bx + bw*step.optMax, by+2, bw*(1 - step.optMax)-2, bh-4);
+      }
+      const curX = bx + bw * state.stepData.tension;
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(curX - 3, by - 4, 6, bh + 8);
+      ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Удерживайте нажатие на поле и отпустите в ЗЕЛЁНОЙ зоне', cx, by - 10);
+    }
+
+    // Отрисовка реалистичного инструмента в курсоре (в лапароскопии инвертирован)
+    const ix = step.inverted ? w*(1 - state.pointer.nx) : w*state.pointer.nx;
+    const iy = step.inverted ? h*(1 - state.pointer.ny) : h*state.pointer.ny;
+    drawRealisticToolCursor(ctx, state.selectedTool, ix, iy);
+  }
+
+  requestAnimationFrame(drawScene);
+}
+
+// Старт симулятора
+window.addEventListener('DOMContentLoaded', () => {
+  resizeCanvas();
+  buildTextures();
+  renderToolsPanel();
+  initCourse();
+  requestAnimationFrame(drawScene);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,2558 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Кабинет Лучевой Диагностики 3D — Интерактивный симулятор</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+    body, html {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      overflow: hidden; background-color: #060b14;
+      font-family: 'Inter', sans-serif; color: #e2e8f0;
+    }
+    .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
+    
+    /* Стеклянные панели HUD */
+    .glass-panel {
+      background: rgba(10, 18, 32, 0.82);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(56, 189, 248, 0.22);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .glass-card {
+      background: rgba(15, 27, 46, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+    }
+
+    /* Кастомный скроллбар для карточек */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.4); }
+    ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.35); border-radius: 99px; }
+
+    /* Эффект рентген-вспышки */
+    @keyframes xrayFlashAnim {
+      0% { opacity: 0.92; }
+      100% { opacity: 0; }
+    }
+    .xray-flash {
+      animation: xrayFlashAnim 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Пульсация индикатора записи/сканирования */
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 8px rgba(34, 211, 238, 0.4); }
+      50% { box-shadow: 0 0 18px rgba(34, 211, 238, 0.85); }
+    }
+    .active-tool-glow { animation: pulseGlow 2.2s infinite; }
+
+    /* Стили для диагностического экрана */
+    .monitor-scanlines {
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.22) 50%),
+                  linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+      background-size: 100% 3px, 6px 100%;
+      pointer-events: none;
+    }
+  </style>
+  <!-- Import Map для Three.js -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.160.0",
+        "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- 3D Вьюпорт -->
+  <div id="canvas-container" class="fixed inset-0 w-full h-full z-0"></div>
+
+  <!-- Вспышка при рентген-снимке -->
+  <div id="xray-flash-overlay" class="fixed inset-0 bg-cyan-100 pointer-events-none opacity-0 z-40"></div>
+
+  <!-- Всплывающее уведомление (вместо alert) -->
+  <div id="toast-box" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 opacity-0 pointer-events-none transform -translate-y-3">
+    <div id="toast-content" class="glass-panel px-4 py-2.5 rounded-xl text-sm font-medium text-cyan-200 border-cyan-400/50 flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+      <span id="toast-text">Сообщение</span>
+    </div>
+  </div>
+
+  <!-- ВЕРХНЯЯ ПАНЕЛЬ СТАТУСА (HUD TOP) -->
+  <header class="fixed top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+    <!-- Логотип и прогресс -->
+    <div class="glass-panel rounded-2xl px-4 py-2.5 flex items-center gap-3 pointer-events-auto">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/25">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm sm:text-base font-bold tracking-tight text-white">Кабинет Лучевой Диагностики 3D</h1>
+          <span class="hidden md:inline-block text-[10px] font-mono-tech uppercase px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">8–11 класс</span>
+        </div>
+        <div class="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+          <span>Кейс: <strong id="hud-case-num" class="text-cyan-300 font-mono-tech">1 / 15</strong></span>
+          <span>•</span>
+          <span>Верно: <strong id="hud-score" class="text-emerald-400 font-mono-tech">0</strong></span>
+          <span>•</span>
+          <span title="Принцип ALARA: минимизация лучевой нагрузки">Доза: <strong id="hud-dose" class="text-amber-300 font-mono-tech">0.00 мЗв</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Переключатели режима обучения, звука и камеры -->
+    <div class="glass-panel rounded-2xl p-1.5 flex items-center gap-1.5 pointer-events-auto">
+      <button id="btn-edu-toggle" class="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition bg-amber-500/20 text-amber-200 border border-amber-400/40 hover:bg-amber-500/30" title="Включить или выключить разметку симптомов на снимке">
+        <svg class="w-4 h-4 text-amber-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+        </svg>
+        <span>Режим обучения: <strong id="edu-status-text">ВКЛ</strong></span>
+      </button>
+
+      <button id="btn-physics-hint" class="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition bg-sky-500/15 text-sky-200 border border-sky-400/30 hover:bg-sky-500/25">
+        <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+        </svg>
+        <span class="hidden sm:inline">Физика и выбор метода</span>
+        <span class="sm:hidden">Подсказка</span>
+      </button>
+
+      <button id="btn-reset-cam" class="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition" title="Сбросить ракурс 3D-камеры">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+        </svg>
+      </button>
+
+      <button id="btn-mute" class="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition" title="Звуковые эффекты">
+        <svg id="icon-sound-on" class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+        </svg>
+        <svg id="icon-sound-off" class="w-4 h-4 text-slate-500 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ЛЕВАЯ ПАНЕЛЬ: КАРТА ПАЦИЕНТА И ИНСТРУМЕНТЫ ДИАГНОСТИКИ -->
+  <aside class="fixed left-3 top-20 bottom-3 w-80 sm:w-88 max-w-[calc(100vw-24px)] z-20 flex flex-col gap-2.5 pointer-events-none">
+    
+    <!-- Карточка анамнеза пациента -->
+    <div class="glass-panel rounded-2xl p-3.5 pointer-events-auto flex-shrink-0">
+      <div class="flex items-center justify-between mb-1.5">
+        <span id="case-category-badge" class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30">
+          Органы грудной клетки
+        </span>
+        <span id="case-patient-meta" class="text-xs font-mono-tech text-slate-400">Мужчина, 58 лет</span>
+      </div>
+      <h2 id="case-title-short" class="text-sm font-bold text-white mb-1">Жалобы и история болезни:</h2>
+      <p id="case-anamnesis" class="text-xs sm:text-[13px] leading-relaxed text-slate-300">
+        Загрузка клинического случая...
+      </p>
+    </div>
+
+    <!-- Панель выбора диагностического аппарата и параметров -->
+    <div class="glass-panel rounded-2xl p-3.5 pointer-events-auto flex flex-col gap-2.5">
+      <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+        <span>1. Выберите аппарат (Клавиши 1 / 2)</span>
+        <span id="active-zone-label" class="text-cyan-400 font-mono-tech">Зона: Грудь</span>
+      </div>
+
+      <!-- Кнопки выбора: Рентген или УЗИ -->
+      <div class="grid grid-cols-2 gap-2">
+        <button id="tool-xray" class="tool-btn active-tool-glow p-2.5 rounded-xl border border-cyan-400 bg-cyan-500/20 text-left transition flex flex-col gap-1">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-white">Рентген-экран</span>
+            <span class="text-[10px] font-mono-tech px-1.5 py-0.5 rounded bg-cyan-500/30 text-cyan-200">[1]</span>
+          </div>
+          <span class="text-[11px] text-cyan-200/80">Кассета + излучатель</span>
+        </button>
+
+        <button id="tool-us" class="tool-btn p-2.5 rounded-xl border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-left transition flex flex-col gap-1">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-200">УЗИ-датчик</span>
+            <span class="text-[10px] font-mono-tech px-1.5 py-0.5 rounded bg-slate-700 text-slate-300">[2]</span>
+          </div>
+          <span class="text-[11px] text-slate-400">Сканер в реальном времени</span>
+        </button>
+      </div>
+
+      <!-- Специальные настройки исследования -->
+      <div class="glass-card rounded-xl p-2.5 flex flex-col gap-2">
+        <!-- Положение пациента (Лежа / Стоя) -->
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-xs text-slate-300 font-medium">Положение тела:</span>
+          <div class="inline-flex rounded-lg bg-slate-900/90 p-0.5 border border-slate-700/80">
+            <button id="pos-supine" class="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-cyan-500/30 text-cyan-200 transition">Лёжа</button>
+            <button id="pos-upright" class="px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-white transition">Стоя</button>
+          </div>
+        </div>
+
+        <!-- Настройка Рентгена: Контраст -->
+        <div id="xray-controls-row" class="flex items-center justify-between gap-2">
+          <span class="text-xs text-slate-300 font-medium">Контрастирование:</span>
+          <div class="inline-flex rounded-lg bg-slate-900/90 p-0.5 border border-slate-700/80">
+            <button id="contrast-none" class="px-2 py-1 rounded-md text-[11px] font-semibold bg-cyan-500/30 text-cyan-200 transition">Без контраста</button>
+            <button id="contrast-yes" class="px-2 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-white transition">С контрастом</button>
+          </div>
+        </div>
+
+        <!-- Настройка УЗИ: Допплер ЦДК -->
+        <div id="us-controls-row" class="hidden flex items-center justify-between gap-2">
+          <span class="text-xs text-slate-300 font-medium">Режим ЦДК (кровоток):</span>
+          <button id="toggle-doppler" class="px-3 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-600 hover:border-rose-400 transition">
+            ЦДК: ВЫКЛ
+          </button>
+        </div>
+      </div>
+
+      <!-- Кнопка действия для Рентгена или инструкция для УЗИ -->
+      <button id="btn-shoot-xray" class="w-full py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm text-slate-950 bg-gradient-to-r from-cyan-400 to-sky-400 hover:from-cyan-300 hover:to-sky-300 shadow-lg shadow-cyan-500/25 transition flex items-center justify-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+        <span>Сделать рентген-снимок (или клик по телу)</span>
+      </button>
+
+      <div id="us-live-hint" class="hidden text-[11px] text-cyan-300 bg-cyan-950/50 border border-cyan-500/30 rounded-xl px-3 py-2 text-center">
+        Водите курсором (или пальцем) по телу пациента в 3D, чтобы сканировать органы УЗИ-датчиком
+      </div>
+    </div>
+
+    <!-- Блок постановки диагноза (Варианты ответа) -->
+    <div class="glass-panel rounded-2xl p-3.5 pointer-events-auto flex-1 overflow-y-auto flex flex-col justify-between">
+      <div>
+        <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+          2. Поставьте дифференциальный диагноз:
+        </div>
+        <div id="diagnosis-options" class="flex flex-col gap-1.5">
+          <!-- Генерируется через JS -->
+        </div>
+      </div>
+      <div class="mt-2 pt-2 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+        <span>ЛКМ по телу — скан • ПКМ / колесо — обзор 3D</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ПРАВАЯ ПАНЕЛЬ: ДИАГНОСТИЧЕСКИЙ МОНИТОР (РЕНТГЕН / УЗИ ЭКРАН) -->
+  <section class="fixed right-3 top-20 w-80 sm:w-[410px] max-w-[calc(100vw-24px)] z-20 glass-panel rounded-2xl p-3.5 flex flex-col gap-2.5 pointer-events-auto">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span id="monitor-led" class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+        <h3 id="monitor-title" class="text-xs sm:text-sm font-bold tracking-wide text-white uppercase">Монитор Рентгенографии</h3>
+      </div>
+      <span id="monitor-badge" class="text-[10px] font-mono-tech px-2 py-0.5 rounded bg-slate-800 text-cyan-300 border border-cyan-500/30">
+        ОЖИДАНИЕ СНИМКА
+      </span>
+    </div>
+
+    <!-- Канвас медицинской визуализации -->
+    <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-black border border-slate-700/90 shadow-inner">
+      <canvas id="diag-canvas" class="w-full h-full block"></canvas>
+      <div class="monitor-scanlines absolute inset-0"></div>
+
+      <!-- Телеметрия в углах монитора -->
+      <div class="absolute top-2 left-2.5 text-[10px] font-mono-tech text-cyan-300/85 leading-tight pointer-events-none">
+        <div id="telemetry-mode">MODALITY: DR X-RAY</div>
+        <div id="telemetry-zone">REGION: THORAX AP</div>
+      </div>
+      <div class="absolute top-2 right-2.5 text-[10px] font-mono-tech text-right text-cyan-300/85 leading-tight pointer-events-none">
+        <div id="telemetry-pos">POS: SUPINE (ЛЁЖА)</div>
+        <div id="telemetry-extra">CONTRAST: NONE</div>
+      </div>
+      <div class="absolute bottom-2 left-2.5 right-2.5 flex justify-between text-[10px] font-mono-tech text-slate-400 pointer-events-none">
+        <span id="telemetry-coords">X: 0.00 | Y: 0.00</span>
+        <span id="telemetry-fps">60 FPS • DICOM-SIM</span>
+      </div>
+    </div>
+
+    <!-- Кнопка быстрого разбора / легенда симптомов в режиме обучения -->
+    <div id="edu-live-box" class="glass-card rounded-xl p-2.5 text-xs text-slate-300 leading-relaxed">
+      <div class="flex items-center gap-1.5 font-semibold text-amber-300 mb-1">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span>Подсказка лучевой семиотики:</span>
+      </div>
+      <p id="edu-live-text" class="text-[11px] sm:text-xs text-slate-300">
+        Наведите рентген-кассету на нужную область тела и нажмите «Сделать рентген-снимок» или переключитесь на УЗИ-датчик.
+      </p>
+    </div>
+  </section>
+
+  <!-- МОДАЛЬНОЕ ОКНО: РЕЗУЛЬТАТ КЕЙСА И ПОДРОБНЫЙ РАЗБОР ДИФ. ДИАГНОСТИКИ -->
+  <div id="result-modal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center p-4">
+    <div class="glass-panel max-w-2xl w-full rounded-3xl p-5 sm:p-6 border border-cyan-400/40 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div class="flex items-center gap-3">
+          <div id="result-icon-bg" class="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 flex-shrink-0">
+            <svg id="result-icon-ok" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+            </svg>
+            <svg id="result-icon-err" class="w-6 h-6 hidden text-rose-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </div>
+          <div>
+            <span id="result-status-badge" class="text-xs font-bold uppercase tracking-wider text-emerald-400">Диагноз подтверждён!</span>
+            <h2 id="result-correct-name" class="text-lg sm:text-xl font-extrabold text-white mt-0.5">Периферический рак легкого</h2>
+          </div>
+        </div>
+        <span id="result-case-counter" class="text-xs font-mono-tech px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300">1 / 15</span>
+      </div>
+
+      <!-- Блок дифференциальной диагностики (Сравнение двух похожих заболеваний) -->
+      <div class="space-y-3 text-xs sm:text-sm">
+        <div class="glass-card rounded-2xl p-3.5 border-l-4 border-l-emerald-400">
+          <div class="font-bold text-emerald-300 mb-1">Почему это именно данное заболевание (Ключевые симптомы):</div>
+          <p id="result-explanation-correct" class="text-slate-200 leading-relaxed"></p>
+        </div>
+
+        <div class="glass-card rounded-2xl p-3.5 border-l-4 border-l-amber-400">
+          <div class="font-bold text-amber-300 mb-1" id="result-diff-title">Как отличить от главного «двойника»:</div>
+          <p id="result-explanation-diff" class="text-slate-300 leading-relaxed"></p>
+        </div>
+
+        <div class="bg-sky-950/40 border border-sky-500/25 rounded-2xl p-3.5">
+          <div class="font-bold text-sky-300 mb-1 flex items-center gap-1.5">
+            <span>⚛️ Физика метода (Для 8–11 классов):</span>
+          </div>
+          <p id="result-physics-note" class="text-slate-300 leading-relaxed text-xs"></p>
+        </div>
+      </div>
+
+      <div class="mt-5 flex flex-wrap items-center justify-end gap-3">
+        <button id="btn-review-scan" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 transition">
+          Посмотреть снимок с разметкой
+        </button>
+        <button id="btn-next-case" class="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 shadow-lg shadow-cyan-500/25 transition">
+          Следующий пациент →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ФИЗИКА И ПОДСКАЗКА ВЫБОРА МЕТОДА -->
+  <div id="physics-modal" class="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="glass-panel max-w-lg w-full rounded-3xl p-5 sm:p-6 border border-sky-400/40 shadow-2xl">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+          <span class="text-sky-400">🔬</span> Физика и выбор метода диагностики
+        </h3>
+        <button id="btn-close-physics" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10">✕</button>
+      </div>
+      <div class="space-y-3 text-xs sm:text-sm text-slate-300 leading-relaxed">
+        <div class="glass-card rounded-xl p-3">
+          <div class="font-bold text-cyan-300 mb-1">Рекомендация для текущего пациента:</div>
+          <p id="hint-modal-case-advice" class="text-slate-200"></p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+          <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
+            <div class="font-bold text-sky-300 mb-1">☢️ Рентгенография</div>
+            <p class="text-slate-400">Рентгеновские лучи по-разному поглощаются тканями: кости и кальцинаты (Ca) задерживают их (белые тени), воздух в легких пропускает (темные поля). Для полых органов (ЖКТ, почки) применяют <b>контраст</b> (барий, йод).</p>
+          </div>
+          <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700">
+            <div class="font-bold text-emerald-300 mb-1">🔊 УЗИ и Допплер (ЦДК)</div>
+            <p class="text-slate-400">Ультразвук (2–15 МГц) отражается от границ сред. Жидкость (кисты, выпот) не отражает волны (черная), плотные камни дают <b>акустическую тень</b>, а воздух и кости полностью рассеивают волну. ЦДК показывает движение крови.</p>
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 text-right">
+        <button id="btn-close-physics-2" class="px-4 py-2 rounded-xl text-xs font-bold bg-sky-500 text-slate-950 hover:bg-sky-400 transition">Понятно</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО: ИТОГИ ВСЕХ 15 КЕЙСОВ -->
+  <div id="final-modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden items-center justify-center p-4">
+    <div class="glass-panel max-w-lg w-full rounded-3xl p-6 border border-cyan-400/50 text-center shadow-2xl">
+      <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-white text-3xl shadow-lg">
+        🏆
+      </div>
+      <h2 class="text-2xl font-extrabold text-white mb-1">Практика завершена!</h2>
+      <p class="text-sm text-slate-300 mb-4">Вы прошли все 15 клинических случаев по дифференциальной лучевой диагностике.</p>
+      
+      <div class="grid grid-cols-2 gap-3 mb-5">
+        <div class="glass-card rounded-2xl p-3">
+          <div class="text-xs text-slate-400">Точность диагностики</div>
+          <div id="final-score-text" class="text-xl font-extrabold text-emerald-400 font-mono-tech mt-0.5">15 / 15</div>
+        </div>
+        <div class="glass-card rounded-2xl p-3">
+          <div class="text-xs text-slate-400">Суммарная доза (ALARA)</div>
+          <div id="final-dose-text" class="text-xl font-extrabold text-amber-300 font-mono-tech mt-0.5">1.20 мЗв</div>
+        </div>
+      </div>
+
+      <p id="final-rank-comment" class="text-xs sm:text-sm text-cyan-200 bg-cyan-950/50 border border-cyan-500/30 rounded-xl p-3 mb-5"></p>
+
+      <button id="btn-restart-game" class="w-full py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 shadow-lg transition">
+        Начать заново (перемешать кейсы)
+      </button>
+    </div>
+  </div>
+
+  <!-- ОСНОВНОЙ МОДУЛЬ ПРИЛОЖЕНИЯ -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // =========================================================================
+    // 1. ПРОЦЕДУРНЫЙ ЗВУКОВОЙ СИНТЕЗАТОР (WEB AUDIO API)
+    // =========================================================================
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+        this.lastTick = 0;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playTone(freq, type = 'sine', duration = 0.12, gainVal = 0.08, delay = 0) {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime + delay;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(gainVal, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + duration);
+      }
+      playClick() {
+        this.playTone(620, 'sine', 0.06, 0.05);
+      }
+      playXrayShutter() {
+        // Характерный звук рентген-аппарата: подзарядка + импульс экспозиции
+        this.playTone(440, 'triangle', 0.14, 0.07, 0);
+        this.playTone(880, 'sine', 0.28, 0.11, 0.08);
+        this.playTone(1320, 'sine', 0.18, 0.05, 0.12);
+      }
+      playUsPulse(hasDoppler = false) {
+        const now = performance.now();
+        if (now - this.lastTick < 110) return;
+        this.lastTick = now;
+        this.playTone(hasDoppler ? 310 : 190, 'sine', 0.04, 0.015);
+      }
+      playSuccess() {
+        this.playTone(523.25, 'sine', 0.15, 0.09, 0);
+        this.playTone(659.25, 'sine', 0.15, 0.09, 0.1);
+        this.playTone(783.99, 'sine', 0.28, 0.11, 0.2);
+      }
+      playError() {
+        this.playTone(260, 'sawtooth', 0.18, 0.07, 0);
+        this.playTone(210, 'sawtooth', 0.25, 0.07, 0.14);
+      }
+    }
+    const sound = new SoundEngine();
+
+    // =========================================================================
+    // 2. БАЗА ДАННЫХ ВСЕХ 15 КЛИНИЧЕСКИХ КЕЙСОВ (8–11 КЛАССЫ)
+    // =========================================================================
+    const CLINICAL_CASES = [
+      {
+        id: 'lung_cancer',
+        category: 'Легкие и плевра',
+        region: 'thorax', // thorax | abdomen | kidney_l | kidney_r | rif
+        targetSide: 'right',
+        patient: 'Мужчина, 58 лет',
+        anamnesis: 'Курит более 30 лет. Жалоб практически нет, но на плановой флюорографии в верхней доле правого легкого заметили округлую тень диаметром ~3 см. Нужно уточнить характер образования.',
+        recommendedMethod: 'Рентгенография грудной клетки (без контраста). Воздушная легочная ткань является естественным контрастом для рентгеновских лучей, а вот ультразвук полностью отражается от воздуха в альвеолах.',
+        dosePerShot: 0.08,
+        options: [
+          'Периферический рак легкого',
+          'Туберкулема правого легкого',
+          'Экссудативный плеврит',
+          'Спонтанный пневмоторакс'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Туберкулема легкого',
+        explanationCorrect: 'На рентгенограмме в верхней доле правого легкого видна одиночная круглая тень с неровными, лучистыми контурами («лучистая корона» / спикулы из-за прорастания опухоли по лимфатическим сосудам) и неоднородной структурой.',
+        explanationDiff: 'У туберкулемы контуры ровные и четкие, внутри часто видны яркие белые включения кальция (кальцинаты), а к корню легкого тянется парная «дорожка» воспаленного бронха.',
+        physicsNote: 'Рентгеновские лучи слабо поглощаются воздухом в здоровых альвеолах (темный фон), но сильно задерживаются плотной опухолевой тканью (светлая тень).',
+        markers: [
+          { type: 'xray', x: 0.34, y: 0.31, label: 'Лучистые контуры («спикулы»)' },
+          { type: 'xray', x: 0.34, y: 0.38, label: 'Неоднородный узел 3 см' }
+        ]
+      },
+      {
+        id: 'pleurisy',
+        category: 'Легкие и плевра',
+        region: 'thorax',
+        targetSide: 'left',
+        patient: 'Пациент, 45 лет',
+        anamnesis: 'Беспокоит нарастающая одышка, тяжесть в левой половине грудной клетки и сухой кашель после перенесенной простуды. При выслушивании дыхание слева внизу не проводится.',
+        recommendedMethod: 'Подходят оба метода! Рентген покажет уровень жидкости и смещение сердца, а УЗИ плевральной полости идеально видит свободную жидкость (она черная, анэхогенная).',
+        dosePerShot: 0.08,
+        options: [
+          'Экссудативный плеврит',
+          'Тотальный ателектаз легкого',
+          'Гигантская эмфизематозная булла',
+          'Острый абсцесс легкого'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Ателектаз (спадение) легкого',
+        explanationCorrect: 'На рентгенограмме слева определяется интенсивное однородное затемнение с косой верхней границей (линия Дамуазо), а сердце и трахея смещены в ЗДОРОВУЮ (правую) сторону. На УЗИ видна черная полость с жидкостью и плавающий край легкого.',
+        explanationDiff: 'При ателектазе (закупорке бронха и спадении легкого) объем грудной клетки уменьшается, поэтому средостение и сердце смещаются в БОЛЬНУЮ сторону (к затемнению), а на УЗИ нет свободной жидкости.',
+        physicsNote: 'Жидкость в плевральной полости имеет плотность воды и полностью поглощает рентген, но для ультразвука она прозрачна (анэхогенна), создавая идеальное «акустическое окно».',
+        markers: [
+          { type: 'xray', x: 0.68, y: 0.52, label: 'Линия Дамуазо (косая граница)' },
+          { type: 'xray', x: 0.45, y: 0.55, label: 'Смещение сердца вправо' },
+          { type: 'us', x: 0.48, y: 0.45, label: 'Анэхогенный выпот (жидкость)' }
+        ]
+      },
+      {
+        id: 'lung_abscess',
+        category: 'Легкие и плевра',
+        region: 'thorax',
+        targetSide: 'right',
+        patient: 'Мужчина, 38 лет',
+        anamnesis: 'После сильного переохлаждения держалась температура 39.5°C. Через 10 дней приступ кашля закончился отхождением большого количества гнойной мокроты, после чего температура снизилась.',
+        recommendedMethod: 'Рентгенография грудной клетки в положении СТОЯ (или сидя), чтобы увидеть горизонтальный уровень жидкости и газа в полости распада.',
+        dosePerShot: 0.08,
+        options: [
+          'Острый абсцесс легкого',
+          'Нагноившаяся врожденная киста легкого',
+          'Периферический рак легкого',
+          'Инфаркт легкого (ТЭЛА)'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Нагноившаяся киста легкого',
+        explanationCorrect: 'В нижней доле правого легкого видна кольцевидная полость с четким горизонтальным уровнем жидкости (гной внизу, воздух вверху). Стенки полости толстые, неравномерные, с размытым наружным контуром из-за воспаления вокруг.',
+        explanationDiff: 'У врожденной кисты стенка тонкая (2–3 мм), ровная и четкая с обеих сторон, а легочная ткань вокруг нее практически не изменена (нет широкой зоны воспалительной инфильтрации).',
+        physicsNote: 'Под действием силы тяжести жидкий гной опускается на дно полости, а более легкий газ поднимается вверх, формируя строго горизонтальную границу раздела фаз.',
+        markers: [
+          { type: 'xray', x: 0.34, y: 0.62, label: 'Горизонтальный уровень жидкости' },
+          { type: 'xray', x: 0.27, y: 0.56, label: 'Толстая стенка + инфильтрация' }
+        ]
+      },
+      {
+        id: 'pneumothorax',
+        category: 'Легкие и плевра',
+        region: 'thorax',
+        targetSide: 'right',
+        patient: 'Юноша, 22 года (10–11 класс / студент)',
+        anamnesis: 'Высокого худощавого телосложения. Во время тренировки внезапно почувствовал резкую «кинжальную» боль в правой половине груди и нехватку воздуха.',
+        recommendedMethod: 'Рентгенография грудной клетки (виден край спавшегося легкого и отсутствие легочного рисунка) или быстрое УЗИ легких (исчезает скольжение листков плевры).',
+        dosePerShot: 0.08,
+        options: [
+          'Спонтанный пневмоторакс',
+          'Гигантская эмфизематозная булла',
+          'Экссудативный плеврит',
+          'Крупозная пневмония'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Гигантская эмфизематозная булла',
+        explanationCorrect: 'Правое легочное поле резко просветлено (черное), сосудистый легочный рисунок полностью отсутствует, а у корня легкого виден четкий край спавшегося (коллабированного) легкого. На УЗИ отсутствует «скольжение плевры».',
+        explanationDiff: 'При гигантской булле (воздушном пузыре в легком) отсутствует край спавшегося легкого у корня, а оставшаяся легочная ткань распластана по краям у диафрагмы и в реберных синусах.',
+        physicsNote: 'Воздух в плевральной полости не содержит кровеносных сосудов, поэтому не задерживает рентген (зона сверхпросветления), а для УЗИ создает непроходимый барьер у самой грудной стенки.',
+        markers: [
+          { type: 'xray', x: 0.25, y: 0.42, label: 'Нет легочного рисунка (газ)' },
+          { type: 'xray', x: 0.40, y: 0.52, label: 'Край спавшегося легкого' },
+          { type: 'us', x: 0.50, y: 0.28, label: 'Нет скольжения плевры' }
+        ]
+      },
+      {
+        id: 'lung_infarction',
+        category: 'Легкие и плевра',
+        region: 'thorax',
+        targetSide: 'right',
+        patient: 'Женщина, 52 года',
+        anamnesis: 'Через неделю после операции на венах ног внезапно появилась боль в правом боку при дыхании, одышка и кровохарканье. Температура 37.4°C.',
+        recommendedMethod: 'УЗИ легких с режимом ЦДК (Допплер) + Рентгенография грудной клетки. ЦДК позволит проверить, есть ли кровоток в уплотненном участке легкого!',
+        dosePerShot: 0.08,
+        options: [
+          'Инфаркт легкого (на фоне ТЭЛА)',
+          'Острая крупозная пневмония',
+          'Периферический рак легкого',
+          'Туберкулема легкого'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Острая крупозная пневмония',
+        explanationCorrect: 'На рентгенограмме у края плевры видна треугольная (клиновидная) тень вершиной к корню легкого. На УЗИ с включенным ЦДК (Допплером) этот треугольный участок абсолютно лишен кровотока (аваскулярен) из-за закупорки артерии тромбом.',
+        explanationDiff: 'При пневмонии на рентгене внутри тени видны светлые полоски бронхов (воздушная бронхограмма), а на УЗИ в режиме ЦДК регистрируется усиленный ветвистый воспалительный кровоток.',
+        physicsNote: 'Эффект Допплера в УЗИ основан на изменении частоты отраженной звуковой волны от движущихся эритроцитов. Если сосуд перекрыт тромбом, движения крови нет — цветные сигналы на экране исчезают.',
+        markers: [
+          { type: 'xray', x: 0.26, y: 0.62, label: 'Клиновидная тень у плевры' },
+          { type: 'us', x: 0.50, y: 0.42, label: 'Треугольный очаг БЕЗ кровотока' }
+        ]
+      },
+      {
+        id: 'gastric_ulcer',
+        category: 'Желудок и кишечник',
+        region: 'abdomen',
+        targetSide: 'center',
+        patient: 'Мужчина, 50 лет',
+        anamnesis: 'Жалобы на «голодные» и ночные боли в верхней части живота (эпигастрии), изжогу. Врач назначил рентгеноскопию желудка с бариевой взвесью.',
+        recommendedMethod: 'Рентгенография желудка С КОНТРАСТОМ (сульфат бария). Включите «С контрастом» на панели рентгена! УЗИ для слизистой желудка малоинформативно из-за газа.',
+        dosePerShot: 0.25,
+        options: [
+          'Язвенная болезнь желудка',
+          'Инфильтративно-язвенный рак желудка',
+          'Болезнь Крона',
+          'Механическая кишечная непроходимость'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Инфильтративно-язвенный рак желудка',
+        explanationCorrect: 'При контрастировании барием по малой кривизне желудка виден симптом «ниши» (затек контраста), выступающий ЗА пределы контура стенки, а складки слизистой лучами сходятся (конвергируют) прямо к краям язвы.',
+        explanationDiff: 'При раке желудка «ниша» расположена ВНУТРИ контура стенки (в толще опухолевого вала), имеет неправильную форму, а складки слизистой обрываются на расстоянии от нее.',
+        physicsNote: 'Барий (атомный номер Z=56) имеет высокую плотность и сильно поглощает рентгеновские лучи, создавая четкий «слепок» внутренней поверхности желудка.',
+        markers: [
+          { type: 'xray', x: 0.56, y: 0.44, label: '«Ниша» выступает ЗА контур' },
+          { type: 'xray', x: 0.47, y: 0.46, label: 'Конвергенция складок к язве' }
+        ]
+      },
+      {
+        id: 'crohns_disease',
+        category: 'Желудок и кишечник',
+        region: 'abdomen',
+        targetSide: 'left',
+        patient: 'Пациент, 34 года',
+        anamnesis: 'Несколько месяцев беспокоят боли в животе, неустойчивый стул, похудение и субфебрильная температура. Проводится ирригоскопия (рентген толстой кишки с контрастом) и УЗИ кишечника.',
+        recommendedMethod: 'Рентгенография С КОНТРАСТОМ (ирригоскопия) + УЗИ толстой кишки. Включите контраст для рентгена!',
+        dosePerShot: 0.30,
+        options: [
+          'Болезнь Крона',
+          'Рак толстой кишки (опухолевый стеноз)',
+          'Язвенный колит (НЯК)',
+          'Острый аппендицит'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Рак толстой кишки',
+        explanationCorrect: 'Виден протяженный участок сужения нисходящей ободочной кишки с ПЛАВНЫМ переходом к здоровым отделам, зазубренным контуром из-за глубоких язв и рельефом слизистой по типу «булыжной мостовой». На УЗИ — утолщение стенки с усиленным кровотоком.',
+        explanationDiff: 'При раке толстой кишки сужение короткое, циркулярное, с РЕЗКИМ обрывистым краем («симптом огрызка яблока»), а рельеф слизистой в этой зоне полностью разрушен.',
+        physicsNote: 'Глубокие продольные и поперечные язвы при болезни Крона задерживают барий между островками отечной слизистой, создавая сетчатый рисунок «булыжной мостовой».',
+        markers: [
+          { type: 'xray', x: 0.67, y: 0.48, label: 'Плавное сужение + «булыжная мостовая»' },
+          { type: 'us', x: 0.50, y: 0.45, label: 'Симметричное утолщение стенки' }
+        ]
+      },
+      {
+        id: 'ulcerative_colitis',
+        category: 'Желудок и кишечник',
+        region: 'abdomen',
+        targetSide: 'left',
+        patient: 'Пациент, 29 лет',
+        anamnesis: 'Жалобы на частый жидкий стул с примесью крови и слизи, схваткообразные боли в левой половине живота. Назначена ирригоскопия (рентген толстой кишки с барием).',
+        recommendedMethod: 'Рентгенография С КОНТРАСТОМ (ирригоскопия) для оценки рельефа и гаустр всей толстой кишки.',
+        dosePerShot: 0.30,
+        options: [
+          'Неспецифический язвенный колит (НЯК)',
+          'Ишемический колит',
+          'Болезнь Крона',
+          'Перфорация полого органа'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Ишемический колит',
+        explanationCorrect: 'Поражение начинается непрерывно от прямой кишки вверх: естественные перетяжки (гаустры) полностью исчезли, кишка укорочена и выглядит как гладкая «водопроводная труба» с мелкой зернистостью слизистой.',
+        explanationDiff: 'Ишемический колит (нарушение кровоснабжения) поражает преимущественно область селезеночного изгиба и дает симптом «отпечатков большого пальца» (крупные полулунные вдавления от подслизистых кровоизлияний).',
+        physicsNote: 'Хроническое воспаление слизистой оболочки разрушает мышечный тонус гаустр, превращая складчатую кишку в ригидную гладкую трубку на рентгенограмме.',
+        markers: [
+          { type: 'xray', x: 0.66, y: 0.52, label: 'Симптом «водопроводной трубы»' },
+          { type: 'xray', x: 0.52, y: 0.78, label: 'Непрерывное поражение от прямой кишки' }
+        ]
+      },
+      {
+        id: 'bowel_obstruction',
+        category: 'Желудок и кишечник',
+        region: 'abdomen',
+        targetSide: 'center',
+        patient: 'Мужчина, 47 лет',
+        anamnesis: 'В прошлом перенес операцию на животе (спайки). Поступил с резкими схваткообразными болями, многократной рвотой и задержкой стула и газов.',
+        recommendedMethod: 'Обзорная рентгенография брюшной полости в положении СТОЯ (переключите положение тела на «Стоя»!) + УЗИ брюшной полости.',
+        dosePerShot: 0.15,
+        options: [
+          'Механическая тонкокишечная непроходимость',
+          'Перфорация (прободение) язвы желудка',
+          'Острый аппендицит',
+          'Язвенный колит'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Перфорация полого органа',
+        explanationCorrect: 'На обзорном снимке в положении СТОЯ видны множественные «чаши Клойбера» — горизонтальные уровни жидкости с газовыми пузырями над ними в петлях тонкой кишки. На УЗИ — расширенные петли (>3 см) с «маятникообразным» движением жидкости.',
+        explanationDiff: 'При перфорации полого органа газ выходит из кишки в свободную брюшную полость и скапливается под правым куполом диафрагмы в виде тонкого «серпа».',
+        physicsNote: 'В вертикальном положении тела («Стоя») жидкость и газ в переполненных петлях кишечника расслаиваются по плотности, формируя четкие горизонтальные уровни (чаши Клойбера).',
+        markers: [
+          { type: 'xray', x: 0.45, y: 0.46, label: 'Чаши Клойбера (жидкость + газ)' },
+          { type: 'us', x: 0.50, y: 0.48, label: 'Расширенные петли >3 см с жидкостью' }
+        ]
+      },
+      {
+        id: 'appendicitis',
+        category: 'Желудок и кишечник',
+        region: 'rif', // Right Iliac Fossa
+        targetSide: 'right',
+        patient: 'Подросток, 15 лет (9 класс)',
+        anamnesis: 'Боль началась утром вокруг пупка, а через 4 часа переместилась в правую подвздошную область. Тошнота, температура 37.6°C. Направлен на УЗИ брюшной полости.',
+        recommendedMethod: 'УЗИ правой подвздошной области! Обычный рентген без контраста не видит мягкие ткани червеобразного отростка.',
+        dosePerShot: 0.12,
+        options: [
+          'Острый аппендицит',
+          'Илеоцекальная инвагинация кишечника',
+          'Правосторонний нефроптоз',
+          'Мочекаменная болезнь'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Илеоцекальная инвагинация',
+        explanationCorrect: 'На УЗИ в правой подвздошной ямке видна слепо заканчивающаяся трубчатая структура диаметром 9 мм (норма до 6 мм), не сжимаемая датчиком, в поперечном срезе напоминающая «мишень», с плотным каловым камнем (аппендиколитом), дающим акустическую тень.',
+        explanationDiff: 'При инвагинации (внедрении одной кишки в другую) на УЗИ определяется гораздо более крупное многослойное образование (3–5 см) — симптом «псевдопочки», а при контрастировании — дефект в виде «двузубца».',
+        physicsNote: 'Плотный кальцинированный аппендиколит полностью отражает ультразвук, поэтому за ним на экране тянется темная полоса — дистальная акустическая тень.',
+        markers: [
+          { type: 'us', x: 0.50, y: 0.44, label: 'Симптом «мишени» (диаметр >7 мм)' },
+          { type: 'us', x: 0.50, y: 0.62, label: 'Акустическая тень от аппендиколита' }
+        ]
+      },
+      {
+        id: 'renal_cyst',
+        category: 'Почки и мочевые пути',
+        region: 'kidney_l',
+        targetSide: 'left',
+        patient: 'Женщина, 54 года',
+        anamnesis: 'Жалоб нет. При ежегодном профилактическом осмотре на УЗИ в левой почке обнаружено округлое образование. Необходимо исключить злокачественную опухоль.',
+        recommendedMethod: 'УЗИ почек с обязательным включением режима ЦДК (Допплер)! Киста заполняется жидкостью и не имеет сосудов.',
+        dosePerShot: 0.15,
+        options: [
+          'Простая солитарная киста почки',
+          'Кистозная форма рака почки',
+          'Гидронефроз левой почки',
+          'Конкремент (камень) лоханки'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Кистозный рак почки',
+        explanationCorrect: 'На УЗИ в паренхиме левой почки определяется идеально круглое, полностью черное (анэхогенное) образование с тонкой ровной стенкой, ярким эффектом «дорсального усиления» позади него и ПОЛНЫМ отсутствием кровотока в режиме ЦДК.',
+        explanationDiff: 'При кистозном раке почки стенки утолщены и неровны, внутри есть толстые перегородки или тканевые узлы, в которых при включении ЦДК виден патологический кровоток.',
+        physicsNote: 'Жидкость внутри кисты почти не ослабляет ультразвук по сравнению с окружающей тканью почки, поэтому за задней стенкой кисты возникает яркая светлая полоса — эффект дорсального акустического усиления.',
+        markers: [
+          { type: 'us', x: 0.54, y: 0.42, label: 'Анэхогенная полость (без кровотока)' },
+          { type: 'us', x: 0.54, y: 0.64, label: 'Дорсальное акустическое усиление' }
+        ]
+      },
+      {
+        id: 'hydronephrosis',
+        category: 'Почки и мочевые пути',
+        region: 'kidney_r',
+        targetSide: 'right',
+        patient: 'Мужчина, 40 лет',
+        anamnesis: 'Беспокоят тупые ноющие боли в пояснице справа. В анализах мочи периодически появляются лейкоциты. Проводится УЗИ почек и экскреторная урография (рентген с контрастом).',
+        recommendedMethod: 'УЗИ правой почки (покажет расширение и сообщение чашечек с лоханкой) или рентген С КОНТРАСТОМ (экскреторная урография).',
+        dosePerShot: 0.25,
+        options: [
+          'Гидронефроз правой почки',
+          'Парапельвикальная киста почки',
+          'Хронический пиелонефрит',
+          'Нефроптоз справа'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Парапельвикальная киста почки',
+        explanationCorrect: 'На УЗИ в центре правой почки видны расширенные анэхогенные чашечки и лоханка, которые СООБЩАЮТСЯ между собой в единую ветвистую систему, а паренхима почки истончена из-за давления мочи.',
+        explanationDiff: 'Парапельвикальные кисты — это изолированные округлые пузырьки в почечном синусе, которые НЕ сообщаются друг с другом и с лоханкой, а на рентгене с контрастом лишь раздвигают нормальные чашечки.',
+        physicsNote: 'При нарушении оттока мочи давление в лоханке растет, растягивая чашечки; скопившаяся моча на УЗИ выглядит как единая черная ветвистая полость.',
+        markers: [
+          { type: 'us', x: 0.48, y: 0.46, label: 'Сообщающиеся чашечки и лоханка' },
+          { type: 'us', x: 0.48, y: 0.30, label: 'Истончение паренхимы почки' }
+        ]
+      },
+      {
+        id: 'nephrolithiasis',
+        category: 'Почки и мочевые пути',
+        region: 'kidney_l',
+        targetSide: 'left',
+        patient: 'Пациент, 49 лет',
+        anamnesis: 'Ночью возник приступ острой нестерпимой боли в левой поясничной области (почечная колика), после чего в моче появилась примесь крови.',
+        recommendedMethod: 'УЗИ левой почки (ищет гиперэхогенный очаг с акустической тенью) + Обзорный рентген (видит рентген-позитивные оксалатные/фосфатные камни).',
+        dosePerShot: 0.15,
+        options: [
+          'Мочекаменная болезнь (конкремент лоханки)',
+          'Папиллярная опухоль почечной лоханки',
+          'Простая киста левой почки',
+          'Гипоплазия почки'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Папиллярная опухоль лоханки',
+        explanationCorrect: 'На обзорном рентгене в проекции левой почки видна плотная белая тень камня. На УЗИ в лоханке определяется яркий гиперэхогенный фокус, от которого вниз идет четкая черная «акустическая тень».',
+        explanationDiff: 'Опухоль лоханки (или сгусток крови) не видна на обычном рентгене (дает лишь дефект наполнения при контрастировании), а на УЗИ выглядит как мягкотканный узел БЕЗ акустической тени.',
+        physicsNote: 'Соли кальция в составе камня имеют очень высокое акустическое сопротивление: почти 100% ультразвука отражается обратно к датчику, оставляя за камнем черную «акустическую тень».',
+        markers: [
+          { type: 'us', x: 0.50, y: 0.44, label: 'Яркий гиперэхогенный конкремент' },
+          { type: 'us', x: 0.50, y: 0.65, label: 'Четкая акустическая тень' },
+          { type: 'xray', x: 0.62, y: 0.54, label: 'Рентген-позитивная тень камня' }
+        ]
+      },
+      {
+        id: 'nephroptosis',
+        category: 'Почки и мочевые пути',
+        region: 'kidney_r',
+        targetSide: 'right',
+        patient: 'Девушка, 18 лет (11 класс)',
+        anamnesis: 'После резкого похудения заметила тянущие боли в правой половине живота, которые появляются при долгой ходьбе или стоянии и полностью проходят, когда она ложится.',
+        recommendedMethod: 'Сравните исследование в положении ЛЁЖА и СТОЯ! Переключите кнопку «Положение тела: Лёжа / Стоя» на панели инструментов при УЗИ или рентгене с контрастом.',
+        dosePerShot: 0.25,
+        options: [
+          'Нефроптоз (патологическое опущение почки)',
+          'Врожденная поясничная дистопия почки',
+          'Гидронефроз правой почки',
+          'Хронический пиелонефрит'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Поясничная дистопия почки',
+        explanationCorrect: 'В положении ЛЁЖА правая почка находится в своем обычном подреберном ложе, но при переходе в положение СТОЯ она опускается вниз более чем на 2 позвонка, а длинный мочеточник образует волнообразный изгиб.',
+        explanationDiff: 'При врожденной дистопии почка изначально сформировалась низко: она жестко фиксирована короткой сосудистой ножкой, имеет короткий прямой мочеточник и НЕ меняет своего положения при переходе из «Лёжа» в «Стоя».',
+        physicsNote: 'Градиент гидростатического давления и сила тяжести при ослаблении связочного аппарата смещают подвижную почку вниз при вертикализации тела.',
+        markers: [
+          { type: 'us', x: 0.52, y: 0.56, label: 'Смещение почки вниз в позе СТОЯ' },
+          { type: 'xray', x: 0.40, y: 0.64, label: 'Изгиб длинного мочеточника' }
+        ]
+      },
+      {
+        id: 'chronic_pyelonephritis',
+        category: 'Почки и мочевые пути',
+        region: 'kidney_r',
+        targetSide: 'right',
+        patient: 'Пациентка, 36 лет',
+        anamnesis: 'С подросткового возраста страдала частыми инфекциями мочевых путей. В последние годы повышается артериальное давление. Направлена на УЗИ почек.',
+        recommendedMethod: 'УЗИ правой почки (позволяет детально оценить ровность наружного контура и толщину коркового слоя паренхимы).',
+        dosePerShot: 0.25,
+        options: [
+          'Хронический пиелонефрит (сморщенная почка)',
+          'Врожденная гипоплазия почки',
+          'Простая киста почки',
+          'Мочекаменная болезнь'
+        ],
+        correctIndex: 0,
+        diffTwin: 'Врожденная гипоплазия почки',
+        explanationCorrect: 'Правая почка уменьшена в размерах, ее наружный контур НЕРОВНЫЙ, бугристый из-за грубых втяжений рубцовой ткани, а толщина паренхимы неравномерна (участки рубцов чередуются с сохранной тканью).',
+        explanationDiff: 'При врожденной гипоплазии почка тоже маленькая, но она является «миниатюрной копией» здоровой почки: ее контуры абсолютно ровные и гладкие, а толщина паренхимы одинакова на всем протяжении.',
+        physicsNote: 'Соединительная ткань рубцов имеет более высокую плотность и эхогенность, чем нормальная паренхима, поэтому на УЗИ видны втянутые гиперэхогенные участки контура.',
+        markers: [
+          { type: 'us', x: 0.46, y: 0.30, label: 'Бугристый контур (рубцовые втяжения)' },
+          { type: 'us', x: 0.56, y: 0.45, label: 'Неравномерное истончение паренхимы' }
+        ]
+      }
+    ];
+
+    // =========================================================================
+    // 3. СОСТОЯНИЕ ИГРЫ (GAME STATE)
+    // =========================================================================
+    const state = {
+      casesOrder: [],
+      currentCaseIdx: 0,
+      score: 0,
+      totalDose: 0,
+      activeTool: 'xray', // 'xray' | 'us'
+      patientPosition: 'supine', // 'supine' | 'upright'
+      xrayContrast: false,
+      usDoppler: false,
+      eduMode: true,
+      hoveredZone: 'thorax', // 'thorax' | 'abdomen' | 'kidney_l' | 'kidney_r' | 'rif'
+      probeNorm: { x: 0.5, y: 0.35 }, // Нормализованные координаты на торсе (x: 0..1 слева направо экрана, y: 0..1 сверху вниз)
+      lastXrayShot: null, // Сохраненный снимок рентгена для текущего кейса
+      answeredCurrent: false,
+      lastAnswerCorrect: false
+    };
+
+    function shuffleCases() {
+      const arr = [...CLINICAL_CASES];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      state.casesOrder = arr;
+    }
+
+    function getCurrentCase() {
+      return state.casesOrder[state.currentCaseIdx];
+    }
+
+    // =========================================================================
+    // 4. 3D СЦЕНА КАБИНЕТА ЛУЧЕВОЙ ДИАГНОСТИКИ (THREE.JS)
+    // =========================================================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x060b14);
+    scene.fog = new THREE.FogExp2(0x060b14, 0.045);
+
+    const camera = new THREE.PerspectiveCamera(44, window.innerWidth / window.innerHeight, 0.1, 100);
+    const defaultCamPos = new THREE.Vector3(0, 4.3, 4.2);
+    const defaultCamTarget = new THREE.Vector3(0, 1.05, 0.1);
+    camera.position.copy(defaultCamPos);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.copy(defaultCamTarget);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.minDistance = 2.4;
+    controls.maxDistance = 8.5;
+    controls.maxPolarAngle = Math.PI * 0.48;
+    // Чтобы левый клик по пациенту не дергал камеру, вращение назначаем на правую кнопку или 2 пальца, а левая сканирует пациента
+    controls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.PAN
+    };
+
+    // Освещение студии-кабинета
+    const ambientLight = new THREE.AmbientLight(0x8ab4f8, 0.65);
+    scene.add(ambientLight);
+
+    const mainSpot = new THREE.SpotLight(0xe0f2fe, 45);
+    mainSpot.position.set(1.5, 6.2, 2.5);
+    mainSpot.angle = Math.PI / 4;
+    mainSpot.penumbra = 0.6;
+    mainSpot.castShadow = true;
+    mainSpot.shadow.mapSize.width = 1024;
+    mainSpot.shadow.mapSize.height = 1024;
+    scene.add(mainSpot);
+
+    const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.3);
+    rimLight.position.set(-4, 3, -3);
+    scene.add(rimLight);
+
+    const warmFill = new THREE.PointLight(0x3b82f6, 3.5, 10);
+    warmFill.position.set(0, 1.8, 2.5);
+    scene.add(warmFill);
+
+    // Пол кабинета с медицинской сеткой
+    const floorGeo = new THREE.PlaneGeometry(24, 24);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x0a1322,
+      roughness: 0.35,
+      metalness: 0.4
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const gridHelper = new THREE.GridHelper(20, 40, 0x1e3a5f, 0x0f213a);
+    gridHelper.position.y = 0.005;
+    scene.add(gridHelper);
+
+    // Группа кушетки и пациента (вращается при переключении Лёжа / Стоя!)
+    const examAssembly = new THREE.Group();
+    scene.add(examAssembly);
+
+    // Основание и стол кушетки
+    const basePedestal = new THREE.Mesh(
+      new THREE.BoxGeometry(0.95, 0.72, 1.6),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.6 })
+    );
+    basePedestal.position.set(0, 0.36, 0);
+    basePedestal.castShadow = true;
+    basePedestal.receiveShadow = true;
+    examAssembly.add(basePedestal);
+
+    const tableTop = new THREE.Mesh(
+      new THREE.BoxGeometry(1.35, 0.14, 3.3),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.5 })
+    );
+    tableTop.position.set(0, 0.78, 0);
+    tableTop.castShadow = true;
+    tableTop.receiveShadow = true;
+    examAssembly.add(tableTop);
+
+    // Светящаяся неоновая окантовка кушетки
+    const tableRim = new THREE.Mesh(
+      new THREE.BoxGeometry(1.38, 0.03, 3.33),
+      new THREE.MeshBasicMaterial({ color: 0x0284c7 })
+    );
+    tableRim.position.set(0, 0.73, 0);
+    examAssembly.add(tableRim);
+
+    // =========================================================================
+    // 5. СТИЛИЗОВАННЫЙ 3D-ПАЦИЕНТ И ПОЛУПРОЗРАЧНЫЕ ВНУТРЕННИЕ ОРГАНЫ
+    // =========================================================================
+    const patientGroup = new THREE.Group();
+    patientGroup.position.set(0, 0.86, 0);
+    examAssembly.add(patientGroup);
+
+    const bodyMat = new THREE.MeshPhysicalMaterial({
+      color: 0x38bdf8,
+      emissive: 0x07243b,
+      roughness: 0.25,
+      metalness: 0.1,
+      transmission: 0.58,
+      transparent: true,
+      opacity: 0.52,
+      ior: 1.35,
+      thickness: 0.8
+    });
+
+    // Голова и шея
+    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.21, 24, 24), bodyMat);
+    headMesh.position.set(0, 0.22, -1.18);
+    headMesh.scale.set(0.9, 0.95, 1.12);
+    patientGroup.add(headMesh);
+
+    const neckMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.22, 16), bodyMat);
+    neckMesh.rotation.x = Math.PI / 2;
+    neckMesh.position.set(0, 0.19, -0.95);
+    patientGroup.add(neckMesh);
+
+    // Торс (грудная клетка + живот) — главный хитбокс для сканирования!
+    const torsoGeo = new THREE.CapsuleGeometry(0.36, 0.95, 16, 28);
+    const torsoMesh = new THREE.Mesh(torsoGeo, bodyMat);
+    torsoMesh.rotation.x = Math.PI / 2;
+    torsoMesh.scale.set(1.22, 1.0, 0.68);
+    torsoMesh.position.set(0, 0.22, -0.25);
+    torsoMesh.name = 'patient_torso';
+    patientGroup.add(torsoMesh);
+
+    // Руки и ноги для анатомической узнаваемости
+    [-1, 1].forEach(side => {
+      const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.085, 0.85, 8, 16), bodyMat);
+      arm.rotation.x = Math.PI / 2;
+      arm.rotation.z = side * 0.08;
+      arm.position.set(side * 0.54, 0.16, -0.28);
+      patientGroup.add(arm);
+
+      const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.115, 1.05, 8, 16), bodyMat);
+      leg.rotation.x = Math.PI / 2;
+      leg.position.set(side * 0.21, 0.16, 0.95);
+      patientGroup.add(leg);
+    });
+
+    // Внутренние 3D-органы внутри полупрозрачного торса
+    const organsGroup = new THREE.Group();
+    patientGroup.add(organsGroup);
+
+    function createOrganMat(hexColor) {
+      return new THREE.MeshStandardMaterial({
+        color: hexColor,
+        emissive: hexColor,
+        emissiveIntensity: 0.35,
+        roughness: 0.4,
+        transparent: true,
+        opacity: 0.72
+      });
+    }
+
+    // Легкие (правое и левое в анатомическом смысле: правое легкое пациента находится слева при взгляде спереди!)
+    const lungGeo = new THREE.SphereGeometry(0.17, 20, 20);
+    const rightLungMesh = new THREE.Mesh(lungGeo, createOrganMat(0x60a5fa));
+    rightLungMesh.scale.set(0.85, 0.65, 1.55);
+    rightLungMesh.position.set(-0.17, 0.26, -0.56); // Анатомически правое легкое
+    organsGroup.add(rightLungMesh);
+
+    const leftLungMesh = new THREE.Mesh(lungGeo, createOrganMat(0x60a5fa));
+    leftLungMesh.scale.set(0.82, 0.65, 1.5);
+    leftLungMesh.position.set(0.17, 0.26, -0.56); // Анатомически левое легкое
+    organsGroup.add(leftLungMesh);
+
+    // Сердце
+    const heartMesh = new THREE.Mesh(new THREE.SphereGeometry(0.095, 16, 16), createOrganMat(0xf43f5e));
+    heartMesh.scale.set(0.9, 0.8, 1.15);
+    heartMesh.position.set(0.06, 0.25, -0.52);
+    organsGroup.add(heartMesh);
+
+    // Желудок
+    const stomachMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 0.16, 8, 16), createOrganMat(0xf59e0b));
+    stomachMesh.rotation.set(Math.PI / 2, 0, -0.55);
+    stomachMesh.position.set(0.11, 0.24, -0.24);
+    organsGroup.add(stomachMesh);
+
+    // Кишечник (ободочная и тонкая кишка)
+    const bowelMesh = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.055, 12, 24), createOrganMat(0xfb923c));
+    bowelMesh.rotation.x = Math.PI / 2;
+    bowelMesh.scale.set(1.05, 1.15, 0.75);
+    bowelMesh.position.set(0, 0.21, 0.05);
+    organsGroup.add(bowelMesh);
+
+    // Почки (расположены глубже к спине)
+    const kidneyGeo = new THREE.CapsuleGeometry(0.048, 0.09, 8, 14);
+    const rightKidneyMesh = new THREE.Mesh(kidneyGeo, createOrganMat(0xa855f7));
+    rightKidneyMesh.rotation.x = Math.PI / 2;
+    rightKidneyMesh.position.set(-0.16, 0.14, -0.14); // Правая почка
+    organsGroup.add(rightKidneyMesh);
+
+    const leftKidneyMesh = new THREE.Mesh(kidneyGeo, createOrganMat(0xa855f7));
+    leftKidneyMesh.rotation.x = Math.PI / 2;
+    leftKidneyMesh.position.set(0.16, 0.14, -0.17); // Левая почка (чуть выше в норме)
+    organsGroup.add(leftKidneyMesh);
+
+    // =========================================================================
+    // 6. 3D ИНСТРУМЕНТЫ НА СЦЕНЕ: РЕНТГЕН-РАМКА/ТРУБКА И УЗИ-ДАТЧИК/КОНСОЛЬ
+    // =========================================================================
+    // Потолочный штатив рентген-аппарата + рамка детектора над пациентом
+    const xrayToolGroup = new THREE.Group();
+    xrayToolGroup.position.set(0, 0.45, -0.52);
+    patientGroup.add(xrayToolGroup);
+
+    const frameMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
+    const frameW = 0.72, frameH = 0.62;
+    const barThick = 0.018;
+    const topBar = new THREE.Mesh(new THREE.BoxGeometry(frameW, barThick, barThick), frameMat);
+    topBar.position.set(0, 0, -frameH / 2);
+    const botBar = new THREE.Mesh(new THREE.BoxGeometry(frameW, barThick, barThick), frameMat);
+    botBar.position.set(0, 0, frameH / 2);
+    const leftBar = new THREE.Mesh(new THREE.BoxGeometry(barThick, barThick, frameH), frameMat);
+    leftBar.position.set(-frameW / 2, 0, 0);
+    const rightBar = new THREE.Mesh(new THREE.BoxGeometry(barThick, barThick, frameH), frameMat);
+    rightBar.position.set(frameW / 2, 0, 0);
+    xrayToolGroup.add(topBar, botBar, leftBar, rightBar);
+
+    // Полупрозрачный световой конус рентген-луча
+    const beamCone = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.46, 1.35, 4, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.12,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      })
+    );
+    beamCone.rotation.y = Math.PI / 4;
+    beamCone.position.set(0, 0.68, 0);
+    xrayToolGroup.add(beamCone);
+
+    // Излучатель (рентгеновская трубка сверху)
+    const xrayTubeHead = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.14, 0.16, 0.34, 20),
+      new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.3, metalness: 0.7 })
+    );
+    xrayTubeHead.position.set(0, 1.42, 0);
+    xrayToolGroup.add(xrayTubeHead);
+
+    // 3D УЗИ-датчик со сканирующим веером
+    const usProbeGroup = new THREE.Group();
+    usProbeGroup.position.set(0, 0.42, -0.52);
+    usProbeGroup.visible = false;
+    patientGroup.add(usProbeGroup);
+
+    const probeHandle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.055, 0.24, 16),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25, metalness: 0.3 })
+    );
+    probeHandle.position.set(0, 0.14, 0);
+    usProbeGroup.add(probeHandle);
+
+    const probeTip = new THREE.Mesh(
+      new THREE.BoxGeometry(0.09, 0.03, 0.035),
+      new THREE.MeshBasicMaterial({ color: 0x22d3ee })
+    );
+    probeTip.position.set(0, 0.02, 0);
+    usProbeGroup.add(probeTip);
+
+    // Светящийся ультразвуковой веер, проникающий в тело
+    const usFanShape = new THREE.BufferGeometry();
+    const fanVertices = new Float32Array([
+      -0.03, 0.01, 0,
+       0.03, 0.01, 0,
+      -0.22, -0.32, 0,
+       0.03, 0.01, 0,
+       0.22, -0.32, 0,
+      -0.22, -0.32, 0
+    ]);
+    usFanShape.setAttribute('position', new THREE.BufferAttribute(fanVertices, 3));
+    const usFanMesh = new THREE.Mesh(
+      usFanShape,
+      new THREE.MeshBasicMaterial({
+        color: 0x22d3ee,
+        transparent: true,
+        opacity: 0.34,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      })
+    );
+    usProbeGroup.add(usFanMesh);
+
+    // Декоративная 3D-стойка УЗИ в углу кабинета
+    const cartGroup = new THREE.Group();
+    cartGroup.position.set(-1.65, 0, -0.6);
+    cartGroup.rotation.y = 0.55;
+    scene.add(cartGroup);
+
+    const cartBody = new THREE.Mesh(
+      new THREE.BoxGeometry(0.65, 1.05, 0.75),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.5 })
+    );
+    cartBody.position.y = 0.525;
+    cartBody.castShadow = true;
+    cartGroup.add(cartBody);
+
+    const cartScreen = new THREE.Mesh(
+      new THREE.BoxGeometry(0.58, 0.42, 0.05),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, emissive: 0x0284c7, emissiveIntensity: 0.45 })
+    );
+    cartScreen.position.set(0, 1.32, -0.05);
+    cartScreen.rotation.x = -0.15;
+    cartGroup.add(cartScreen);
+
+    // =========================================================================
+    // 7. ВЗАИМОДЕЙСТВИЕ МЫШИ / ТАЧА С 3D-ПАЦИЕНТОМ (RAYCASTING)
+    // =========================================================================
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let isPointerDown = false;
+    let pointerDownPos = { x: 0, y: 0 };
+
+    function determineZoneFromLocalCoords(lx, lz) {
+      // lx: от -0.45 (правая сторона пациента) до +0.45 (левая сторона пациента)
+      // lz: от -0.82 (верх грудной клетки) до +0.35 (низ живота / таз)
+      if (lz < -0.34) {
+        return 'thorax';
+      }
+      if (lz >= -0.04 && lx < -0.10) {
+        return 'rif'; // Правая подвздошная область (аппендикс)
+      }
+      if (lx < -0.11 && lz >= -0.34 && lz < 0.08) {
+        return 'kidney_r';
+      }
+      if (lx > 0.11 && lz >= -0.34 && lz < 0.06) {
+        return 'kidney_l';
+      }
+      return 'abdomen';
+    }
+
+    const zoneNamesRu = {
+      thorax: 'Грудная клетка',
+      abdomen: 'Брюшная полость / ЖКТ',
+      kidney_r: 'Правая почка',
+      kidney_l: 'Левая почка',
+      rif: 'Правая подвздошная обл.'
+    };
+
+    function updateProbeFromClientXY(clientX, clientY) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObject(torsoMesh, false);
+      if (hits.length > 0) {
+        const worldPt = hits[0].point;
+        const localPt = patientGroup.worldToLocal(worldPt.clone());
+
+        // Ограничиваем координаты пределами торса
+        const clampedX = THREE.MathUtils.clamp(localPt.x, -0.36, 0.36);
+        const clampedZ = THREE.MathUtils.clamp(localPt.z, -0.78, 0.28);
+
+        xrayToolGroup.position.set(clampedX, 0.46, clampedZ);
+        usProbeGroup.position.set(clampedX, 0.42, clampedZ);
+
+        state.probeNorm.x = (clampedX + 0.36) / 0.72; // 0 (правый бок пациента) .. 1 (левый бок пациента)
+        state.probeNorm.y = (clampedZ + 0.78) / 1.06; // 0 (ключицы) .. 1 (малый таз)
+
+        const zone = determineZoneFromLocalCoords(clampedX, clampedZ);
+        if (zone !== state.hoveredZone) {
+          state.hoveredZone = zone;
+          document.getElementById('active-zone-label').textContent = `Зона: ${zoneNamesRu[zone]}`;
+        }
+
+        document.getElementById('telemetry-coords').textContent =
+          `X: ${clampedX.toFixed(2)} | Z: ${clampedZ.toFixed(2)}`;
+
+        if (state.activeTool === 'us') {
+          sound.playUsPulse(state.usDoppler);
+        }
+        return true;
+      }
+      return false;
+    }
+
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      isPointerDown = true;
+      pointerDownPos = { x: e.clientX, y: e.clientY };
+      const hitPatient = updateProbeFromClientXY(e.clientX, e.clientY);
+      // Если кликнули прямо по пациенту, временно блокируем вращение OrbitControls, чтобы удобно водить датчиком
+      if (hitPatient && e.button === 0) {
+        controls.enabled = false;
+      }
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      updateProbeFromClientXY(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('pointerup', (e) => {
+      const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+      const hitPatient = updateProbeFromClientXY(e.clientX, e.clientY);
+      if (isPointerDown && dist < 6 && hitPatient && e.button === 0 && state.activeTool === 'xray') {
+        performXrayExposure();
+      }
+      isPointerDown = false;
+      controls.enabled = true;
+    });
+
+    // =========================================================================
+    // 8. ПРОЦЕДУРНАЯ МЕДИЦИНСКАЯ ВИЗУАЛИЗАЦИЯ (РЕНТГЕН + УЗИ + ЦДК + РАЗМЕТКА)
+    // =========================================================================
+    const diagCanvas = document.getElementById('diag-canvas');
+    const ctx = diagCanvas.getContext('2d');
+
+    function resizeDiagCanvas() {
+      const rect = diagCanvas.parentElement.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      diagCanvas.width = Math.max(320, Math.floor(rect.width * dpr));
+      diagCanvas.height = Math.max(240, Math.floor(rect.height * dpr));
+    }
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      resizeDiagCanvas();
+    });
+    resizeDiagCanvas();
+
+    // Генерация процедуры рентгеновского снимка
+    function performXrayExposure() {
+      sound.playXrayShutter();
+
+      // Визуальная вспышка
+      const flashEl = document.getElementById('xray-flash-overlay');
+      flashEl.classList.remove('xray-flash');
+      void flashEl.offsetWidth;
+      flashEl.classList.add('xray-flash');
+
+      const c = getCurrentCase();
+      const doseAdd = state.xrayContrast ? +(c.dosePerShot * 2.2).toFixed(2) : c.dosePerShot;
+      state.totalDose = +(state.totalDose + doseAdd).toFixed(2);
+      document.getElementById('hud-dose').textContent = `${state.totalDose.toFixed(2)} мЗв`;
+
+      state.lastXrayShot = {
+        caseId: c.id,
+        zone: state.hoveredZone,
+        position: state.patientPosition,
+        contrast: state.xrayContrast
+      };
+
+      const badge = document.getElementById('monitor-badge');
+      badge.textContent = `СНИМОК ГОТОВ (+${doseAdd} мЗв)`;
+      badge.className = 'text-[10px] font-mono-tech px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/40';
+
+      updateEduLiveHint();
+    }
+
+    // Отрисовка процедурной рентгенограммы
+    function renderXrayMonitor(w, h, time) {
+      ctx.fillStyle = '#070b10';
+      ctx.fillRect(0, 0, w, h);
+
+      if (!state.lastXrayShot) {
+        // Режим прицеливания (рентген-рамка)
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84);
+
+        // Перекрестие луча
+        ctx.beginPath();
+        ctx.moveTo(w * 0.5 - 24, h * 0.5);
+        ctx.lineTo(w * 0.5 + 24, h * 0.5);
+        ctx.moveTo(w * 0.5, h * 0.5 - 24);
+        ctx.lineTo(w * 0.5, h * 0.5 + 24);
+        ctx.stroke();
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = `600 ${Math.round(w * 0.036)}px Inter, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('Наведите рамку на нужную область тела', w * 0.5, h * 0.45);
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = `500 ${Math.round(w * 0.03)}px Inter, sans-serif`;
+        ctx.fillText(`Выбрана зона: ${zoneNamesRu[state.hoveredZone]}`, w * 0.5, h * 0.56);
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('Нажмите «Сделать рентген-снимок» или кликните по пациенту', w * 0.5, h * 0.64);
+        return;
+      }
+
+      const shot = state.lastXrayShot;
+      const c = getCurrentCase();
+      const zone = shot.zone;
+
+      // Градиент мягких тканей
+      const bodyGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, w * 0.05, w * 0.5, h * 0.5, w * 0.55);
+      bodyGrad.addColorStop(0, '#2a3441');
+      bodyGrad.addColorStop(0.75, '#19212c');
+      bodyGrad.addColorStop(1, '#090d13');
+      ctx.fillStyle = bodyGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Позвоночник по центру (рентген-позитивные тела позвонков)
+      ctx.fillStyle = 'rgba(226, 238, 250, 0.34)';
+      for (let i = 0; i < 9; i++) {
+        const vy = h * (0.12 + i * 0.092);
+        ctx.beginPath();
+        ctx.roundRect(w * 0.465, vy, w * 0.07, h * 0.072, 6);
+        ctx.fill();
+      }
+
+      if (zone === 'thorax') {
+        drawThoraxXray(w, h, c, shot);
+      } else if (zone === 'abdomen' || zone === 'rif') {
+        drawAbdomenXray(w, h, c, shot);
+      } else {
+        drawKidneyXray(w, h, c, shot);
+      }
+
+      // Легкая зернистость пленки / цифрового детектора
+      ctx.fillStyle = 'rgba(255,255,255,0.025)';
+      for (let i = 0; i < 180; i++) {
+        ctx.fillRect((i * 73) % w, (i * 137) % h, 1.5, 1.5);
+      }
+
+      // Если включен Режим обучения — рисуем стрелки и подписи симптомов!
+      if (state.eduMode && c.region === zone) {
+        drawEducationalMarkers(w, h, c, 'xray');
+      }
+    }
+
+    function drawThoraxXray(w, h, c, shot) {
+      // Легочные поля (темные воздушные поля: слева на экране — ПРАВОЕ легкое пациента!)
+      const drawLungField = (cx, isRightLung) => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(cx, h * 0.50, w * 0.17, h * 0.32, isRightLung ? 0.06 : -0.06, 0, Math.PI * 2);
+        ctx.fillStyle = '#070b10';
+        ctx.fill();
+
+        // Сосудистый легочный рисунок от корня
+        ctx.strokeStyle = 'rgba(180, 205, 230, 0.16)';
+        ctx.lineWidth = 1.4;
+        const rootX = isRightLung ? w * 0.43 : w * 0.57;
+        for (let b = -4; b <= 4; b++) {
+          ctx.beginPath();
+          ctx.moveTo(rootX, h * 0.46);
+          ctx.quadraticCurveTo(cx, h * (0.46 + b * 0.04), cx + (isRightLung ? -1 : 1) * w * 0.12, h * (0.48 + b * 0.065));
+          ctx.stroke();
+        }
+        ctx.restore();
+      };
+
+      drawLungField(w * 0.33, true);  // Правое легкое пациента (слева на снимке)
+      drawLungField(w * 0.67, false); // Левое легкое пациента (справа на снимке)
+
+      // Ребра (дуги)
+      ctx.strokeStyle = 'rgba(220, 235, 248, 0.25)';
+      ctx.lineWidth = h * 0.018;
+      for (let r = 0; r < 6; r++) {
+        const ry = h * (0.24 + r * 0.095);
+        ctx.beginPath();
+        ctx.arc(w * 0.36, ry, w * 0.22, Math.PI * 0.72, Math.PI * 1.28);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(w * 0.64, ry, w * 0.22, -Math.PI * 0.28, Math.PI * 0.28);
+        ctx.stroke();
+      }
+
+      // Средостение и тень сердца (в норме слегка влево — т.е. к центру-справа на снимке)
+      let heartShiftX = 0;
+      if (c.id === 'pleurisy') heartShiftX = -w * 0.065; // Смещение сердца в здоровую сторону (вправо пациента = влево на снимке)
+      if (c.id === 'pneumothorax') heartShiftX = w * 0.045;
+
+      ctx.fillStyle = 'rgba(205, 222, 240, 0.62)';
+      ctx.beginPath();
+      ctx.ellipse(w * 0.53 + heartShiftX, h * 0.56, w * 0.085, h * 0.15, -0.25, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Купола диафрагмы
+      ctx.fillStyle = 'rgba(195, 215, 235, 0.75)';
+      ctx.beginPath();
+      ctx.arc(w * 0.33, h * 0.92, w * 0.21, Math.PI, 0);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(w * 0.67, h * 0.94, w * 0.21, Math.PI, 0);
+      ctx.fill();
+
+      // ПАТОЛОГИИ ЛЕГКИХ НА РЕНТГЕНЕ:
+      if (c.id === 'lung_cancer') {
+        // Периферический рак в верхней доле правого легкого (w*0.33, h*0.32) со спикулами
+        const cx = w * 0.33, cy = h * 0.32;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(235, 245, 255, 0.75)';
+        ctx.lineWidth = 1.6;
+        for (let a = 0; a < 18; a++) {
+          const ang = (a / 18) * Math.PI * 2;
+          const len = w * (0.048 + (a % 3) * 0.014);
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + Math.cos(ang) * len, cy + Math.sin(ang) * len);
+          ctx.stroke();
+        }
+        const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, w * 0.045);
+        grad.addColorStop(0, '#f8fafc');
+        grad.addColorStop(0.7, '#cbd5e1');
+        grad.addColorStop(1, 'rgba(203, 213, 225, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, w * 0.045, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (c.id === 'pleurisy') {
+        // Интенсивное затемнение слева (справа на экране) с косой линией Дамуазо
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(w * 0.51, h * 0.82);
+        ctx.lineTo(w * 0.51, h * 0.58);
+        ctx.quadraticCurveTo(w * 0.68, h * 0.54, w * 0.84, h * 0.34);
+        ctx.lineTo(w * 0.84, h * 0.82);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(215, 232, 248, 0.86)';
+        ctx.fill();
+        ctx.restore();
+      } else if (c.id === 'lung_abscess') {
+        // Кольцевидная полость с толстой стенкой и горизонтальным уровнем жидкости
+        const cx = w * 0.33, cy = h * 0.58, r = w * 0.068;
+        ctx.save();
+        // Перифокальная инфильтрация
+        const infGrad = ctx.createRadialGradient(cx, cy, r * 0.8, cx, cy, r * 1.7);
+        infGrad.addColorStop(0, 'rgba(220, 235, 248, 0.78)');
+        infGrad.addColorStop(1, 'rgba(220, 235, 248, 0)');
+        ctx.fillStyle = infGrad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 1.7, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Полость с воздухом (верх) и уровнем гноя (низ)
+        ctx.beginPath();
+        ctx.arc(cx, cy, r * 0.78, 0, Math.PI * 2);
+        ctx.fillStyle = '#060a0f';
+        ctx.fill();
+
+        if (shot.position === 'upright') {
+          ctx.save();
+          ctx.clip();
+          ctx.fillStyle = 'rgba(226, 238, 250, 0.85)';
+          ctx.fillRect(cx - r, cy + r * 0.08, r * 2, r);
+          ctx.restore();
+        } else {
+          // В положении лежа уровень размазан
+          ctx.fillStyle = 'rgba(200, 220, 240, 0.35)';
+          ctx.beginPath();
+          ctx.arc(cx, cy, r * 0.65, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      } else if (c.id === 'pneumothorax') {
+        // Сверхпросветление справа (слева на экране) без рисунка + спавшееся легкое у корня
+        ctx.save();
+        ctx.fillStyle = '#030508';
+        ctx.beginPath();
+        ctx.ellipse(w * 0.32, h * 0.50, w * 0.17, h * 0.32, 0.06, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Спавшееся легкое у корня
+        ctx.fillStyle = 'rgba(175, 198, 220, 0.72)';
+        ctx.beginPath();
+        ctx.ellipse(w * 0.42, h * 0.52, w * 0.048, h * 0.14, 0.05, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (c.id === 'lung_infarction') {
+        // Клиновидная тень в нижней доле правого легкого у плевры
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(w * 0.17, h * 0.54);
+        ctx.lineTo(w * 0.34, h * 0.62);
+        ctx.lineTo(w * 0.19, h * 0.71);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(215, 232, 248, 0.78)';
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function drawAbdomenXray(w, h, c, shot) {
+      // Купола диафрагмы вверху
+      ctx.strokeStyle = 'rgba(210, 225, 240, 0.45)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(w * 0.33, h * 0.25, w * 0.20, Math.PI, 0);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(w * 0.67, h * 0.27, w * 0.20, Math.PI, 0);
+      ctx.stroke();
+
+      // Кости таза внизу
+      ctx.strokeStyle = 'rgba(220, 235, 250, 0.32)';
+      ctx.lineWidth = h * 0.03;
+      ctx.beginPath();
+      ctx.arc(w * 0.5, h * 0.88, w * 0.24, Math.PI * 1.1, Math.PI * 1.9);
+      ctx.stroke();
+
+      if (c.id === 'gastric_ulcer') {
+        if (shot.contrast) {
+          // Контрастированный барием желудок в форме крючка
+          ctx.save();
+          ctx.fillStyle = 'rgba(241, 248, 255, 0.92)';
+          ctx.beginPath();
+          ctx.moveTo(w * 0.55, h * 0.22);
+          ctx.quadraticCurveTo(w * 0.73, h * 0.25, w * 0.71, h * 0.56);
+          ctx.quadraticCurveTo(w * 0.68, h * 0.72, w * 0.48, h * 0.65);
+          ctx.quadraticCurveTo(w * 0.45, h * 0.57, w * 0.56, h * 0.56);
+          ctx.quadraticCurveTo(w * 0.60, h * 0.42, w * 0.55, h * 0.22);
+          ctx.fill();
+
+          // Симптом «ниши» выступающий ЗА контур малой кривизны
+          ctx.beginPath();
+          ctx.arc(w * 0.575, h * 0.43, w * 0.022, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Конвергенция складок к нише
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 1.4;
+          for (let k = -2; k <= 2; k++) {
+            ctx.beginPath();
+            ctx.moveTo(w * 0.59, h * 0.43);
+            ctx.lineTo(w * 0.68, h * (0.43 + k * 0.045));
+            ctx.stroke();
+          }
+          ctx.restore();
+        } else {
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = `600 ${Math.round(w * 0.032)}px Inter, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.fillText('Без контраста стенки желудка не видны!', w * 0.5, h * 0.48);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillText('Включите «С контрастом» (барий) и повторите снимок', w * 0.5, h * 0.55);
+        }
+      } else if (c.id === 'crohns_disease' || c.id === 'ulcerative_colitis') {
+        if (shot.contrast) {
+          // Ирригоскопия толстой кишки
+          ctx.save();
+          ctx.strokeStyle = 'rgba(240, 248, 255, 0.88)';
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+
+          if (c.id === 'ulcerative_colitis') {
+            // Симптом «водопроводной трубы» — гладкая кишка без гаустр от прямой кишки вверх
+            ctx.lineWidth = w * 0.055;
+            ctx.beginPath();
+            ctx.moveTo(w * 0.50, h * 0.84);
+            ctx.lineTo(w * 0.68, h * 0.72);
+            ctx.lineTo(w * 0.68, h * 0.30);
+            ctx.lineTo(w * 0.32, h * 0.34);
+            ctx.lineTo(w * 0.32, h * 0.70);
+            ctx.stroke();
+          } else {
+            // Болезнь Крона: нормальные гаустры в восходящей/поперечной кишке и плавное зазубренное сужение в нисходящей
+            ctx.lineWidth = w * 0.068;
+            ctx.setLineDash([w * 0.04, w * 0.015]);
+            ctx.beginPath();
+            ctx.moveTo(w * 0.32, h * 0.70);
+            ctx.lineTo(w * 0.32, h * 0.30);
+            ctx.lineTo(w * 0.67, h * 0.28);
+            ctx.stroke();
+
+            // Суженный сегмент нисходящей кишки с «булыжной мостовой»
+            ctx.setLineDash([]);
+            ctx.lineWidth = w * 0.024;
+            ctx.beginPath();
+            ctx.moveTo(w * 0.67, h * 0.28);
+            ctx.lineTo(w * 0.67, h * 0.72);
+            ctx.lineTo(w * 0.50, h * 0.84);
+            ctx.stroke();
+
+            // Пятна «булыжной мостовой»
+            ctx.fillStyle = '#1e293b';
+            for (let m = 0; m < 7; m++) {
+              ctx.beginPath();
+              ctx.arc(w * 0.67, h * (0.36 + m * 0.042), 3.2, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+          ctx.restore();
+        } else {
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = `600 ${Math.round(w * 0.032)}px Inter, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.fillText('Просвет толстой кишки не контрастирован', w * 0.5, h * 0.48);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillText('Включите «С контрастом» (ирригоскопия)', w * 0.5, h * 0.55);
+        }
+      } else if (c.id === 'bowel_obstruction') {
+        if (shot.position === 'upright') {
+          // Чаши Клойбера (горизонтальные уровни жидкости + газовые купола)
+          const cups = [
+            { x: w * 0.38, y: h * 0.44, r: w * 0.075 },
+            { x: w * 0.56, y: h * 0.38, r: w * 0.082 },
+            { x: w * 0.47, y: h * 0.58, r: w * 0.088 },
+            { x: w * 0.64, y: h * 0.55, r: w * 0.068 }
+          ];
+          cups.forEach(cup => {
+            ctx.save();
+            // Газовый купол (темный)
+            ctx.beginPath();
+            ctx.arc(cup.x, cup.y, cup.r, Math.PI, 0);
+            ctx.fillStyle = '#05080d';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(220, 235, 250, 0.55)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Горизонтальный уровень жидкости (светлый)
+            ctx.fillStyle = 'rgba(215, 230, 245, 0.72)';
+            ctx.fillRect(cup.x - cup.r, cup.y, cup.r * 2, cup.r * 0.45);
+            ctx.restore();
+          });
+        } else {
+          // В положении лежа видны только раздутые газом петли без уровней
+          ctx.strokeStyle = 'rgba(200, 220, 240, 0.45)';
+          ctx.lineWidth = 2;
+          for (let i = 0; i < 4; i++) {
+            ctx.beginPath();
+            ctx.ellipse(w * (0.4 + i * 0.06), h * (0.42 + (i % 2) * 0.14), w * 0.11, h * 0.05, 0, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          ctx.fillStyle = '#fbbf24';
+          ctx.font = `600 ${Math.round(w * 0.028)}px Inter, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.fillText('Совет: переведите пациента в положение СТОЯ, чтобы увидеть уровни жидкости!', w * 0.5, h * 0.78);
+        }
+      }
+    }
+
+    function drawKidneyXray(w, h, c, shot) {
+      // Силуэты почек (правая слева на снимке, левая справа)
+      const rightDrop = (c.id === 'nephroptosis' && shot.position === 'upright') ? h * 0.18 : 0;
+
+      const drawKidneySilhouette = (cx, cy, isSmall, isBumpy) => {
+        ctx.save();
+        ctx.fillStyle = shot.contrast ? 'rgba(215, 235, 255, 0.55)' : 'rgba(180, 200, 220, 0.25)';
+        ctx.beginPath();
+        const rx = isSmall ? w * 0.052 : w * 0.072;
+        const ry = isSmall ? h * 0.10 : h * 0.145;
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (shot.contrast) {
+          // Контрастированная чашечно-лоханочная система и мочеточник
+          ctx.strokeStyle = '#f8fafc';
+          ctx.lineWidth = c.id === 'hydronephrosis' && cx < w * 0.5 ? 6 : 3;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy - ry * 0.4);
+          ctx.lineTo(cx, cy + ry * 0.4);
+          ctx.moveTo(cx, cy);
+          if (c.id === 'nephroptosis' && cx < w * 0.5 && shot.position === 'upright') {
+            // Перегиб длинного мочеточника при нефроптозе
+            ctx.bezierCurveTo(cx + 25, cy + 35, cx - 22, cy + 65, w * 0.46, h * 0.85);
+          } else {
+            ctx.lineTo(cx + (cx < w * 0.5 ? 18 : -18), h * 0.85);
+          }
+          ctx.stroke();
+        }
+        ctx.restore();
+      };
+
+      drawKidneySilhouette(w * 0.36, h * 0.48 + rightDrop, c.id === 'chronic_pyelonephritis', c.id === 'chronic_pyelonephritis');
+      drawKidneySilhouette(w * 0.64, h * 0.45, false, false);
+
+      // Если мочекаменная болезнь — яркий рентген-позитивный камень в левой почке (w*0.63, h*0.46)
+      if (c.id === 'nephrolithiasis') {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.ellipse(w * 0.62, h * 0.46, w * 0.022, h * 0.026, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Отрисовка реального времени B-mode УЗИ-сектора + ЦДК (Допплер)
+    function renderUltrasoundMonitor(w, h, time) {
+      ctx.fillStyle = '#03060a';
+      ctx.fillRect(0, 0, w, h);
+
+      const c = getCurrentCase();
+      const zone = state.hoveredZone;
+      const apexX = w * 0.5;
+      const apexY = h * 0.09;
+      const radius = h * 0.84;
+      const startAng = Math.PI * 0.31;
+      const endAng = Math.PI * 0.69;
+
+      ctx.save();
+      // Вырезаем сектор конвексного УЗИ-датчика
+      ctx.beginPath();
+      ctx.moveTo(apexX, apexY);
+      ctx.arc(apexX, apexY, radius, startAng, endAng);
+      ctx.closePath();
+      ctx.clip();
+
+      // Базовый серый фон ткани с легкой дыхательной осцилляцией
+      const breathOffset = Math.sin(time * 2.2) * 3.5;
+      const tissueGrad = ctx.createRadialGradient(apexX, apexY, 10, apexX, apexY, radius);
+      tissueGrad.addColorStop(0, '#334155');
+      tissueGrad.addColorStop(0.35, '#1e293b');
+      tissueGrad.addColorStop(1, '#090d14');
+      ctx.fillStyle = tissueGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Слои кожи и подкожной клетчатки у датчика
+      ctx.strokeStyle = 'rgba(226, 232, 240, 0.55)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(apexX, apexY, 24, startAng, endAng);
+      ctx.stroke();
+
+      // Отрисовка УЗИ-картины в зависимости от зоны наведения датчика
+      if (zone === 'thorax') {
+        drawThoraxUltrasound(w, h, apexX, apexY, radius, c, time, breathOffset);
+      } else if (zone === 'rif') {
+        drawRifUltrasound(w, h, apexX, apexY, radius, c, time, breathOffset);
+      } else if (zone === 'abdomen') {
+        drawAbdomenUltrasound(w, h, apexX, apexY, radius, c, time, breathOffset);
+      } else {
+        drawKidneyUltrasound(w, h, apexX, apexY, radius, c, zone, time, breathOffset);
+      }
+
+      // Процедурная ультразвуковая зернистость (speckle noise)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      const seed = Math.floor(time * 24);
+      for (let i = 0; i < 420; i++) {
+        const sx = ((i * 97 + seed * 31) % Math.floor(w * 0.7)) + w * 0.15;
+        const sy = ((i * 53 + seed * 17) % Math.floor(h * 0.8)) + h * 0.12;
+        ctx.fillRect(sx, sy, 2, 1.5);
+      }
+
+      ctx.restore();
+
+      // Контур УЗИ-сектора и шкала глубины (см)
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(apexX, apexY);
+      ctx.arc(apexX, apexY, radius, startAng, endAng);
+      ctx.closePath();
+      ctx.stroke();
+
+      // Метки глубины справа от сектора
+      ctx.fillStyle = '#64748b';
+      ctx.font = `500 ${Math.round(w * 0.024)}px JetBrains Mono, monospace`;
+      ctx.textAlign = 'left';
+      for (let cm = 2; cm <= 14; cm += 3) {
+        const dy = apexY + (cm / 15) * radius;
+        ctx.fillText(`${cm}cm`, w * 0.83, dy);
+      }
+
+      if (state.eduMode && c.region === zone) {
+        drawEducationalMarkers(w, h, c, 'us');
+      }
+    }
+
+    function drawThoraxUltrasound(w, h, apexX, apexY, radius, c, time, breath) {
+      // Яркая плевральная линия
+      const pleuraY = h * 0.28 + breath * 0.4;
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.25, pleuraY);
+      ctx.lineTo(w * 0.75, pleuraY);
+      ctx.stroke();
+
+      if (c.id === 'pleurisy') {
+        // Большая анэхогенная (черная) полость с жидкостью и плавающее поджатое легкое
+        ctx.fillStyle = '#020408';
+        ctx.beginPath();
+        ctx.ellipse(w * 0.5, h * 0.48, w * 0.22, h * 0.18, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Плавающее треугольное поджатое легкое в жидкости
+        ctx.fillStyle = '#94a3b8';
+        ctx.beginPath();
+        ctx.moveTo(w * 0.43, h * 0.54 + breath);
+        ctx.lineTo(w * 0.56, h * 0.46 + breath);
+        ctx.lineTo(w * 0.52, h * 0.62 + breath);
+        ctx.closePath();
+        ctx.fill();
+      } else if (c.id === 'lung_infarction') {
+        // Субплевральный гипоэхогенный клиновидный участок (без кровотока при ЦДК!)
+        ctx.fillStyle = '#111827';
+        ctx.beginPath();
+        ctx.moveTo(w * 0.38, pleuraY);
+        ctx.lineTo(w * 0.62, pleuraY);
+        ctx.lineTo(w * 0.50, h * 0.56 + breath);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // В режиме ЦДК: кровоток виден в здоровой ткани по бокам, но ВНУТРИ клина — пусто!
+        if (state.usDoppler) {
+          drawDopplerBox(w * 0.34, pleuraY + 4, w * 0.32, h * 0.30);
+          ctx.fillStyle = Math.sin(time * 8) > 0 ? '#ef4444' : '#3b82f6';
+          ctx.beginPath();
+          ctx.arc(w * 0.37, pleuraY + 22, 4, 0, Math.PI * 2);
+          ctx.arc(w * 0.63, pleuraY + 26, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (c.id === 'pneumothorax') {
+        // Неподвижная плевральная линия и горизонтальные А-линии (артефакт реверберации от газа)
+        for (let a = 1; a <= 4; a++) {
+          ctx.strokeStyle = `rgba(226, 232, 240, ${0.42 - a * 0.08})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(w * 0.25, pleuraY + a * h * 0.11);
+          ctx.lineTo(w * 0.75, pleuraY + a * h * 0.11);
+          ctx.stroke();
+        }
+      } else {
+        // Нормальная воздушная ткань легкого полностью рассеивает ультразвук («снежная буря»)
+        for (let a = 1; a <= 3; a++) {
+          ctx.strokeStyle = 'rgba(203, 213, 225, 0.22)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(w * 0.25, pleuraY + a * h * 0.13);
+          ctx.lineTo(w * 0.75, pleuraY + a * h * 0.13);
+          ctx.stroke();
+        }
+      }
+    }
+
+    function drawRifUltrasound(w, h, apexX, apexY, radius, c, time, breath) {
+      if (c.id === 'appendicitis') {
+        const cx = w * 0.50, cy = h * 0.44 + breath * 0.5;
+        // Слоистый симптом «мишени» (утолщенный несжимаемый аппендикс >7мм)
+        ctx.fillStyle = '#334155';
+        ctx.beginPath(); ctx.arc(cx, cy, w * 0.085, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath(); ctx.arc(cx, cy, w * 0.062, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#cbd5e1';
+        ctx.beginPath(); ctx.arc(cx, cy, w * 0.042, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#020617';
+        ctx.beginPath(); ctx.arc(cx, cy, w * 0.024, 0, Math.PI * 2); ctx.fill();
+
+        // Гиперэхогенный аппендиколит в центре + четкая акустическая тень вниз!
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.ellipse(cx, cy, w * 0.018, h * 0.014, 0, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(cx - w * 0.018, cy + 4, w * 0.036, h * 0.45);
+
+        if (state.usDoppler) {
+          drawDopplerBox(cx - w * 0.12, cy - h * 0.12, w * 0.24, h * 0.24);
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(cx, cy, w * 0.055, 0, Math.PI * (1.2 + 0.5 * Math.sin(time * 7)));
+          ctx.stroke();
+        }
+      } else {
+        drawAbdomenUltrasound(w, h, apexX, apexY, radius, c, time, breath);
+      }
+    }
+
+    function drawAbdomenUltrasound(w, h, apexX, apexY, radius, c, time, breath) {
+      if (c.id === 'bowel_obstruction') {
+        // Множественные расширенные петли тонкой кишки с жидкостью и маятникообразной перистальтикой
+        const sway = Math.sin(time * 3.5) * 8;
+        for (let i = 0; i < 3; i++) {
+          const lx = w * (0.38 + i * 0.12);
+          const ly = h * (0.45 + (i % 2) * 0.12);
+          ctx.fillStyle = '#05080f';
+          ctx.beginPath();
+          ctx.ellipse(lx, ly, w * 0.085, h * 0.075, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#94a3b8';
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+
+          // Взвесь, двигающаяся «вперед-назад»
+          ctx.fillStyle = '#cbd5e1';
+          ctx.beginPath();
+          ctx.arc(lx + sway, ly, 2.5, 0, Math.PI * 2);
+          ctx.arc(lx - sway * 0.8, ly + 8, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (c.id === 'crohns_disease') {
+        // Утолщенная стенка кишки в поперечном срезе + гиперемия при ЦДК
+        const cx = w * 0.50, cy = h * 0.45 + breath;
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath(); ctx.ellipse(cx, cy, w * 0.13, h * 0.09, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 5; ctx.stroke();
+        if (state.usDoppler) {
+          drawDopplerBox(cx - w * 0.15, cy - h * 0.12, w * 0.30, h * 0.24);
+          ctx.fillStyle = '#ef4444';
+          for (let d = 0; d < 6; d++) {
+            const ang = d + time * 4;
+            ctx.beginPath();
+            ctx.arc(cx + Math.cos(ang) * w * 0.09, cy + Math.sin(ang) * h * 0.055, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      } else {
+        // Обычные петли кишечника с газом (реверберация)
+        ctx.fillStyle = '#64748b';
+        ctx.font = `500 ${Math.round(w * 0.028)}px Inter, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('Газ в петлях ЖКТ рассеивает ультразвук', w * 0.5, h * 0.46);
+      }
+    }
+
+    function drawKidneyUltrasound(w, h, apexX, apexY, radius, c, zone, time, breath) {
+      const isRightKidneyZone = (zone === 'kidney_r');
+      const matchesTargetSide = (isRightKidneyZone && c.targetSide === 'right') || (!isRightKidneyZone && c.targetSide === 'left');
+
+      // Если нефроптоз в положении СТОЯ — почка опускается к нижнему краю сектора
+      const ptosisShift = (matchesTargetSide && c.id === 'nephroptosis' && state.patientPosition === 'upright') ? h * 0.14 : 0;
+      const cx = w * 0.50;
+      const cy = h * 0.45 + breath + ptosisShift;
+
+      const isShrunken = matchesTargetSide && c.id === 'chronic_pyelonephritis';
+      const rx = isShrunken ? w * 0.13 : w * 0.18;
+      const ry = isShrunken ? h * 0.10 : h * 0.14;
+
+      // Капсула и корковый слой (паренхима) почки
+      ctx.save();
+      ctx.beginPath();
+      if (isShrunken) {
+        // Бугристый рубцовый контур при хроническом пиелонефрите
+        for (let a = 0; a <= 36; a++) {
+          const ang = (a / 36) * Math.PI * 2;
+          const bump = 1 + 0.11 * Math.sin(ang * 5);
+          const px = cx + Math.cos(ang) * rx * bump;
+          const py = cy + Math.sin(ang) * ry * bump;
+          if (a === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+      } else {
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      }
+      ctx.fillStyle = '#273549';
+      ctx.fill();
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      // Почечный синус (светлый гиперэхогенный центр в норме)
+      ctx.fillStyle = '#94a3b8';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx * 0.52, ry * 0.45, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ПАТОЛОГИИ ПОЧЕК НА УЗИ (только если датчик наведен на больную почку!):
+      if (matchesTargetSide) {
+        if (c.id === 'renal_cyst') {
+          const kX = cx + rx * 0.35, kY = cy - ry * 0.2, kR = w * 0.055;
+          // Дорсальное акустическое усиление (светлая дорожка за кистой!)
+          const enhGrad = ctx.createLinearGradient(kX, kY, kX, kY + h * 0.32);
+          enhGrad.addColorStop(0, 'rgba(248, 250, 252, 0.45)');
+          enhGrad.addColorStop(1, 'rgba(248, 250, 252, 0)');
+          ctx.fillStyle = enhGrad;
+          ctx.fillRect(kX - kR * 0.9, kY, kR * 1.8, h * 0.32);
+
+          // Идеально круглая черная (анэхогенная) киста
+          ctx.fillStyle = '#020408';
+          ctx.beginPath();
+          ctx.arc(kX, kY, kR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          if (state.usDoppler) {
+            drawDopplerBox(kX - kR * 1.5, kY - kR * 1.5, kR * 3, kR * 3);
+            // Кровоток есть в паренхиме рядом, но ВНУТРИ кисты — пусто!
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(cx - rx * 0.35, cy, 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else if (c.id === 'hydronephrosis') {
+          // Сообщающиеся расширенные черные чашечки и лоханка («древовидная» полость)
+          ctx.fillStyle = '#020408';
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, rx * 0.42, ry * 0.35, 0, 0, Math.PI * 2);
+          ctx.fill();
+          [-0.55, 0, 0.55].forEach(ang => {
+            ctx.beginPath();
+            ctx.arc(cx + Math.sin(ang) * rx * 0.52, cy - Math.cos(ang) * ry * 0.48, w * 0.026, 0, Math.PI * 2);
+            ctx.fill();
+          });
+        } else if (c.id === 'nephrolithiasis') {
+          // Яркий гиперэхогенный камень + черная акустическая тень вниз
+          const sX = cx, sY = cy;
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+          ctx.fillRect(sX - w * 0.024, sY + 4, w * 0.048, h * 0.42);
+
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.ellipse(sX, sY, w * 0.025, h * 0.018, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (state.usDoppler) {
+            // Мерцающий артефакт (twinkling artifact) за камнем
+            drawDopplerBox(sX - w * 0.06, sY - h * 0.04, w * 0.12, h * 0.18);
+            ctx.fillStyle = Math.sin(time * 25) > 0 ? '#ef4444' : '#38bdf8';
+            ctx.fillRect(sX - w * 0.015, sY + 8, w * 0.03, h * 0.07);
+          }
+        }
+      }
+
+      ctx.restore();
+    }
+
+    function drawDopplerBox(x, y, bw, bh) {
+      ctx.save();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x, y, bw, bh);
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.06)';
+      ctx.fillRect(x, y, bw, bh);
+      ctx.restore();
+    }
+
+    // Отрисовка обучающих стрелок и меток прямо поверх снимка/УЗИ
+    function drawEducationalMarkers(w, h, c, modality) {
+      const markers = c.markers.filter(m => m.type === modality);
+      markers.forEach((m, idx) => {
+        const tx = m.x * w;
+        const ty = m.y * h;
+        const labelX = tx < w * 0.5 ? tx + w * 0.09 : tx - w * 0.09;
+        const labelY = ty - h * (0.07 + idx * 0.04);
+
+        ctx.save();
+        // Пульсирующее кольцо на патологии
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(tx, ty, 11, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Указательная линия
+        ctx.beginPath();
+        ctx.moveTo(tx, ty);
+        ctx.lineTo(labelX, labelY);
+        ctx.stroke();
+
+        // Плашка с текстом
+        ctx.font = `700 ${Math.max(10, Math.round(w * 0.025))}px Inter, sans-serif`;
+        const textWidth = ctx.measureText(m.label).width;
+        const pad = 6;
+        const boxX = tx < w * 0.5 ? labelX : labelX - textWidth - pad * 2;
+        const boxY = labelY - 12;
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.roundRect(boxX, boxY, textWidth + pad * 2, 20, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#fde68a';
+        ctx.textAlign = 'left';
+        ctx.fillText(m.label, boxX + pad, boxY + 14);
+        ctx.restore();
+      });
+    }
+
+    // =========================================================================
+    // 9. УПРАВЛЕНИЕ ИНТЕРФЕЙСОМ И ЛОГИКОЙ КЕЙСОВ
+    // =========================================================================
+    function showToast(msg) {
+      const box = document.getElementById('toast-box');
+      document.getElementById('toast-text').textContent = msg;
+      box.classList.remove('opacity-0', '-translate-y-3');
+      box.classList.add('opacity-100', 'translate-y-0');
+      clearTimeout(box._timer);
+      box._timer = setTimeout(() => {
+        box.classList.add('opacity-0', '-translate-y-3');
+        box.classList.remove('opacity-100', 'translate-y-0');
+      }, 2400);
+    }
+
+    function updateEduLiveHint() {
+      const c = getCurrentCase();
+      const box = document.getElementById('edu-live-box');
+      const txt = document.getElementById('edu-live-text');
+      if (!state.eduMode) {
+        box.classList.add('opacity-50');
+        txt.textContent = 'Режим обучения выключен. Включите его в верхней панели, чтобы видеть подсказки и разметку симптомов.';
+        return;
+      }
+      box.classList.remove('opacity-50');
+      if (state.activeTool === 'xray' && !state.lastXrayShot) {
+        txt.textContent = `Рекомендуемая зона: ${zoneNamesRu[c.region]}. ${c.recommendedMethod}`;
+      } else {
+        txt.textContent = `Внимание на экран: ${c.markers.map(m => m.label).join(' • ')}.`;
+      }
+    }
+
+    function loadCase(index) {
+      state.currentCaseIdx = index;
+      state.lastXrayShot = null;
+      state.answeredCurrent = false;
+      const c = getCurrentCase();
+
+      document.getElementById('hud-case-num').textContent = `${index + 1} / ${state.casesOrder.length}`;
+      document.getElementById('case-category-badge').textContent = c.category;
+      document.getElementById('case-patient-meta').textContent = c.patient;
+      document.getElementById('case-anamnesis').textContent = c.anamnesis;
+
+      const badge = document.getElementById('monitor-badge');
+      badge.textContent = state.activeTool === 'xray' ? 'ОЖИДАНИЕ СНИМКА' : 'LIVE УЗИ-СКАН';
+      badge.className = 'text-[10px] font-mono-tech px-2 py-0.5 rounded bg-slate-800 text-cyan-300 border border-cyan-500/30';
+
+      // Перемешиваем варианты ответов с сохранением правильного
+      const indexedOptions = c.options.map((text, idx) => ({ text, isCorrect: idx === c.correctIndex }));
+      for (let i = indexedOptions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indexedOptions[i], indexedOptions[j]] = [indexedOptions[j], indexedOptions[i]];
+      }
+
+      const optionsContainer = document.getElementById('diagnosis-options');
+      optionsContainer.innerHTML = '';
+      indexedOptions.forEach((opt, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'w-full text-left px-3 py-2 rounded-xl text-xs font-medium bg-slate-900/80 hover:bg-cyan-950/70 text-slate-200 border border-slate-700/80 hover:border-cyan-400/60 transition flex items-center justify-between gap-2';
+        btn.innerHTML = `<span><strong class="text-cyan-400 font-mono-tech mr-1.5">${i + 1}.</strong>${opt.text}</span>`;
+        btn.addEventListener('click', () => handleDiagnosisChoice(opt.isCorrect, btn));
+        optionsContainer.appendChild(btn);
+      });
+
+      updateEduLiveHint();
+    }
+
+    function handleDiagnosisChoice(isCorrect, clickedBtn) {
+      const c = getCurrentCase();
+      if (!state.answeredCurrent) {
+        state.answeredCurrent = true;
+        state.lastAnswerCorrect = isCorrect;
+        if (isCorrect) {
+          state.score += 1;
+          document.getElementById('hud-score').textContent = state.score;
+          sound.playSuccess();
+        } else {
+          sound.playError();
+        }
+      }
+
+      // Визуально подсвечиваем кнопку
+      if (isCorrect) {
+        clickedBtn.classList.add('border-emerald-400', 'bg-emerald-950/60', 'text-emerald-200');
+      } else {
+        clickedBtn.classList.add('border-rose-500', 'bg-rose-950/60', 'text-rose-200');
+      }
+
+      // Заполняем и открываем окно разбора кейса
+      const modal = document.getElementById('result-modal');
+      const statusBadge = document.getElementById('result-status-badge');
+      const iconBg = document.getElementById('result-icon-bg');
+      const iconOk = document.getElementById('result-icon-ok');
+      const iconErr = document.getElementById('result-icon-err');
+
+      if (isCorrect) {
+        statusBadge.textContent = 'Верный дифференциальный диагноз!';
+        statusBadge.className = 'text-xs font-bold uppercase tracking-wider text-emerald-400';
+        iconBg.className = 'w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 flex-shrink-0';
+        iconOk.classList.remove('hidden');
+        iconErr.classList.add('hidden');
+      } else {
+        statusBadge.textContent = 'Ошибка в дифференциальной диагностике';
+        statusBadge.className = 'text-xs font-bold uppercase tracking-wider text-rose-400';
+        iconBg.className = 'w-11 h-11 rounded-2xl bg-rose-500/20 border border-rose-400/40 flex items-center justify-center text-rose-400 flex-shrink-0';
+        iconOk.classList.add('hidden');
+        iconErr.classList.remove('hidden');
+      }
+
+      document.getElementById('result-correct-name').textContent = c.options[c.correctIndex];
+      document.getElementById('result-case-counter').textContent = `${state.currentCaseIdx + 1} / ${state.casesOrder.length}`;
+      document.getElementById('result-explanation-correct').textContent = c.explanationCorrect;
+      document.getElementById('result-diff-title').textContent = `Как отличить от главного «двойника» (${c.diffTwin}):`;
+      document.getElementById('result-explanation-diff').textContent = c.explanationDiff;
+      document.getElementById('result-physics-note').textContent = c.physicsNote;
+
+      const nextBtn = document.getElementById('btn-next-case');
+      nextBtn.textContent = state.currentCaseIdx + 1 < state.casesOrder.length
+        ? 'Следующий пациент →'
+        : 'Завершить и посмотреть итоги 🏆';
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    // Переключение инструментов (Рентген / УЗИ)
+    function setTool(tool) {
+      sound.playClick();
+      state.activeTool = tool;
+      const btnXray = document.getElementById('tool-xray');
+      const btnUs = document.getElementById('tool-us');
+      const xrayRow = document.getElementById('xray-controls-row');
+      const usRow = document.getElementById('us-controls-row');
+      const btnShoot = document.getElementById('btn-shoot-xray');
+      const usHint = document.getElementById('us-live-hint');
+
+      if (tool === 'xray') {
+        btnXray.className = 'tool-btn active-tool-glow p-2.5 rounded-xl border border-cyan-400 bg-cyan-500/20 text-left transition flex flex-col gap-1';
+        btnUs.className = 'tool-btn p-2.5 rounded-xl border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-left transition flex flex-col gap-1';
+        xrayRow.classList.remove('hidden');
+        usRow.classList.add('hidden');
+        btnShoot.classList.remove('hidden');
+        usHint.classList.add('hidden');
+
+        xrayToolGroup.visible = true;
+        usProbeGroup.visible = false;
+
+        document.getElementById('monitor-title').textContent = 'Монитор Рентгенографии';
+        document.getElementById('monitor-badge').textContent = state.lastXrayShot ? 'СНИМОК ГОТОВ' : 'ОЖИДАНИЕ СНИМКА';
+        document.getElementById('telemetry-mode').textContent = 'MODALITY: DR X-RAY';
+      } else {
+        btnUs.className = 'tool-btn active-tool-glow p-2.5 rounded-xl border border-cyan-400 bg-cyan-500/20 text-left transition flex flex-col gap-1';
+        btnXray.className = 'tool-btn p-2.5 rounded-xl border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-left transition flex flex-col gap-1';
+        xrayRow.classList.add('hidden');
+        usRow.classList.remove('hidden');
+        btnShoot.classList.add('hidden');
+        usHint.classList.remove('hidden');
+
+        xrayToolGroup.visible = false;
+        usProbeGroup.visible = true;
+
+        document.getElementById('monitor-title').textContent = 'Монитор УЗИ-сканера';
+        document.getElementById('monitor-badge').textContent = 'LIVE 60 FPS (0.00 мЗв)';
+        document.getElementById('telemetry-mode').textContent = state.usDoppler ? 'MODALITY: US B-MODE + ЦДК' : 'MODALITY: US B-MODE';
+      }
+      updateEduLiveHint();
+    }
+
+    // Переключение положения пациента (Лёжа / Стоя)
+    let targetAssemblyRotX = 0;
+    let targetAssemblyPosY = 0;
+    function setPatientPosition(pos) {
+      sound.playClick();
+      state.patientPosition = pos;
+      const btnSupine = document.getElementById('pos-supine');
+      const btnUpright = document.getElementById('pos-upright');
+
+      if (pos === 'supine') {
+        btnSupine.className = 'px-2.5 py-1 rounded-md text-[11px] font-semibold bg-cyan-500/30 text-cyan-200 transition';
+        btnUpright.className = 'px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-white transition';
+        targetAssemblyRotX = 0;
+        targetAssemblyPosY = 0;
+        document.getElementById('telemetry-pos').textContent = 'POS: SUPINE (ЛЁЖА)';
+        showToast('Пациент переведён в положение ЛЁЖА');
+      } else {
+        btnUpright.className = 'px-2.5 py-1 rounded-md text-[11px] font-semibold bg-cyan-500/30 text-cyan-200 transition';
+        btnSupine.className = 'px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-white transition';
+        targetAssemblyRotX = Math.PI * 0.36; // Вертикализация стола-штатива
+        targetAssemblyPosY = 0.65;
+        document.getElementById('telemetry-pos').textContent = 'POS: UPRIGHT (СТОЯ)';
+        showToast('Пациент переведён в положение СТОЯ (вертикализация)');
+      }
+    }
+
+    // =========================================================================
+    // 10. ПРИВЯЗКА СОБЫТИЙ КНОПОК И ГОРЯЧИХ КЛАВИШ
+    // =========================================================================
+    document.getElementById('tool-xray').addEventListener('click', () => setTool('xray'));
+    document.getElementById('tool-us').addEventListener('click', () => setTool('us'));
+    document.getElementById('btn-shoot-xray').addEventListener('click', performXrayExposure);
+
+    document.getElementById('pos-supine').addEventListener('click', () => setPatientPosition('supine'));
+    document.getElementById('pos-upright').addEventListener('click', () => setPatientPosition('upright'));
+
+    document.getElementById('contrast-none').addEventListener('click', () => {
+      sound.playClick();
+      state.xrayContrast = false;
+      document.getElementById('contrast-none').className = 'px-2 py-1 rounded-md text-[11px] font-semibold bg-cyan-500/30 text-cyan-200 transition';
+      document.getElementById('contrast-yes').className = 'px-2 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-white transition';
+      document.getElementById('telemetry-extra').textContent = 'CONTRAST: NONE';
+      showToast('Режим рентгена: Без контрастного вещества');
+    });
+
+    document.getElementById('contrast-yes').addEventListener('click', () => {
+      sound.playClick();
+      state.xrayContrast = true;
+      document.getElementById('contrast-yes').className = 'px-2 py-1 rounded-md text-[11px] font-semibold bg-cyan-500/30 text-cyan-200 transition';
+      document.getElementById('contrast-none').className = 'px-2 py-1 rounded-md text-[11px] font-semibold text-slate-400 hover:text-white transition';
+      document.getElementById('telemetry-extra').textContent = 'CONTRAST: BARIUM / IODINE';
+      showToast('Введено контрастное вещество (Барий / Йод)');
+    });
+
+    document.getElementById('toggle-doppler').addEventListener('click', (e) => {
+      sound.playClick();
+      state.usDoppler = !state.usDoppler;
+      if (state.usDoppler) {
+        e.target.textContent = 'ЦДК: ВКЛ (Кровоток)';
+        e.target.className = 'px-3 py-1 rounded-lg text-[11px] font-semibold bg-rose-500/30 text-rose-200 border border-rose-400 transition';
+        document.getElementById('telemetry-mode').textContent = 'MODALITY: US B-MODE + ЦДК';
+        showToast('Включен цветовой допплер (ЦДК) для оценки кровотока');
+      } else {
+        e.target.textContent = 'ЦДК: ВЫКЛ';
+        e.target.className = 'px-3 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-600 hover:border-rose-400 transition';
+        document.getElementById('telemetry-mode').textContent = 'MODALITY: US B-MODE';
+      }
+    });
+
+    document.getElementById('btn-edu-toggle').addEventListener('click', () => {
+      sound.playClick();
+      state.eduMode = !state.eduMode;
+      document.getElementById('edu-status-text').textContent = state.eduMode ? 'ВКЛ' : 'ВЫКЛ';
+      updateEduLiveHint();
+      showToast(state.eduMode ? 'Режим обучения включен: симптомы размечаются на экране' : 'Режим обучения выключен');
+    });
+
+    document.getElementById('btn-physics-hint').addEventListener('click', () => {
+      sound.playClick();
+      const c = getCurrentCase();
+      document.getElementById('hint-modal-case-advice').textContent = c.recommendedMethod;
+      const modal = document.getElementById('physics-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    });
+
+    ['btn-close-physics', 'btn-close-physics-2'].forEach(id => {
+      document.getElementById(id).addEventListener('click', () => {
+        sound.playClick();
+        const modal = document.getElementById('physics-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      });
+    });
+
+    document.getElementById('btn-review-scan').addEventListener('click', () => {
+      sound.playClick();
+      state.eduMode = true;
+      document.getElementById('edu-status-text').textContent = 'ВКЛ';
+      updateEduLiveHint();
+      const modal = document.getElementById('result-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    });
+
+    document.getElementById('btn-next-case').addEventListener('click', () => {
+      sound.playClick();
+      const modal = document.getElementById('result-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+
+      if (state.currentCaseIdx + 1 < state.casesOrder.length) {
+        loadCase(state.currentCaseIdx + 1);
+      } else {
+        showFinalSummary();
+      }
+    });
+
+    function showFinalSummary() {
+      document.getElementById('final-score-text').textContent = `${state.score} / ${state.casesOrder.length}`;
+      document.getElementById('final-dose-text').textContent = `${state.totalDose.toFixed(2)} мЗв`;
+
+      let rank = 'Отличный результат! Вы уверенно владеете основами рентгенологии и ультразвуковой диагностики.';
+      if (state.score >= 13) {
+        rank = 'Блестяще! Уровень врача-рентгенолога и специалиста УЗД: вы безошибочно различаете тонкие симптомы и соблюдаете принцип ALARA.';
+      } else if (state.score < 9) {
+        rank = 'Хорошая тренировка! Попробуйте пройти кейсы ещё раз с включённым «Режимом обучения», обращая внимание на стрелки симптомов.';
+      }
+      document.getElementById('final-rank-comment').textContent = rank;
+
+      const finalModal = document.getElementById('final-modal');
+      finalModal.classList.remove('hidden');
+      finalModal.classList.add('flex');
+    }
+
+    document.getElementById('btn-restart-game').addEventListener('click', () => {
+      sound.playClick();
+      const finalModal = document.getElementById('final-modal');
+      finalModal.classList.add('hidden');
+      finalModal.classList.remove('flex');
+      state.score = 0;
+      state.totalDose = 0;
+      document.getElementById('hud-score').textContent = '0';
+      document.getElementById('hud-dose').textContent = '0.00 мЗв';
+      shuffleCases();
+      loadCase(0);
+    });
+
+    document.getElementById('btn-reset-cam').addEventListener('click', () => {
+      sound.playClick();
+      camera.position.copy(defaultCamPos);
+      controls.target.copy(defaultCamTarget);
+    });
+
+    document.getElementById('btn-mute').addEventListener('click', () => {
+      sound.muted = !sound.muted;
+      document.getElementById('icon-sound-on').classList.toggle('hidden', sound.muted);
+      document.getElementById('icon-sound-off').classList.toggle('hidden', !sound.muted);
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === '1') setTool('xray');
+      if (e.key === '2') setTool('us');
+      if (e.code === 'Space' && state.activeTool === 'xray') {
+        e.preventDefault();
+        performXrayExposure();
+      }
+    });
+
+    // =========================================================================
+    // 11. ГЛАВНЫЙ ЦИКЛ АНИМАЦИИ (3D СЦЕНА + МОНИТОР 60 FPS)
+    // =========================================================================
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const elapsed = clock.getElapsedTime();
+
+      // Плавная вертикализация кушетки при переключении Лёжа / Стоя
+      examAssembly.rotation.x += (targetAssemblyRotX - examAssembly.rotation.x) * 0.08;
+      examAssembly.position.y += (targetAssemblyPosY - examAssembly.position.y) * 0.08;
+
+      // Физиологическая анимация пациента: дыхание легких и пульсация сердца
+      const breath = Math.sin(elapsed * 2.1);
+      rightLungMesh.scale.set(0.85 + breath * 0.04, 0.65 + breath * 0.05, 1.55 + breath * 0.03);
+      leftLungMesh.scale.set(0.82 + breath * 0.04, 0.65 + breath * 0.05, 1.50 + breath * 0.03);
+
+      const heartBeat = 1 + Math.pow(Math.sin(elapsed * 4.5), 8) * 0.14;
+      heartMesh.scale.set(0.9 * heartBeat, 0.8 * heartBeat, 1.15 * heartBeat);
+
+      // При нефроптозе в 3D-модели правая почка тоже наглядно опускается вниз!
+      const c = getCurrentCase();
+      const targetKidneyZ = (c && c.id === 'nephroptosis' && state.patientPosition === 'upright') ? 0.04 : -0.14;
+      rightKidneyMesh.position.z += (targetKidneyZ - rightKidneyMesh.position.z) * 0.08;
+
+      // Обновляем телеметрию зоны на мониторе
+      const regionTelemetryMap = {
+        thorax: 'THORAX (ГРУДЬ)',
+        abdomen: 'ABDOMEN (ЖКТ)',
+        kidney_r: 'KIDNEY R (ПР. ПОЧКА)',
+        kidney_l: 'KIDNEY L (ЛЕВ. ПОЧКА)',
+        rif: 'RIF (ПР. ПОДВЗД.)'
+      };
+      document.getElementById('telemetry-zone').textContent = `REGION: ${regionTelemetryMap[state.hoveredZone]}`;
+
+      // Отрисовка диагностического монитора
+      const mw = diagCanvas.width;
+      const mh = diagCanvas.height;
+      if (state.activeTool === 'xray') {
+        renderXrayMonitor(mw, mh, elapsed);
+      } else {
+        renderUltrasoundMonitor(mw, mh, elapsed);
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // Инициализация игры
+    window.onload = () => {
+      shuffleCases();
+      loadCase(0);
+      animate();
+    };
+  </script>
+</body>
+</html>

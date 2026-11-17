@@ -1,0 +1,1817 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Педиатрия 3D: Клинический Симулятор</title>
+  <!-- Подключение Tailwind CSS для адаптивного медицинского интерфейса -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Подключение шрифта Inter для высокой читаемости клинических данных -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+      background: #0b1324;
+      color: #f8fafc;
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      touch-action: none;
+    }
+    /* Стеклянные панели медицинского HUD */
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(148, 163, 184, 0.22);
+      box-shadow: 0 12px 32px rgba(2, 6, 23, 0.55);
+    }
+    .glass-card-hover {
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-card-hover:hover {
+      background: rgba(30, 41, 59, 0.92);
+      border-color: rgba(56, 189, 248, 0.55);
+      transform: translateY(-1px);
+    }
+    /* Полоса обратного отсчета временной подсказки */
+    @keyframes shrinkProgress {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+    .hint-timer-bar {
+      animation: shrinkProgress 6s linear forwards;
+    }
+    /* Скроллбар для панели решений на мобильных и малых экранах */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.5);
+      border-radius: 9999px;
+    }
+    .pulse-ring {
+      animation: pulseRing 2s infinite;
+    }
+    @keyframes pulseRing {
+      0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.5); }
+      70% { box-shadow: 0 0 0 10px rgba(56, 189, 248, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Контейнер 3D-сцены -->
+  <div id="canvas-container"></div>
+
+  <!-- Верхний медицинский HUD -->
+  <header class="fixed top-0 left-0 right-0 z-20 pointer-events-none p-2 sm:p-4">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <!-- Логотип и текущий кейс -->
+      <div class="glass-panel rounded-2xl px-3.5 py-2 pointer-events-auto flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-teal-400 flex items-center justify-center shadow-lg shadow-sky-500/20 shrink-0">
+          <svg class="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xs sm:text-sm font-bold tracking-tight text-white">ПЕДИАТРИЯ 3D</h1>
+            <span id="case-badge" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30">
+              Кейс 1 / 8
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 hidden sm:block">Осмотр, диагностика и клиническая тактика</p>
+        </div>
+      </div>
+
+      <!-- Показатели прогресса: Здоровье пациента, Репутация врача, Очки -->
+      <div class="glass-panel rounded-2xl px-3.5 py-2 pointer-events-auto flex items-center gap-3 sm:gap-5 flex-1 sm:flex-initial justify-around sm:justify-end">
+        <!-- Здоровье пациента -->
+        <div class="min-w-[90px] sm:min-w-[125px]">
+          <div class="flex justify-between text-[11px] font-medium mb-1">
+            <span class="text-slate-300">Состояние</span>
+            <span id="health-text" class="text-emerald-400 font-bold">85%</span>
+          </div>
+          <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div id="health-bar" class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500" style="width: 85%"></div>
+          </div>
+        </div>
+
+        <!-- Репутация педиатра -->
+        <div class="min-w-[90px] sm:min-w-[125px]">
+          <div class="flex justify-between text-[11px] font-medium mb-1">
+            <span class="text-slate-300">Репутация</span>
+            <span id="rep-text" class="text-sky-400 font-bold">80%</span>
+          </div>
+          <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div id="rep-bar" class="h-full bg-gradient-to-r from-sky-500 to-indigo-400 rounded-full transition-all duration-500" style="width: 80%"></div>
+          </div>
+        </div>
+
+        <!-- Счет -->
+        <div class="text-right border-l border-slate-700/70 pl-3">
+          <div class="text-[10px] uppercase tracking-wider text-slate-400">Очки</div>
+          <div id="score-text" class="text-sm sm:text-base font-extrabold text-amber-400 tabular-nums">0</div>
+        </div>
+
+        <!-- Кнопка звука -->
+        <button id="sound-toggle-btn" title="Включить/выключить звук" class="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-600/50 flex items-center justify-center text-slate-200 transition active:scale-95 shrink-0">
+          <svg id="sound-on-icon" class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" />
+          </svg>
+          <svg id="sound-off-icon" class="w-4 h-4 text-slate-500 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Временное всплывающее окно подсказки (появляется только по нажатию кнопки на 6 секунд) -->
+  <div id="hint-banner" class="fixed top-20 left-1/2 -translate-x-1/2 z-30 w-[92%] max-w-xl hidden pointer-events-none">
+    <div class="glass-panel rounded-2xl p-3.5 border-amber-400/50 shadow-xl shadow-amber-950/30 overflow-hidden">
+      <div class="flex items-start gap-3">
+        <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center shrink-0 text-amber-300 font-bold text-sm">
+          !
+        </div>
+        <div class="flex-1">
+          <div class="text-xs font-bold uppercase tracking-wider text-amber-300 mb-0.5">Клинический норматив и подсказка</div>
+          <p id="hint-text" class="text-xs sm:text-sm text-slate-100 leading-snug"></p>
+        </div>
+      </div>
+      <div class="w-full h-1 bg-slate-800 rounded-full mt-2.5 overflow-hidden">
+        <div id="hint-progress" class="h-full bg-amber-400 rounded-full"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Всплывающая подсказка над 3D-объектом при наведении -->
+  <div id="hover-tooltip" class="fixed z-20 pointer-events-none hidden px-3 py-1.5 rounded-xl bg-slate-900/95 border border-sky-400/40 text-xs font-medium text-sky-200 shadow-lg transform -translate-x-1/2 -translate-y-full -mt-3">
+  </div>
+
+  <!-- Левая/нижняя панель клинического случая и действий -->
+  <aside class="fixed bottom-2 left-2 right-2 sm:left-4 sm:right-auto sm:top-20 sm:bottom-4 sm:w-[390px] z-20 flex flex-col gap-2.5 pointer-events-none max-h-[54vh] sm:max-h-none">
+    <!-- Карточка пациента и анамнеза -->
+    <div class="glass-panel rounded-2xl p-3.5 pointer-events-auto flex flex-col overflow-hidden">
+      <div class="flex items-center justify-between gap-2 mb-1.5">
+        <span id="case-category" class="text-[11px] font-semibold uppercase tracking-wider text-teal-300">Неонатология</span>
+        <div class="flex items-center gap-1.5">
+          <!-- Выбор кейса -->
+          <select id="case-selector" class="bg-slate-800/90 text-xs text-slate-200 rounded-lg px-2 py-1 border border-slate-600/60 focus:outline-none focus:border-sky-400">
+          </select>
+          <!-- Кнопка временной подсказки -->
+          <button id="hint-btn" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 text-xs font-semibold transition active:scale-95 flex items-center gap-1">
+            <span>Подсказка</span>
+          </button>
+        </div>
+      </div>
+
+      <h2 id="case-title" class="text-sm sm:text-base font-bold text-white leading-snug mb-1">
+        Загрузка клинического случая...
+      </h2>
+      <p id="case-anamnesis" class="text-xs text-slate-300 leading-relaxed mb-2.5 max-h-20 sm:max-h-28 overflow-y-auto pr-1">
+      </p>
+
+      <!-- Панель инструментального осмотра (разблокируется при перетаскивании 3D-инструментов или клике по зонам) -->
+      <div class="bg-slate-900/75 rounded-xl p-2.5 border border-slate-700/60 mb-2">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-[11px] font-semibold text-sky-300 uppercase tracking-wider">Данные осмотра (перетащите 3D-прибор на пациента)</span>
+          <span id="exam-progress" class="text-[11px] font-bold text-slate-400">0/3</span>
+        </div>
+        <div id="vitals-grid" class="grid grid-cols-3 gap-1.5 text-center">
+          <div id="vital-temp" class="rounded-lg bg-slate-800/80 p-1.5 border border-slate-700/60">
+            <div class="text-[10px] text-slate-400">Термометр</div>
+            <div class="text-xs font-bold text-slate-500 mt-0.5">—</div>
+          </div>
+          <div id="vital-ausc" class="rounded-lg bg-slate-800/80 p-1.5 border border-slate-700/60">
+            <div class="text-[10px] text-slate-400">Фонендоскоп</div>
+            <div class="text-xs font-bold text-slate-500 mt-0.5">—</div>
+          </div>
+          <div id="vital-inspect" class="rounded-lg bg-slate-800/80 p-1.5 border border-slate-700/60">
+            <div class="text-[10px] text-slate-400">Осмотр / Тест</div>
+            <div class="text-xs font-bold text-slate-500 mt-0.5">—</div>
+          </div>
+        </div>
+        <div id="exam-finding-log" class="mt-1.5 text-[11px] text-teal-200/90 italic min-h-[16px]">
+          Подсказка управления: перетащите термометр, фонендоскоп или отоскоп с лотка на ребенка.
+        </div>
+      </div>
+
+      <!-- Варианты клинической тактики -->
+      <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+        Выберите тактику педиатра:
+      </div>
+      <div id="options-container" class="flex flex-col gap-1.5 overflow-y-auto pr-0.5 max-h-40 sm:max-h-64">
+      </div>
+    </div>
+  </aside>
+
+  <!-- Правая нижняя мини-панель управления камерой и педиатром -->
+  <div class="fixed bottom-3 right-3 z-20 hidden lg:flex flex-col gap-2 items-end pointer-events-none">
+    <div class="glass-panel rounded-2xl p-3 pointer-events-auto text-xs text-slate-300 max-w-[250px]">
+      <div class="font-bold text-white mb-1 flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+        Управление в 3D-кабинете
+      </div>
+      <ul class="space-y-1 text-[11px] text-slate-300">
+        <li>• <span class="text-sky-300 font-medium">ЛКМ / Свайп:</span> вращение камеры вокруг стола</li>
+        <li>• <span class="text-sky-300 font-medium">Колесо / Щипок:</span> приближение (Zoom)</li>
+        <li>• <span class="text-teal-300 font-medium">Перетаскивание прибора:</span> осмотр пациента</li>
+        <li>• <span class="text-amber-300 font-medium">WASD / Стрелки / Клик по полу:</span> шаг педиатра</li>
+      </ul>
+      <div class="mt-2 pt-2 border-t border-slate-700/60 flex gap-1.5">
+        <button id="reset-cam-btn" class="flex-1 py-1 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-medium text-slate-200 border border-slate-600/50 transition">
+          Сброс камеры
+        </button>
+        <button id="quick-exam-btn" class="flex-1 py-1 px-2 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-[11px] font-medium text-sky-300 border border-sky-400/40 transition">
+          Авто-осмотр
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модальное окно клинического разбора результата -->
+  <div id="feedback-modal" class="fixed inset-0 z-40 hidden items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm">
+    <div class="glass-panel rounded-3xl max-w-lg w-full p-5 sm:p-6 border border-slate-600/50 shadow-2xl transform transition-all">
+      <div class="flex items-center gap-3 mb-3">
+        <div id="modal-icon-box" class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 text-xl font-extrabold">
+        </div>
+        <div>
+          <div id="modal-subtitle" class="text-xs font-bold uppercase tracking-wider"></div>
+          <h3 id="modal-title" class="text-lg font-bold text-white"></h3>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-700/70 mb-4">
+        <div class="text-xs font-semibold text-sky-300 uppercase tracking-wider mb-1">Обоснование по нормативам и теории:</div>
+        <p id="modal-explanation" class="text-xs sm:text-sm text-slate-200 leading-relaxed"></p>
+      </div>
+
+      <div class="flex items-center justify-between gap-3">
+        <div id="modal-score-delta" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-800 text-amber-300 border border-slate-700">
+        </div>
+        <div class="flex gap-2">
+          <button id="retry-case-btn" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs sm:text-sm font-semibold text-slate-200 border border-slate-600/60 transition">
+            Повторить кейс
+          </button>
+          <button id="next-case-btn" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-teal-400 hover:from-sky-400 hover:to-teal-300 text-xs sm:text-sm font-bold text-slate-950 shadow-lg shadow-sky-500/25 transition">
+            Следующий кейс →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Импорт карты модулей Three.js -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.160.0",
+        "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    /**
+     * ============================================================================
+     * 1. СИНТЕЗАТОР ЗВУКА (WEB AUDIO API) БЕЗ ВНЕШНИХ ФАЙЛОВ
+     * ============================================================================
+     */
+    class MedicalAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+        this.ambientTimer = null;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            this.ctx = new AudioContextClass();
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      toggle() {
+        this.enabled = !this.enabled;
+        if (this.enabled) {
+          this.init();
+          this.playClick();
+        }
+        return this.enabled;
+      }
+
+      playTone(freq, type = 'sine', duration = 0.14, gainVal = 0.12, delay = 0) {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+
+        const now = this.ctx.currentTime + delay;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(gainVal, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + duration + 0.02);
+      }
+
+      playClick() {
+        this.playTone(620, 'sine', 0.07, 0.08);
+      }
+
+      playPickup() {
+        this.playTone(440, 'triangle', 0.09, 0.1, 0);
+        this.playTone(660, 'triangle', 0.11, 0.1, 0.06);
+      }
+
+      playExamComplete(toolType) {
+        if (toolType === 'stethoscope') {
+          // Имитация двойного тона сердца (луб-дуб)
+          this.playTone(110, 'sine', 0.14, 0.22, 0);
+          this.playTone(85, 'sine', 0.16, 0.18, 0.16);
+          this.playTone(580, 'sine', 0.15, 0.08, 0.36);
+        } else if (toolType === 'thermometer') {
+          // Сигнал электронного термометра
+          this.playTone(880, 'sine', 0.1, 0.1, 0);
+          this.playTone(880, 'sine', 0.1, 0.1, 0.14);
+          this.playTone(1174, 'sine', 0.18, 0.1, 0.28);
+        } else {
+          // Осмотр / тест
+          this.playTone(523.25, 'sine', 0.12, 0.1, 0);
+          this.playTone(783.99, 'sine', 0.18, 0.1, 0.1);
+        }
+      }
+
+      playSuccess() {
+        this.playTone(523.25, 'triangle', 0.18, 0.14, 0);
+        this.playTone(659.25, 'triangle', 0.18, 0.14, 0.1);
+        this.playTone(783.99, 'triangle', 0.22, 0.15, 0.2);
+        this.playTone(1046.5, 'sine', 0.35, 0.16, 0.32);
+      }
+
+      playError() {
+        this.playTone(220, 'sawtooth', 0.22, 0.11, 0);
+        this.playTone(175, 'sawtooth', 0.32, 0.12, 0.18);
+      }
+
+      playHint() {
+        this.playTone(740, 'sine', 0.1, 0.08, 0);
+        this.playTone(987.77, 'sine', 0.16, 0.08, 0.08);
+      }
+    }
+
+    const audio = new MedicalAudioEngine();
+
+    /**
+     * ============================================================================
+     * 2. БАЗА КЛИНИЧЕСКИХ КЕЙСОВ (ИЗ ТЕОРИИ И НОРМАТИВОВ ПЕДИАТРИИ)
+     * ============================================================================
+     */
+    const CLINICAL_CASES = [
+      {
+        id: 1,
+        category: 'Неонатология • Родильный зал',
+        title: 'Первичная оценка и реанимация недоношенного новорожденного',
+        anamnesis:
+          'Роды на сроке 32 недели. После рождения у младенца отмечается брадикардия, нерегулярное дыхание, сниженный мышечный тонус и акроцианоз. Требуется немедленное принятие решения в первые секунды жизни.',
+        patientVisual: {
+          skinColor: 0x9bb5d4, // Легкий цианотичный оттенок
+          scale: 0.78,
+          breathingRate: 1.1,
+          tremor: false
+        },
+        exams: {
+          thermometer: {
+            short: '35,8 °C',
+            detail: 'Т° тела 35,8 °C: высокий риск холодового стресса и гипотермии недоношенного.'
+          },
+          stethoscope: {
+            short: 'ЧСС 84/мин',
+            detail: 'Аускультация: ЧСС 84 уд/мин, ослабленное дыхание, единичные крепитирующие хрипы.'
+          },
+          inspect: {
+            short: 'Апгар 4/6 б.',
+            detail: 'Оценка по Апгар на 1-й мин — 4 балла: выраженная вялость, акроцианоз, нерегулярное дыхание.'
+          }
+        },
+        hint: 'Согласно Приказу Минздравмедпрома РФ № 372, в первые секунды жизни проводится быстрая оценка жизнеспособности, защита от потери тепла и поэтапная первичная реанимация.',
+        options: [
+          {
+            text: 'Отложить реанимацию на 15 минут до получения результатов развернутого анализа газов крови и рентгенограммы',
+            correct: false,
+            explanation:
+              'Ошибка. Первые минуты жизни являются критическими: промедление с респираторной поддержкой при брадикардии < 100 уд/мин усугубляет гипоксию и ацидоз.'
+          },
+          {
+            text: 'Поместить под источник лучистого тепла, обсушить, обеспечить проходимость дыхательных путей и начать ИВЛ маской (Приказ № 372)',
+            correct: true,
+            explanation:
+              'Верно! По методическим указаниям к Приказу № 372 при ЧСС < 100 уд/мин и угнетении дыхания у недоношенного критически важны профилактика гипотермии (лучистое тепло, обсушивание), санация дыхательных путей и немедленная вентиляция легких.'
+          },
+          {
+            text: 'Немедленно приложить ребенка к груди матери в родильном зале и наблюдать в течение 1 часа',
+            correct: false,
+            explanation:
+              'Неверно. Прикладывание к груди в родзале проводится только при удовлетворительном состоянии доношенного ребенка; при асфиксии и брадикардии требуется реанимационная помощь.'
+          },
+          {
+            text: 'Внутривенно ввести высокую дозу натрия гидрокарбоната до восстановления самостоятельного дыхания',
+            correct: false,
+            explanation:
+              'Ошибка. Коррекция ацидоза буферными растворами без адекватной вентиляции легких противопоказана и может усилить гиперкапнию и внутриклеточный ацидоз.'
+          }
+        ]
+      },
+      {
+        id: 2,
+        category: 'Амбулаторная педиатрия • Патронаж',
+        title: 'Первый врачебный патронаж новорожденного после выписки',
+        anamnesis:
+          'Мальчик выписан из родильного дома на 4-е сутки жизни. Участковый педиатр пришел на первый патронаж на дом. Мать спрашивает о сроках дальнейших визитов, уходе за глазами и проверке зрения.',
+        patientVisual: {
+          skinColor: 0xf6c8b2,
+          scale: 0.88,
+          breathingRate: 2.2,
+          tremor: false
+        },
+        exams: {
+          thermometer: {
+            short: '36,7 °C',
+            detail: 'Т° тела 36,7 °C: терморегуляция стабильна, кожные покровы чистые, розовые.'
+          },
+          stethoscope: {
+            short: 'ЧСС 136/мин',
+            detail: 'Тоны сердца ясные, ритмичные, ЧСС 136 уд/мин, пуэрильное дыхание проводится равномерно.'
+          },
+          inspect: {
+            short: 'Рефлекс +',
+            detail: 'Зрачковая реакция на свет живая, кратковременная фиксация взгляда на лице матери, пупочная ранка чистая.'
+          }
+        },
+        hint: 'Педиатр осматривает новорожденного на дому в первые 2 дня после выписки, затем через день, на 14-е и 21-е сутки, проверяя зрачковую реакцию, слежение и обучая уходу за глазами.',
+        options: [
+          {
+            text: 'Назначить следующий осмотр только в возрасте 3 месяцев, если у ребенка не поднимется температура',
+            correct: false,
+            explanation:
+              'Неверно. В период новорожденности обязателен регулярный патронаж на дому (первые 2 дня, через день, 14-е и 21-е сутки) и плановый осмотр в поликлинике в 1 месяц.'
+          },
+          {
+            text: 'Назначить профилактический курс антибиотиков широкого спектра действия и перевод на искусственную смесь',
+            correct: false,
+            explanation:
+              'Ошибка. Здоровому новорожденному необходимы естественное грудное вскармливание и гигиенический уход, а не необоснованная антибактериальная терапия.'
+          },
+          {
+            text: 'Проверить реакцию зрачков на свет и слежение, обучить мать уходу за глазами, назначить повторный визит через день, на 14-е и 21-е сутки',
+            correct: true,
+            explanation:
+              'Абсолютно верно! Согласно стандартам амбулаторно-поликлинической педиатрии, врач осматривает новорожденного в первые 2 дня после выписки, через день, на 14-е и 21-е сутки, обязательно оценивая орган зрения и поддерживая грудное вскармливание.'
+          },
+          {
+            text: 'Рекомендовать закапывать в оба глаза 20% раствор сульфацила натрия перед каждым кормлением до 1 месяца',
+            correct: false,
+            explanation:
+              'Неверно. Профилактика гонобленнореи проводится однократно в родзале; дома при отсутствии конъюнктивита достаточно гигиенического туалета глаз.'
+          }
+        ]
+      },
+      {
+        id: 3,
+        category: 'Профилактическая педиатрия • 1 месяц',
+        title: 'Плановый осмотр в 1 месяц: группа здоровья и профилактика рахита',
+        anamnesis:
+          'Девочка 1 месяца пришла на первый плановый прием в детскую поликлинику. Осмотрена неврологом, офтальмологом и хирургом-ортопедом. Отклонений в развитии не выявлено, находится на грудном вскармливании.',
+        patientVisual: {
+          skinColor: 0xf7cbb6,
+          scale: 0.94,
+          breathingRate: 2.1,
+          tremor: false
+        },
+        exams: {
+          thermometer: {
+            short: '36,6 °C',
+            detail: 'Т° тела 36,6 °C, прибавка массы тела за первый месяц +780 г (соответствует норме).'
+          },
+          stethoscope: {
+            short: 'ЧСС 132/мин',
+            detail: 'Тоны сердца звучные, ритмичные, ЧСС 132 уд/мин, дыхание везикулярное, хрипов нет.'
+          },
+          inspect: {
+            short: 'Родничок N',
+            detail: 'Большой родничок 1,5×1,5 см, края податливые, тонус мышц физиологический, опознает голос матери.'
+          }
+        },
+        hint: 'В 1 месяц по итогам осмотров невролога, офтальмолога и хирурга-ортопеда педиатр определяет группу здоровья, обучает мать массажу и назначает профилактику рахита.',
+        options: [
+          {
+            text: 'Установить III группу здоровья и оформить постоянный медицинский отвод от всех прививок до 1 года',
+            correct: false,
+            explanation:
+              'Неверно. III группа здоровья присваивается детям с хроническими заболеваниями. Здоровый ребенок относится к I группе здоровья.'
+          },
+          {
+            text: 'Назначить массивную нейрометаболическую и сосудистую терапию без клинических показаний',
+            correct: false,
+            explanation:
+              'Ошибка. Гипердиагностика перинатальной энцефалопатии и назначение недоказанной «сосудистой» терапии здоровым младенцам противоречат принципам доказательной медицины.'
+          },
+          {
+            text: 'Отменить грудное вскармливание в пользу коровьего молока для профилактики дефицита кальция',
+            correct: false,
+            explanation:
+              'Грубая ошибка. Цельное коровье молоко противопоказано детям первого года жизни, а грудное молоко является оптимальным питанием.'
+          },
+          {
+            text: 'Установить I группу здоровья, назначить специфическую профилактику рахита (витамин D) и обучить мать комплексному массажу',
+            correct: true,
+            explanation:
+              'Правильно! По итогам заключений неонатолога и специалистов (невролога, офтальмолога, хирурга-ортопеда) в 1 месяц педиатр определяет I группу здоровья, назначает профилактику рахита и обучает родителей массажу и гимнастике.'
+          }
+        ]
+      },
+      {
+        id: 4,
+        category: 'Неонатология • Дифференциальная диагностика',
+        title: 'Затяжная желтуха (холестаз) у ребенка 3 недель жизни',
+        anamnesis:
+          'У младенца в возрасте 21 дня сохраняется выраженная желтушность кожи и склер. Мать заметила, что стул стал светлым (ахоличным), а моча приобрела темный оттенок. Прямой билирубин — 3,2 мг/дл (55 мкмоль/л).',
+        patientVisual: {
+          skinColor: 0xe8b948, // Желтушный оттенок кожи
+          scale: 0.9,
+          breathingRate: 2.0,
+          tremor: false
+        },
+        exams: {
+          thermometer: {
+            short: '36,8 °C',
+            detail: 'Т° тела 36,8 °C, ребенок несколько вялый при кормлении, выраженная иктеричность кожи и склер.'
+          },
+          stethoscope: {
+            short: 'Гепатомегалия',
+            detail: 'ЧСС 128/мин; при пальпации и перкуссии край печени выступает на +3 см из-под реберной дуги.'
+          },
+          inspect: {
+            short: 'Ахолия +',
+            detail: 'На подгузнике подтвержден обесцвеченный (ахоличный) стул и темная моча; прямой билирубин > 20% от общего.'
+          }
+        },
+        hint: 'Стойкое повышение прямого билирубина (> 1,5–2 мг/дл или > 20% от общего) всегда патологично! Необходимо исключить врожденный гипотиреоз (ТТГ, Т4), сепсис, атрезию желчных путей и галактоземию.',
+        options: [
+          {
+            text: 'Расценить состояние как доброкачественную физиологическую желтуху и назначить только солнечные ванны дома',
+            correct: false,
+            explanation:
+              'Опасно! Физиологическая желтуха обусловлена непрямым билирубином и проходит к 14-му дню жизни. Прямой билирубин > 2 мг/дл — признак серьезного холестаза.'
+          },
+          {
+            text: 'Срочно обследовать на гипотиреоз (ТТГ, Т4), сепсис, галактоземию (с элиминацией лактозы при подозрении) и направить к детскому гастроэнтерологу/хирургу',
+            correct: true,
+            explanation:
+              'Верно! Конъюгированная гипербилирубинемия с ахоличным стулом требует немедленного исключения билиарной атрезии, гипотиреоза (ТТГ, свободный Т4), сепсиса и галактоземии для предотвращения цирроза печени и поражения ЦНС.'
+          },
+          {
+            text: 'Провести интенсивную круглосуточную фототерапию без дополнительного лабораторного обследования',
+            correct: false,
+            explanation:
+              'Ошибка. Фототерапия неэффективна при прямой гипербилирубинемии и вызывает синдром «бронзового ребенка» из-за накопления копропорфирина в коже.'
+          },
+          {
+            text: 'Увеличить объем кормления цельным молоком и назначить желчегонные травы на 1 месяц',
+            correct: false,
+            explanation:
+              'Ошибка. При подозрении на галактоземию лактозу и галактозу необходимо экстренно исключить, а при механической обструкции желчных путей желчегонные средства опасны.'
+          }
+        ]
+      },
+      {
+        id: 5,
+        category: 'Инфекционные болезни • Неотложная диагностика',
+        title: 'Лихорадка у ребенка 10 месяцев без видимого очага инфекции',
+        anamnesis:
+          'Мальчик 10 месяцев доставлен с жалобами на резкий подъем температуры до 39,6 °C в течение 8 часов. Кашля, насморка и сыпи нет. Педиатр оценивает риск скрытой бактериемии по шкале наблюдений Йеля (Yale Observation Scale).',
+        patientVisual: {
+          skinColor: 0xf48b7e, // Гиперемия кожи при лихорадке
+          scale: 1.05,
+          breathingRate: 2.8,
+          tremor: false
+        },
+        exams: {
+          thermometer: {
+            short: '39,6 °C',
+            detail: 'Т° тела 39,6 °C (гиперпирексия), кожные покровы горячие, умеренная мраморность конечностей.'
+          },
+          stethoscope: {
+            short: 'ЧСС 164/мин',
+            detail: 'Тахикардия 164 уд/мин, ритм правильный, в легких хрипов нет, менингеальные знаки сомнительны.'
+          },
+          inspect: {
+            short: 'Йель: 16 б.',
+            detail: 'По шкале Йеля 16 баллов (> 10 баллов): слабый монотонный плач, вялая реакция на родителей, сонливость.'
+          }
+        },
+        hint: 'По шкале наблюдений Йеля (6 признаков: крик, реакция на родителей, бодрствование, цвет кожи, гидратация, общительность) сумма > 10 баллов указывает на высокий риск тяжелой бактериальной инфекции.',
+        options: [
+          {
+            text: 'Дать парацетамол и отпустить домой без анализов с рекомендацией прийти через 5 дней',
+            correct: false,
+            explanation:
+              'Опасно! Сумма 16 баллов по шкале Йеля свидетельствует о высокой вероятности инвазивной бактериальной инфекции; амбулаторное наблюдение без обследования недопустимо.'
+          },
+          {
+            text: 'Назначить внутримышечно анальгин с димедролом и оставить в общей палате без мониторинга',
+            correct: false,
+            explanation:
+              'Неверно. Метамизол (анальгин) не рекомендуется в педиатрической практике из-за риска агранулоцитоза, а отсутствие этиотропной диагностики грозит развитием сепсиса.'
+          },
+          {
+            text: 'Расценить состояние как высокий риск бактериемии/менингита (> 10 баллов по шкале Йеля), выполнить забор крови/мочи, решить вопрос о люмбальной пункции и эмпирической антибиотикотерапии',
+            correct: true,
+            explanation:
+              'Верно! При лихорадке > 39 °C у ребенка до 36 месяцев и сумме > 10 баллов по шкале Йеля высока вероятность скрытой бактериемии (чаще Streptococcus pneumoniae) и менингита, что требует немедленного лабораторного обследования и стартовой антибактериальной терапии.'
+          },
+          {
+            text: 'Ограничиться протиранием кожи спиртовым раствором для снижения температуры',
+            correct: false,
+            explanation:
+              'Грубая ошибка. Спиртовые обтирания у детей раннего возраста вызывают токсическое отравление при всасывании через кожу и парадоксальный спазм сосудов.'
+          }
+        ]
+      },
+      {
+        id: 6,
+        category: 'Пульмонология • Критерии госпитализации',
+        title: 'Острая внебольничная пневмония у ребенка 2 лет',
+        anamnesis:
+          'Девочка 2 лет болеет 3-й день. Отмечаются фебрильная лихорадка, влажный кашель, отказ от питья и еды, нарастающее беспокойство. Мать просит назначить лечение на дому в таблетках.',
+        patientVisual: {
+          skinColor: 0xe3b8c0,
+          scale: 1.15,
+          breathingRate: 3.6, // Учащенное дыхание
+          tremor: false
+        },
+        exams: {
+          thermometer: {
+            short: '39,1 °C',
+            detail: 'Т° тела 39,1 °C, признаки выраженного токсикоза и умеренной дегидратации (сухие слизистые).'
+          },
+          stethoscope: {
+            short: 'Хрипы справа',
+            detail: 'ЧДД 48/мин, втяжение межреберных промежутков, ослабление дыхания и крепитация в верхней доле правого легкого.'
+          },
+          inspect: {
+            short: 'SpO2 90%',
+            detail: 'Пульсоксиметрия: SpO2 90% на атмосферном воздухе (гипоксемия), ребенок не удерживает пероральную жидкость.'
+          }
+        },
+        hint: 'Показания к госпитализации при пневмонии у детей: токсикоз, одышка, гипоксия (SpO2 < 92%), подозрение на стафилококковую/аспирационную пневмонию, плевральный выпот, риск дегидратации и непереносимость пероральных препаратов.',
+        options: [
+          {
+            text: 'Оставить ребенка дома и назначить пероральный антибиотик с контролем через 72 часа',
+            correct: false,
+            explanation:
+              'Ошибка. При SpO2 90%, одышке и отказе от питья лечение на дому несет прямую угрозу прогрессирования дыхательной недостаточности.'
+          },
+          {
+            text: 'Назначить противокашлевые препараты центрального действия (кодеин) для подавления кашля',
+            correct: false,
+            explanation:
+              'Противопоказано! Подавление кашлевого рефлекса при влажном кашле и пневмонии нарушает дренаж мокроты и усиливает дыхательную недостаточность.'
+          },
+          {
+            text: 'Провести курс ингаляций с эфирными маслами и поставить горчичники на грудную клетку',
+            correct: false,
+            explanation:
+              'Неверно. Согревающие процедуры в остром периоде пневмонии и эфирные масла у детей раннего возраста могут спровоцировать бронхоспазм и ухудшение состояния.'
+          },
+          {
+            text: 'Немедленно госпитализировать в стационар ввиду гипоксемии (SpO2 90%), одышки, токсикоза и риска дегидратации',
+            correct: true,
+            explanation:
+              'Абсолютно верно! Наличие гипоксии, выраженной одышки с втяжением уступчивых мест грудной клетки, симптомов токсикоза и невозможности пероральной регидратации является прямым показанием к стационарному лечению.'
+          }
+        ]
+      },
+      {
+        id: 7,
+        category: 'Токсикология • Неотложная педиатрия',
+        title: 'Внезапный цианоз у ранее здорового ребенка (экзогенное отравление)',
+        anamnesis:
+          'Мальчик 1,5 лет в деревне внезапно стал вялым, появился выраженный серо-синюшный цианоз губ и ногтевых лож. Температура нормальная, признаков ОРВИ нет. Известно, что ребенку готовили смесь на воде из колодца.',
+        patientVisual: {
+          skinColor: 0x7689b8, // Выраженный цианоз
+          scale: 1.1,
+          breathingRate: 2.9,
+          tremor: false
+        },
+        exams: {
+          thermometer: {
+            short: '36,5 °C',
+            detail: 'Т° тела 36,5 °C. Внезапное ухудшение у ранее здорового ребенка без признаков воспаления.'
+          },
+          stethoscope: {
+            short: 'ЧСС 152/мин',
+            detail: 'Тахикардия 152 уд/мин, дыхание в легких везикулярное, шумов в сердце нет.'
+          },
+          inspect: {
+            short: 'SpO2 85% / Шоколад',
+            detail: 'Кровь при заборе имеет характерный «шоколадно-коричневый» оттенок; цианоз не уменьшается при подаче кислорода.'
+          }
+        },
+        hint: 'Внезапное ухудшение без воспалительных симптомов рассматривается как экзогенное отравление. Цианоз, не купируемый кислородом, после колодезной воды (нитраты) — классическая картина метгемоглобинемии.',
+        options: [
+          {
+            text: 'Назначить амбулаторное наблюдение у кардиолога в плановом порядке через 2 недели для исключения ВПС',
+            correct: false,
+            explanation:
+              'Опасно! При уровне метгемоглобина > 30–50% быстро развиваются тканевая гипоксия, метаболический ацидоз, судороги и кома — требуется экстренная госпитализация.'
+          },
+          {
+            text: 'Диагностировать острое экзогенное отравление (нитратную метгемоглобинемию), экстренно госпитализировать, обеспечить кислород и ввести антидот — метиленовый синий в/в',
+            correct: true,
+            explanation:
+              'Верно! Нитраты из колодезной воды окисляют железо гемоглобина в трехвалентное (метгемоглобин), не способное переносить кислород. Специфическим антидотом является 1% раствор метиленового синего в дозе 1–2 мг/кг внутривенно.'
+          },
+          {
+            text: 'Начать антибактериальную терапию цефтриаксоном в связи с подозрением на пневмонию',
+            correct: false,
+            explanation:
+              'Ошибка. Отсутствие лихорадки, аускультативных изменений и наличие «шоколадной» крови указывают на токсическую метгемоглобинемию, а не на инфекцию.'
+          },
+          {
+            text: 'Обильно напоить ребенка той же кипяченой колодезной водой для дезинтоксикации',
+            correct: false,
+            explanation:
+              'Критическая ошибка! При кипячении колодезной воды концентрация нитратов только возрастает из-за испарения воды, что усилит отравление.'
+          }
+        ]
+      },
+      {
+        id: 8,
+        category: 'Неонатология • Абстинентный синдром',
+        title: 'Синдром отмены лекарственных средств у новорожденного',
+        anamnesis:
+          'На 2-е сутки жизни у доношенного новорожденного появились постоянный пронзительный крик, бессонница, выраженный тремор конечностей, гипертонус, гиперакузия и неэффективное сосание с частыми срыгиваниями.',
+        patientVisual: {
+          skinColor: 0xf2b5a7,
+          scale: 0.88,
+          breathingRate: 3.1,
+          tremor: true // Визуальная дрожь 3D-модели
+        },
+        exams: {
+          thermometer: {
+            short: '37,6 °C',
+            detail: 'Т° тела 37,6 °C (вегетативная нестабильность, потливость, мраморность кожи).'
+          },
+          stethoscope: {
+            short: 'ЧДД 66/мин',
+            detail: 'Тахипноэ 66/мин (риск дыхательного алкалоза), тахикардия 168 уд/мин, хрипов нет.'
+          },
+          inspect: {
+            short: 'Гипертонус +',
+            detail: 'Пронзительный крик, повышенный рефлекс Моро, тремор покоя, заложенность носа и жидкий стул.'
+          }
+        },
+        hint: 'Синдром отмены у новорожденного проявляется пронзительным криком, тремором, гипертонусом, гиперакузией и тахипноэ. Для верификации показан токсикологический скрининг (включая анализ мекония).',
+        options: [
+          {
+            text: 'Немедленно выписать ребенка домой на 2-е сутки, так как пронзительный крик является вариантом адаптации',
+            correct: false,
+            explanation:
+              'Опасно! Некупированный неонатальный абстинентный синдром может привести к судорогам, тяжелой дегидратации, потере массы тела и электролитным нарушениям.'
+          },
+          {
+            text: 'Стимулировать ребенка громкими звуками и ярким светом для проверки слухового анализатора',
+            correct: false,
+            explanation:
+              'Ошибка. При синдроме отмены характерна гиперакузия — патологически повышенная реакция на обычные звуки, провоцирующая возбуждение и судорожную готовность.'
+          },
+          {
+            text: 'Провести токсикологический скрининг (мочи и мекония), оценить тяжесть по шкале Финнегана, создать охранительный режим и назначить поэтапную фармакотерапию',
+            correct: true,
+            explanation:
+              'Верно! Анализ мекония обладает высокой чувствительностью для выявления внутриутробного воздействия препаратов/наркотиков. Лечение включает снижение сенсорных раздражителей (тугое пеленание, тишина), контроль водно-электролитного баланса и медикаментозную коррекцию по шкале абстиненции.'
+          },
+          {
+            text: 'Ввести налоксон в высокой дозе для ускорения выведения веществ из организма младенца',
+            correct: false,
+            explanation:
+              'Противопоказано! Введение антагониста опиоидов (налоксона) новорожденному с зависимостью провоцирует молниеносный тяжелый синдром отмены и некупируемые судороги.'
+          }
+        ]
+      }
+    ];
+
+    /**
+     * ============================================================================
+     * 3. СОСТОЯНИЕ ИГРЫ И UI ЭЛЕМЕНТЫ
+     * ============================================================================
+     */
+    const state = {
+      currentCaseIndex: 0,
+      score: 0,
+      health: 85,
+      reputation: 80,
+      completedExams: new Set(),
+      caseSolved: false,
+      hintTimeout: null
+    };
+
+    const ui = {
+      caseBadge: document.getElementById('case-badge'),
+      healthText: document.getElementById('health-text'),
+      healthBar: document.getElementById('health-bar'),
+      repText: document.getElementById('rep-text'),
+      repBar: document.getElementById('rep-bar'),
+      scoreText: document.getElementById('score-text'),
+      caseCategory: document.getElementById('case-category'),
+      caseSelector: document.getElementById('case-selector'),
+      caseTitle: document.getElementById('case-title'),
+      caseAnamnesis: document.getElementById('case-anamnesis'),
+      examProgress: document.getElementById('exam-progress'),
+      vitalTemp: document.getElementById('vital-temp'),
+      vitalAusc: document.getElementById('vital-ausc'),
+      vitalInspect: document.getElementById('vital-inspect'),
+      examFindingLog: document.getElementById('exam-finding-log'),
+      optionsContainer: document.getElementById('options-container'),
+      hintBtn: document.getElementById('hint-btn'),
+      hintBanner: document.getElementById('hint-banner'),
+      hintText: document.getElementById('hint-text'),
+      hintProgress: document.getElementById('hint-progress'),
+      hoverTooltip: document.getElementById('hover-tooltip'),
+      feedbackModal: document.getElementById('feedback-modal'),
+      modalIconBox: document.getElementById('modal-icon-box'),
+      modalSubtitle: document.getElementById('modal-subtitle'),
+      modalTitle: document.getElementById('modal-title'),
+      modalExplanation: document.getElementById('modal-explanation'),
+      modalScoreDelta: document.getElementById('modal-score-delta'),
+      retryCaseBtn: document.getElementById('retry-case-btn'),
+      nextCaseBtn: document.getElementById('next-case-btn'),
+      soundToggleBtn: document.getElementById('sound-toggle-btn'),
+      soundOnIcon: document.getElementById('sound-on-icon'),
+      soundOffIcon: document.getElementById('sound-off-icon'),
+      resetCamBtn: document.getElementById('reset-cam-btn'),
+      quickExamBtn: document.getElementById('quick-exam-btn')
+    };
+
+    // Заполнение селектора кейсов
+    CLINICAL_CASES.forEach((c, idx) => {
+      const opt = document.createElement('option');
+      opt.value = idx;
+      opt.textContent = `Кейс ${idx + 1}: ${c.title.slice(0, 26)}...`;
+      ui.caseSelector.appendChild(opt);
+    });
+
+    /**
+     * ============================================================================
+     * 4. ИНИЦИАЛИЗАЦИЯ 3D-СЦЕНЫ THREE.JS (ORBIT VIEWER + ПРОЦЕДУРНЫЕ ОБЪЕКТЫ)
+     * ============================================================================
+     */
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1324);
+    scene.fog = new THREE.FogExp2(0x0b1324, 0.042);
+
+    const camera = new THREE.PerspectiveCamera(
+      45,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      100
+    );
+    const defaultCameraPos = new THREE.Vector3(2.8, 3.2, 4.4);
+    const defaultTargetPos = new THREE.Vector3(0, 1.05, 0);
+    camera.position.copy(defaultCameraPos);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
+    container.appendChild(renderer.domElement);
+
+    // OrbitControls для свободного вращения и осмотра вокруг центрального объекта
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.copy(defaultTargetPos);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.minDistance = 2.2;
+    controls.maxDistance = 9.0;
+    controls.maxPolarAngle = Math.PI / 2 - 0.04;
+    controls.update();
+
+    // Освещение педиатрического кабинета
+    const hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 0.9);
+    scene.add(hemiLight);
+
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.45);
+    mainLight.position.set(4, 7, 4);
+    mainLight.castShadow = true;
+    mainLight.shadow.mapSize.width = 1024;
+    mainLight.shadow.mapSize.height = 1024;
+    mainLight.shadow.camera.near = 1;
+    mainLight.shadow.camera.far = 18;
+    const d = 4.5;
+    mainLight.shadow.camera.left = -d;
+    mainLight.shadow.camera.right = d;
+    mainLight.shadow.camera.top = d;
+    mainLight.shadow.camera.bottom = -d;
+    mainLight.shadow.bias = -0.0005;
+    scene.add(mainLight);
+
+    const rimLight = new THREE.PointLight(0x38bdf8, 1.1, 10);
+    rimLight.position.set(-3, 2.8, -2.5);
+    scene.add(rimLight);
+
+    // Пол кабинета с медицинской разметкой
+    const floorGeo = new THREE.CircleGeometry(12, 48);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x131e36,
+      roughness: 0.75,
+      metalness: 0.1
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    floor.name = 'floor';
+    scene.add(floor);
+
+    const gridHelper = new THREE.GridHelper(12, 24, 0x1e3a5f, 0x162542);
+    gridHelper.position.y = 0.002;
+    scene.add(gridHelper);
+
+    // Декоративный кольцевой подиум под смотровым столом
+    const ringGeo = new THREE.RingGeometry(1.75, 1.82, 64);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.35
+    });
+    const floorRing = new THREE.Mesh(ringGeo, ringMat);
+    floorRing.rotation.x = -Math.PI / 2;
+    floorRing.position.y = 0.005;
+    scene.add(floorRing);
+
+    /**
+     * ============================================================================
+     * 5. ПРОЦЕДУРНЫЙ СМОТРОВОЙ СТОЛ И 3D-МОДЕЛЬ ПАЦИЕНТА (МЛАДЕНЦА/РЕБЕНКА)
+     * ============================================================================
+     */
+    const examTableGroup = new THREE.Group();
+    scene.add(examTableGroup);
+
+    // Основание и ножки пеленального/смотрового стола
+    const metalMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.65, roughness: 0.28 });
+    const mattressMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.65 });
+    const bumperMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.5 });
+
+    const basePedestal = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.82, 0.55), metalMat);
+    basePedestal.position.y = 0.41;
+    basePedestal.castShadow = true;
+    basePedestal.receiveShadow = true;
+    examTableGroup.add(basePedestal);
+
+    const tableTop = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.1, 0.92), mattressMat);
+    tableTop.position.y = 0.87;
+    tableTop.castShadow = true;
+    tableTop.receiveShadow = true;
+    examTableGroup.add(tableTop);
+
+    // Мягкие бортики смотрового стола
+    const backRail = new THREE.Mesh(new THREE.BoxGeometry(1.68, 0.16, 0.07), bumperMat);
+    backRail.position.set(0, 0.96, -0.44);
+    backRail.castShadow = true;
+    examTableGroup.add(backRail);
+
+    const leftRail = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.14, 0.92), bumperMat);
+    leftRail.position.set(-0.82, 0.95, 0);
+    leftRail.castShadow = true;
+    examTableGroup.add(leftRail);
+
+    // Центральная 3D-модель пациента (ребенка)
+    const patientGroup = new THREE.Group();
+    patientGroup.position.set(-0.05, 0.93, 0.02);
+    examTableGroup.add(patientGroup);
+
+    const skinMaterial = new THREE.MeshStandardMaterial({
+      color: 0xf6c8b2,
+      roughness: 0.55,
+      metalness: 0.02
+    });
+    const diaperMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.8
+    });
+
+    // Голова пациента
+    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.18, 28, 28), skinMaterial);
+    headMesh.position.set(-0.46, 0.17, 0);
+    headMesh.castShadow = true;
+    headMesh.userData = { zone: 'inspect', label: 'Голова и глаза (нажмите для осмотра)' };
+    patientGroup.add(headMesh);
+
+    // Глаза пациента
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2 });
+    const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.022, 12, 12), eyeMat);
+    leftEye.position.set(-0.41, 0.31, 0.065);
+    patientGroup.add(leftEye);
+
+    const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.022, 12, 12), eyeMat);
+    rightEye.position.set(-0.41, 0.31, -0.065);
+    patientGroup.add(rightEye);
+
+    // Грудная клетка (анимируется при дыхании и аускультации)
+    const chestMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.145, 0.24, 12, 24), skinMaterial);
+    chestMesh.rotation.z = Math.PI / 2;
+    chestMesh.position.set(-0.14, 0.14, 0);
+    chestMesh.castShadow = true;
+    chestMesh.userData = { zone: 'stethoscope', label: 'Грудная клетка и сердце (зона фонендоскопа)' };
+    patientGroup.add(chestMesh);
+
+    // Подгузник / нижняя часть туловища
+    const pelvisMesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.14, 0.14, 12, 20), diaperMaterial);
+    pelvisMesh.rotation.z = Math.PI / 2;
+    pelvisMesh.position.set(0.14, 0.135, 0);
+    pelvisMesh.castShadow = true;
+    pelvisMesh.userData = { zone: 'inspect', label: 'Живот и пеленка (осмотр органов ЖКТ)' };
+    patientGroup.add(pelvisMesh);
+
+    // Ручки и ножки пациента
+    const limbGeo = new THREE.CapsuleGeometry(0.048, 0.2, 8, 16);
+    const armL = new THREE.Mesh(limbGeo, skinMaterial);
+    armL.position.set(-0.16, 0.11, 0.21);
+    armL.rotation.set(0.4, 0.2, Math.PI / 2.4);
+    armL.castShadow = true;
+    armL.userData = { zone: 'thermometer', label: 'Подмышечная область (зона термометра)' };
+    patientGroup.add(armL);
+
+    const armR = new THREE.Mesh(limbGeo, skinMaterial);
+    armR.position.set(-0.16, 0.11, -0.21);
+    armR.rotation.set(-0.4, -0.2, Math.PI / 2.4);
+    armR.castShadow = true;
+    armR.userData = { zone: 'thermometer', label: 'Подмышечная область (зона термометра)' };
+    patientGroup.add(armR);
+
+    const legGeo = new THREE.CapsuleGeometry(0.055, 0.24, 8, 16);
+    const legL = new THREE.Mesh(legGeo, skinMaterial);
+    legL.position.set(0.38, 0.09, 0.1);
+    legL.rotation.set(0.12, 0, Math.PI / 2.1);
+    legL.castShadow = true;
+    patientGroup.add(legL);
+
+    const legR = new THREE.Mesh(legGeo, skinMaterial);
+    legR.position.set(0.38, 0.09, -0.1);
+    legR.rotation.set(-0.12, 0, Math.PI / 2.1);
+    legR.castShadow = true;
+    patientGroup.add(legR);
+
+    // Невидимая увеличенная зона попадания (hitbox) для удобного перетаскивания приборов на пациента
+    const patientDropZone = new THREE.Mesh(
+      new THREE.BoxGeometry(1.25, 0.55, 0.68),
+      new THREE.MeshBasicMaterial({ visible: false })
+    );
+    patientDropZone.position.set(-0.05, 0.22, 0);
+    patientGroup.add(patientDropZone);
+
+    // Интерактивные маркеры-кольца над зонами пациента
+    const hotspots = [];
+    function createHotspot(x, y, z, zone, label, colorHex) {
+      const mesh = new THREE.Mesh(
+        new THREE.TorusGeometry(0.055, 0.012, 12, 24),
+        new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.85 })
+      );
+      mesh.rotation.x = Math.PI / 2;
+      mesh.position.set(x, y, z);
+      mesh.userData = { zone, label, baseY: y };
+      patientGroup.add(mesh);
+      hotspots.push(mesh);
+      return mesh;
+    }
+
+    createHotspot(-0.46, 0.42, 0, 'inspect', 'Осмотр головы, зрачков и рефлексов', 0x34d399);
+    createHotspot(-0.14, 0.36, 0, 'stethoscope', 'Аускультация сердца и легких', 0x38bdf8);
+    createHotspot(-0.16, 0.27, 0.24, 'thermometer', 'Термометрия тела', 0xfbbf24);
+
+    /**
+     * ============================================================================
+     * 6. ИНСТРУМЕНТАЛЬНЫЙ СТОЛИК И ПЕРЕТАСКИВАЕМЫЕ 3D-ПРИБОРЫ
+     * ============================================================================
+     */
+    const trayGroup = new THREE.Group();
+    trayGroup.position.set(1.38, 0, 0.15);
+    scene.add(trayGroup);
+
+    const trayStand = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.24, 0.82, 20), metalMat);
+    trayStand.position.y = 0.41;
+    trayStand.castShadow = true;
+    trayGroup.add(trayStand);
+
+    const trayPlate = new THREE.Mesh(
+      new THREE.BoxGeometry(0.62, 0.04, 0.86),
+      new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.5, roughness: 0.3 })
+    );
+    trayPlate.position.y = 0.83;
+    trayPlate.castShadow = true;
+    trayPlate.receiveShadow = true;
+    trayGroup.add(trayPlate);
+
+    // Массив перетаскиваемых 3D-инструментов
+    const draggableTools = [];
+
+    // 1. Электронный термометр
+    const thermoGroup = new THREE.Group();
+    const thermoBody = new THREE.Mesh(
+      new THREE.BoxGeometry(0.045, 0.025, 0.26),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 })
+    );
+    const thermoTip = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.008, 0.005, 0.07, 12),
+      metalMat
+    );
+    thermoTip.rotation.x = Math.PI / 2;
+    thermoTip.position.z = 0.16;
+    const thermoScreen = new THREE.Mesh(
+      new THREE.BoxGeometry(0.03, 0.027, 0.07),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+    );
+    thermoScreen.position.z = -0.03;
+    thermoGroup.add(thermoBody, thermoTip, thermoScreen);
+    thermoGroup.position.set(1.38, 0.88, -0.15);
+    thermoGroup.userData = {
+      type: 'thermometer',
+      label: 'Термометр (перетащите на пациента)',
+      homePos: thermoGroup.position.clone()
+    };
+    scene.add(thermoGroup);
+    draggableTools.push(thermoGroup);
+
+    // 2. Фонендоскоп
+    const stethoGroup = new THREE.Group();
+    const chestPiece = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.055, 0.055, 0.025, 24),
+      new THREE.MeshStandardMaterial({ color: 0x0ea5e9, metalness: 0.6, roughness: 0.25 })
+    );
+    const tubeRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.09, 0.012, 12, 28),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 })
+    );
+    tubeRing.rotation.x = Math.PI / 2;
+    tubeRing.position.set(0.04, 0.01, -0.04);
+    stethoGroup.add(chestPiece, tubeRing);
+    stethoGroup.position.set(1.38, 0.88, 0.15);
+    stethoGroup.userData = {
+      type: 'stethoscope',
+      label: 'Фонендоскоп (перетащите на грудную клетку)',
+      homePos: stethoGroup.position.clone()
+    };
+    scene.add(stethoGroup);
+    draggableTools.push(stethoGroup);
+
+    // 3. Отоскоп / Диагностический фонарик
+    const otoscopeGroup = new THREE.Group();
+    const otoHandle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.022, 0.022, 0.22, 16),
+      new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.4 })
+    );
+    otoHandle.rotation.x = Math.PI / 2;
+    const otoHead = new THREE.Mesh(
+      new THREE.ConeGeometry(0.032, 0.08, 16),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 })
+    );
+    otoHead.rotation.z = -Math.PI / 2;
+    otoHead.position.set(0.04, 0.015, 0.09);
+    otoscopeGroup.add(otoHandle, otoHead);
+    otoscopeGroup.position.set(1.38, 0.88, 0.42);
+    otoscopeGroup.userData = {
+      type: 'inspect',
+      label: 'Диагностический фонарик / Осмотр (перетащите на пациента)',
+      homePos: otoscopeGroup.position.clone()
+    };
+    scene.add(otoscopeGroup);
+    draggableTools.push(otoscopeGroup);
+
+    /**
+     * ============================================================================
+     * 7. ПРОЦЕДУРНЫЙ 3D-ПЕРСОНАЖ ВРАЧА-ПЕДИАТРА (УПРАВЛЯЕМЫЙ WASD / КЛИКОМ)
+     * ============================================================================
+     */
+    const doctorGroup = new THREE.Group();
+    doctorGroup.position.set(0.25, 0, -1.05);
+    scene.add(doctorGroup);
+
+    const coatMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.55 });
+    const scrubsMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.6 });
+    const docSkinMat = new THREE.MeshStandardMaterial({ color: 0xf1c27d, roughness: 0.5 });
+    const hairMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 });
+
+    // Ноги (медицинские брюки)
+    const docLegL = new THREE.Mesh(new THREE.CapsuleGeometry(0.065, 0.55, 8, 16), scrubsMat);
+    docLegL.position.set(-0.1, 0.35, 0);
+    docLegL.castShadow = true;
+    doctorGroup.add(docLegL);
+
+    const docLegR = new THREE.Mesh(new THREE.CapsuleGeometry(0.065, 0.55, 8, 16), scrubsMat);
+    docLegR.position.set(0.1, 0.35, 0);
+    docLegR.castShadow = true;
+    doctorGroup.add(docLegR);
+
+    // Белый медицинский халат
+    const docTorso = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.21, 0.72, 20), coatMat);
+    docTorso.position.y = 0.98;
+    docTorso.castShadow = true;
+    doctorGroup.add(docTorso);
+
+    // Бейдж педиатра на халате
+    const badgeMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.07, 0.045, 0.01),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+    );
+    badgeMesh.position.set(0.08, 1.18, 0.175);
+    doctorGroup.add(badgeMesh);
+
+    // Голова педиатра
+    const docHead = new THREE.Mesh(new THREE.SphereGeometry(0.145, 24, 24), docSkinMat);
+    docHead.position.y = 1.5;
+    docHead.castShadow = true;
+    doctorGroup.add(docHead);
+
+    const docHair = new THREE.Mesh(
+      new THREE.SphereGeometry(0.15, 20, 20, 0, Math.PI * 2, 0, Math.PI * 0.55),
+      hairMat
+    );
+    docHair.position.y = 1.52;
+    doctorGroup.add(docHair);
+
+    // Руки педиатра
+    const docArmL = new THREE.Mesh(new THREE.CapsuleGeometry(0.048, 0.42, 8, 14), coatMat);
+    docArmL.position.set(-0.23, 1.05, 0.06);
+    docArmL.rotation.x = -0.35;
+    docArmL.castShadow = true;
+    doctorGroup.add(docArmL);
+
+    const docArmR = new THREE.Mesh(new THREE.CapsuleGeometry(0.048, 0.42, 8, 14), coatMat);
+    docArmR.position.set(0.23, 1.05, 0.06);
+    docArmR.rotation.x = -0.35;
+    docArmR.castShadow = true;
+    doctorGroup.add(docArmR);
+
+    // Целевая точка перемещения педиатра
+    const doctorTargetPos = doctorGroup.position.clone();
+    const keysPressed = {};
+
+    window.addEventListener('keydown', (e) => {
+      keysPressed[e.code] = true;
+    });
+    window.addEventListener('keyup', (e) => {
+      keysPressed[e.code] = false;
+    });
+
+    /**
+     * ============================================================================
+     * 8. СИСТЕМА ЧАСТИЦ (ЭФФЕКТЫ ПРИ ОСМОТРЕ И РЕШЕНИИ КЕЙСА)
+     * ============================================================================
+     */
+    const particles = [];
+    const particleGeo = new THREE.SphereGeometry(0.024, 8, 8);
+
+    function spawnParticles(origin, colorHex, count = 22) {
+      for (let i = 0; i < count; i++) {
+        const mat = new THREE.MeshBasicMaterial({
+          color: colorHex,
+          transparent: true,
+          opacity: 1
+        });
+        const p = new THREE.Mesh(particleGeo, mat);
+        p.position.copy(origin);
+        p.position.x += (Math.random() - 0.5) * 0.35;
+        p.position.y += (Math.random() - 0.2) * 0.25;
+        p.position.z += (Math.random() - 0.5) * 0.35;
+
+        const vel = new THREE.Vector3(
+          (Math.random() - 0.5) * 1.4,
+          0.7 + Math.random() * 1.3,
+          (Math.random() - 0.5) * 1.4
+        );
+        scene.add(p);
+        particles.push({ mesh: p, vel, life: 1.0 });
+      }
+    }
+
+    /**
+     * ============================================================================
+     * 9. RAYCASTING, DRAG-AND-DROP ПРИБОРОВ И ВЗАИМОДЕЙСТВИЕ С 3D-МОДЕЛЬЮ
+     * ============================================================================
+     */
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.25);
+    let draggedTool = null;
+    let pointerDownPos = new THREE.Vector2();
+
+    function updatePointerNDC(clientX, clientY) {
+      pointer.x = (clientX / window.innerWidth) * 2 - 1;
+      pointer.y = -(clientY / window.innerHeight) * 2 + 1;
+    }
+
+    function getIntersectedTool() {
+      raycaster.setFromCamera(pointer, camera);
+      for (const tool of draggableTools) {
+        const hits = raycaster.intersectObjects(tool.children, true);
+        if (hits.length > 0) return tool;
+      }
+      return null;
+    }
+
+    function getIntersectedHotspot() {
+      raycaster.setFromCamera(pointer, camera);
+      const targets = [...hotspots, headMesh, chestMesh, pelvisMesh, armL, armR];
+      const hits = raycaster.intersectObjects(targets, false);
+      return hits.length > 0 ? hits[0].object : null;
+    }
+
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      audio.init();
+      pointerDownPos.set(e.clientX, e.clientY);
+      updatePointerNDC(e.clientX, e.clientY);
+
+      const tool = getIntersectedTool();
+      if (tool) {
+        draggedTool = tool;
+        controls.enabled = false;
+        audio.playPickup();
+        ui.hoverTooltip.classList.add('hidden');
+      }
+    });
+
+    renderer.domElement.addEventListener('pointermove', (e) => {
+      updatePointerNDC(e.clientX, e.clientY);
+
+      if (draggedTool) {
+        raycaster.setFromCamera(pointer, camera);
+        const intersectPoint = new THREE.Vector3();
+        if (raycaster.ray.intersectPlane(dragPlane, intersectPoint)) {
+          draggedTool.position.x = THREE.MathUtils.clamp(intersectPoint.x, -1.6, 1.8);
+          draggedTool.position.y = 1.28;
+          draggedTool.position.z = THREE.MathUtils.clamp(intersectPoint.z, -1.4, 1.4);
+        }
+        return;
+      }
+
+      // Подсветка и подсказка при наведении на приборы или зоны пациента
+      const tool = getIntersectedTool();
+      if (tool) {
+        renderer.domElement.style.cursor = 'grab';
+        ui.hoverTooltip.textContent = tool.userData.label;
+        ui.hoverTooltip.style.left = `${e.clientX}px`;
+        ui.hoverTooltip.style.top = `${e.clientY}px`;
+        ui.hoverTooltip.classList.remove('hidden');
+        return;
+      }
+
+      const spot = getIntersectedHotspot();
+      if (spot && spot.userData.label) {
+        renderer.domElement.style.cursor = 'pointer';
+        ui.hoverTooltip.textContent = spot.userData.label;
+        ui.hoverTooltip.style.left = `${e.clientX}px`;
+        ui.hoverTooltip.style.top = `${e.clientY}px`;
+        ui.hoverTooltip.classList.remove('hidden');
+        return;
+      }
+
+      renderer.domElement.style.cursor = 'default';
+      ui.hoverTooltip.classList.add('hidden');
+    });
+
+    renderer.domElement.addEventListener('pointerup', (e) => {
+      const moveDist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+      updatePointerNDC(e.clientX, e.clientY);
+
+      if (draggedTool) {
+        // Проверка попадания прибора на пациента
+        const distToPatient = Math.hypot(
+          draggedTool.position.x - patientGroup.position.x,
+          draggedTool.position.z - patientGroup.position.z
+        );
+
+        if (distToPatient < 0.85) {
+          performExamination(draggedTool.userData.type);
+        } else {
+          audio.playClick();
+        }
+
+        // Возврат прибора на лоток
+        draggedTool.position.copy(draggedTool.userData.homePos);
+        draggedTool = null;
+        controls.enabled = true;
+        return;
+      }
+
+      // Если был короткий клик (без вращения камеры)
+      if (moveDist < 6) {
+        const spot = getIntersectedHotspot();
+        if (spot && spot.userData.zone) {
+          performExamination(spot.userData.zone);
+          return;
+        }
+
+        // Перемещение педиатра по клику на свободный участок пола
+        raycaster.setFromCamera(pointer, camera);
+        const floorHits = raycaster.intersectObject(floor);
+        if (floorHits.length > 0) {
+          const pt = floorHits[0].point;
+          const distFromCenter = Math.hypot(pt.x, pt.z);
+          if (distFromCenter > 1.15 && distFromCenter < 4.2) {
+            doctorTargetPos.set(pt.x, 0, pt.z);
+            audio.playClick();
+          }
+        }
+      }
+    });
+
+    /**
+     * ============================================================================
+     * 10. ЛОГИКА КЛИНИЧЕСКОГО ОСМОТРА, КЕЙСОВ И ПОДСКАЗОК
+     * ============================================================================
+     */
+    function performExamination(examType) {
+      const currentCase = CLINICAL_CASES[state.currentCaseIndex];
+      const examData = currentCase.exams[examType];
+      if (!examData) return;
+
+      const isNew = !state.completedExams.has(examType);
+      state.completedExams.add(examType);
+
+      audio.playExamComplete(examType);
+
+      const effectColor =
+        examType === 'thermometer' ? 0xfbbf24 : examType === 'stethoscope' ? 0x38bdf8 : 0x34d399;
+      spawnParticles(new THREE.Vector3(-0.05, 1.25, 0.02), effectColor, 20);
+
+      // Подводим педиатра ближе к смотровому столу
+      doctorTargetPos.set(0.1, 0, -0.82);
+
+      // Обновление карточки витальных показателей
+      const targetBox =
+        examType === 'thermometer'
+          ? ui.vitalTemp
+          : examType === 'stethoscope'
+          ? ui.vitalAusc
+          : ui.vitalInspect;
+
+      targetBox.classList.remove('border-slate-700/60');
+      targetBox.classList.add('border-teal-400/60', 'bg-teal-950/40');
+      targetBox.querySelector('div:last-child').textContent = examData.short;
+      targetBox.querySelector('div:last-child').className = 'text-xs font-extrabold text-teal-300 mt-0.5';
+
+      ui.examFindingLog.textContent = examData.detail;
+      ui.examProgress.textContent = `${state.completedExams.size}/3`;
+
+      if (isNew) {
+        state.score += 25;
+        updateStatsHUD();
+      }
+    }
+
+    function updateStatsHUD() {
+      state.health = THREE.MathUtils.clamp(state.health, 0, 100);
+      state.reputation = THREE.MathUtils.clamp(state.reputation, 0, 100);
+
+      ui.healthText.textContent = `${state.health}%`;
+      ui.healthBar.style.width = `${state.health}%`;
+      ui.healthText.className =
+        state.health >= 60 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+
+      ui.repText.textContent = `${state.reputation}%`;
+      ui.repBar.style.width = `${state.reputation}%`;
+
+      ui.scoreText.textContent = state.score;
+    }
+
+    // Алгоритм Фишера-Йейтса для случайного перемешивания вариантов ответа
+    function shuffleArray(items) {
+      const array = [...items];
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function loadCase(index) {
+      state.currentCaseIndex = index;
+      state.completedExams.clear();
+      state.caseSolved = false;
+
+      const currentCase = CLINICAL_CASES[index];
+      ui.caseSelector.value = index;
+      ui.caseBadge.textContent = `Кейс ${index + 1} / ${CLINICAL_CASES.length}`;
+      ui.caseCategory.textContent = currentCase.category;
+      ui.caseTitle.textContent = currentCase.title;
+      ui.caseAnamnesis.textContent = currentCase.anamnesis;
+
+      // Сброс витальных карточек
+      [ui.vitalTemp, ui.vitalAusc, ui.vitalInspect].forEach((box) => {
+        box.className = 'rounded-lg bg-slate-800/80 p-1.5 border border-slate-700/60';
+        const valEl = box.querySelector('div:last-child');
+        valEl.textContent = '—';
+        valEl.className = 'text-xs font-bold text-slate-500 mt-0.5';
+      });
+
+      ui.examProgress.textContent = '0/3';
+      ui.examFindingLog.textContent =
+        'Перетащите 3D-термометр, фонендоскоп или фонарик на пациента для объективного осмотра.';
+
+      // Обновление внешнего вида 3D-модели пациента под конкретный кейс
+      skinMaterial.color.setHex(currentCase.patientVisual.skinColor);
+      const s = currentCase.patientVisual.scale;
+      patientGroup.scale.set(s, s, s);
+
+      // Динамическое перемешивание и отрисовка вариантов тактики
+      const shuffledOptions = shuffleArray(currentCase.options);
+      ui.optionsContainer.innerHTML = '';
+      shuffledOptions.forEach((opt, optIdx) => {
+        const btn = document.createElement('button');
+        btn.className =
+          'glass-card-hover text-left w-full p-2.5 rounded-xl bg-slate-800/85 border border-slate-700/70 text-xs text-slate-100 leading-snug flex items-start gap-2.5 active:scale-[0.99]';
+        btn.innerHTML = `
+          <span class="w-5 h-5 rounded-lg bg-sky-500/20 border border-sky-400/40 text-sky-300 font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+            ${optIdx + 1}
+          </span>
+          <span>${opt.text}</span>
+        `;
+        btn.addEventListener('click', () => handleDecision(opt));
+        ui.optionsContainer.appendChild(btn);
+      });
+
+      hideHint();
+    }
+
+    function handleDecision(option) {
+      audio.init();
+      const examBonus = state.completedExams.size * 30;
+
+      if (option.correct) {
+        audio.playSuccess();
+        const totalGain = 100 + examBonus;
+        if (!state.caseSolved) {
+          state.score += totalGain;
+          state.health = Math.min(100, state.health + 8);
+          state.reputation = Math.min(100, state.reputation + 7);
+          state.caseSolved = true;
+        }
+        updateStatsHUD();
+        spawnParticles(new THREE.Vector3(-0.05, 1.35, 0.02), 0x10b981, 35);
+
+        ui.modalIconBox.className =
+          'w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 flex items-center justify-center shrink-0 text-2xl font-extrabold';
+        ui.modalIconBox.textContent = '✓';
+        ui.modalSubtitle.className = 'text-xs font-bold uppercase tracking-wider text-emerald-400';
+        ui.modalSubtitle.textContent = 'Верная клиническая тактика';
+        ui.modalTitle.textContent = 'Пациент получил помощь по стандарту';
+        ui.modalScoreDelta.textContent = `+${totalGain} очков (осмотр: ${state.completedExams.size}/3)`;
+      } else {
+        audio.playError();
+        state.health = Math.max(10, state.health - 15);
+        state.reputation = Math.max(10, state.reputation - 12);
+        updateStatsHUD();
+        spawnParticles(new THREE.Vector3(-0.05, 1.35, 0.02), 0xf43f5e, 28);
+
+        ui.modalIconBox.className =
+          'w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-400/50 text-rose-300 flex items-center justify-center shrink-0 text-2xl font-extrabold';
+        ui.modalIconBox.textContent = '✕';
+        ui.modalSubtitle.className = 'text-xs font-bold uppercase tracking-wider text-rose-400';
+        ui.modalSubtitle.textContent = 'Тактическая ошибка';
+        ui.modalTitle.textContent = 'Требуется пересмотр назначения';
+        ui.modalScoreDelta.textContent = '−15% состояние • −12% репутация';
+      }
+
+      ui.modalExplanation.textContent = option.explanation;
+      ui.feedbackModal.classList.remove('hidden');
+      ui.feedbackModal.classList.add('flex');
+    }
+
+    // Временная подсказка на 6 секунд только по нажатию кнопки
+    function showTemporaryHint() {
+      audio.playHint();
+      const currentCase = CLINICAL_CASES[state.currentCaseIndex];
+      ui.hintText.textContent = currentCase.hint;
+      ui.hintBanner.classList.remove('hidden');
+
+      // Перезапуск CSS-анимации шкалы 6 секунд
+      ui.hintProgress.classList.remove('hint-timer-bar');
+      void ui.hintProgress.offsetWidth;
+      ui.hintProgress.classList.add('hint-timer-bar');
+
+      if (state.hintTimeout) clearTimeout(state.hintTimeout);
+      state.hintTimeout = setTimeout(() => {
+        hideHint();
+      }, 6000);
+    }
+
+    function hideHint() {
+      if (state.hintTimeout) {
+        clearTimeout(state.hintTimeout);
+        state.hintTimeout = null;
+      }
+      ui.hintBanner.classList.add('hidden');
+    }
+
+    // Обработчики кнопок UI
+    ui.hintBtn.addEventListener('click', showTemporaryHint);
+
+    ui.caseSelector.addEventListener('change', (e) => {
+      audio.playClick();
+      loadCase(Number(e.target.value));
+    });
+
+    ui.retryCaseBtn.addEventListener('click', () => {
+      audio.playClick();
+      ui.feedbackModal.classList.add('hidden');
+      ui.feedbackModal.classList.remove('flex');
+      loadCase(state.currentCaseIndex);
+    });
+
+    ui.nextCaseBtn.addEventListener('click', () => {
+      audio.playClick();
+      ui.feedbackModal.classList.add('hidden');
+      ui.feedbackModal.classList.remove('flex');
+      const nextIdx = (state.currentCaseIndex + 1) % CLINICAL_CASES.length;
+      loadCase(nextIdx);
+    });
+
+    ui.soundToggleBtn.addEventListener('click', () => {
+      const isOn = audio.toggle();
+      ui.soundOnIcon.classList.toggle('hidden', !isOn);
+      ui.soundOffIcon.classList.toggle('hidden', isOn);
+    });
+
+    ui.resetCamBtn.addEventListener('click', () => {
+      audio.playClick();
+      camera.position.copy(defaultCameraPos);
+      controls.target.copy(defaultTargetPos);
+      controls.update();
+    });
+
+    ui.quickExamBtn.addEventListener('click', () => {
+      performExamination('thermometer');
+      setTimeout(() => performExamination('stethoscope'), 220);
+      setTimeout(() => performExamination('inspect'), 440);
+    });
+
+    // Адаптация при изменении размера окна
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    /**
+     * ============================================================================
+     * 11. ГЛАВНЫЙ ЦИКЛ АНИМАЦИИ 60 FPS
+     * ============================================================================
+     */
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      const elapsed = clock.getElapsedTime();
+
+      const currentCase = CLINICAL_CASES[state.currentCaseIndex];
+
+      // 1. Анимация дыхания грудной клетки пациента
+      const breathSpeed = currentCase.patientVisual.breathingRate;
+      const breathWave = Math.sin(elapsed * breathSpeed * Math.PI);
+      chestMesh.scale.set(1 + breathWave * 0.045, 1 + breathWave * 0.055, 1 + breathWave * 0.045);
+
+      // 2. Анимация тремора (для синдрома отмены новорожденного)
+      if (currentCase.patientVisual.tremor) {
+        armL.position.z = 0.21 + Math.sin(elapsed * 42) * 0.012;
+        armR.position.z = -0.21 - Math.sin(elapsed * 42) * 0.012;
+        legL.position.z = 0.1 + Math.cos(elapsed * 38) * 0.01;
+      } else {
+        armL.position.z = 0.21;
+        armR.position.z = -0.21;
+        legL.position.z = 0.1;
+      }
+
+      // 3. Пульсация интерактивных зон на пациенте
+      hotspots.forEach((spot, i) => {
+        spot.position.y = spot.userData.baseY + Math.sin(elapsed * 3 + i) * 0.018;
+        spot.rotation.z = elapsed * 1.2;
+      });
+
+      // 4. Управление персонажем врача-педиатра (WASD / Стрелки / Клик по полу)
+      const moveSpeed = 2.1 * dt;
+      let movedByKeyboard = false;
+      if (keysPressed['KeyW'] || keysPressed['ArrowUp']) {
+        doctorTargetPos.z -= moveSpeed;
+        movedByKeyboard = true;
+      }
+      if (keysPressed['KeyS'] || keysPressed['ArrowDown']) {
+        doctorTargetPos.z += moveSpeed;
+        movedByKeyboard = true;
+      }
+      if (keysPressed['KeyA'] || keysPressed['ArrowLeft']) {
+        doctorTargetPos.x -= moveSpeed;
+        movedByKeyboard = true;
+      }
+      if (keysPressed['KeyD'] || keysPressed['ArrowRight']) {
+        doctorTargetPos.x += moveSpeed;
+        movedByKeyboard = true;
+      }
+
+      if (movedByKeyboard) {
+        doctorTargetPos.x = THREE.MathUtils.clamp(doctorTargetPos.x, -3.5, 3.5);
+        doctorTargetPos.z = THREE.MathUtils.clamp(doctorTargetPos.z, -3.5, 3.5);
+      }
+
+      const toTarget = new THREE.Vector3().subVectors(doctorTargetPos, doctorGroup.position);
+      toTarget.y = 0;
+      const dist = toTarget.length();
+      if (dist > 0.03) {
+        toTarget.normalize();
+        doctorGroup.position.addScaledVector(toTarget, Math.min(dist, 2.4 * dt));
+        const targetAngle = Math.atan2(toTarget.x, toTarget.z);
+        doctorGroup.rotation.y = THREE.MathUtils.lerp(doctorGroup.rotation.y, targetAngle, 10 * dt);
+        // Легкое покачивание шага
+        docLegL.rotation.x = Math.sin(elapsed * 12) * 0.35;
+        docLegR.rotation.x = -Math.sin(elapsed * 12) * 0.35;
+      } else {
+        // Педиатр поворачивается лицом к пациенту на столе
+        const lookAtPatient = Math.atan2(
+          patientGroup.position.x - doctorGroup.position.x,
+          patientGroup.position.z - doctorGroup.position.z
+        );
+        doctorGroup.rotation.y = THREE.MathUtils.lerp(doctorGroup.rotation.y, lookAtPatient, 5 * dt);
+        docLegL.rotation.x = 0;
+        docLegR.rotation.x = 0;
+      }
+
+      // 5. Обновление частиц
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.life -= dt * 1.35;
+        if (p.life <= 0) {
+          scene.remove(p.mesh);
+          p.mesh.material.dispose();
+          particles.splice(i, 1);
+        } else {
+          p.mesh.position.addScaledVector(p.vel, dt);
+          p.vel.y -= 1.8 * dt;
+          p.mesh.material.opacity = p.life;
+          p.mesh.scale.setScalar(p.life);
+        }
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // Запуск симулятора после загрузки окна
+    window.addEventListener('load', () => {
+      updateStatsHUD();
+      loadCase(0);
+      animate();
+    });
+  </script>
+</body>
+</html>

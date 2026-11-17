@@ -1,0 +1,2605 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PharmaLab 3D — Интерактивный кампус фармацевтического факультета</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; user-select: none; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+      background: #070d19;
+      color: #f8fafc;
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+    canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .glass {
+      background: rgba(12, 22, 38, 0.78);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+    .glass-card {
+      background: rgba(18, 32, 54, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      transition: all 0.2s ease;
+    }
+    .glass-card:hover {
+      border-color: rgba(56, 189, 248, 0.6);
+      transform: translateY(-2px);
+    }
+    .station-marker {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      pointer-events: auto;
+      cursor: pointer;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+      z-index: 10;
+    }
+    .station-marker:hover {
+      transform: translate(-50%, -108%) scale(1.06);
+    }
+    .pulse-ring {
+      animation: pulseRing 2.2s infinite;
+    }
+    @keyframes pulseRing {
+      0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.65); }
+      70% { box-shadow: 0 0 0 12px rgba(56, 189, 248, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+    }
+    /* Custom scrollbar for modal content */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.4); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.4); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.7); }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.160.0",
+        "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- 3D Viewport -->
+  <div id="canvas-container"></div>
+
+  <!-- 3D Projected Floating Station Labels -->
+  <div id="markers-layer" class="fixed inset-0 pointer-events-none z-10 overflow-hidden"></div>
+
+  <!-- Top HUD Bar -->
+  <header class="fixed top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+    <!-- Brand & Campus Title -->
+    <div class="glass rounded-2xl px-4 py-2.5 flex items-center gap-3 pointer-events-auto">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 via-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-extrabold tracking-tight text-base sm:text-lg bg-gradient-to-r from-cyan-300 to-emerald-300 bg-clip-text text-transparent">PHARMALAB 3D</span>
+          <span id="rank-badge" class="text-[11px] mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">АБИТУРИЕНТ • 0 XP</span>
+        </div>
+        <p class="text-xs text-slate-300 hidden sm:block">5 кафедр • 15 практических заданий будущего провизора</p>
+      </div>
+    </div>
+
+    <!-- Student Record Book (Зачётная книжка) & Action Buttons -->
+    <div class="flex items-center gap-2 pointer-events-auto">
+      <button id="btn-record-book" class="glass rounded-2xl px-3.5 py-2 flex items-center gap-2.5 hover:border-emerald-400/60 transition cursor-pointer">
+        <div class="text-left">
+          <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Зачётка</div>
+          <div class="text-xs sm:text-sm font-bold text-emerald-300"><span id="tasks-done-count">0</span> / 15 заданий</div>
+        </div>
+        <div class="flex gap-1" id="credit-dots">
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500" data-dot="garden"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500" data-dot="chem"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500" data-dot="forms"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500" data-dot="pharmacy"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500" data-dot="biopharm"></span>
+        </div>
+      </button>
+
+      <button id="btn-handbook" class="glass rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-cyan-200 hover:bg-cyan-500/20 transition flex items-center gap-2 cursor-pointer">
+        <span>📖</span>
+        <span class="hidden md:inline">Справочник & Карьера</span>
+        <span class="md:hidden">Справочник</span>
+      </button>
+
+      <button id="btn-fpv" class="glass rounded-2xl px-3 py-2.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/20 transition hidden sm:flex items-center gap-1.5 cursor-pointer" title="Режим прогулки от первого лица (WASD + мышь)">
+        <span>🚶</span>
+        <span id="fpv-label">1-е лицо</span>
+      </button>
+
+      <button id="btn-sound" class="glass rounded-2xl p-2.5 text-slate-200 hover:text-cyan-300 transition cursor-pointer" title="Звук">
+        🔊
+      </button>
+    </div>
+  </header>
+
+  <!-- First-person crosshair -->
+  <div id="fpv-crosshair" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none hidden">
+    <div class="w-3 h-3 rounded-full border-2 border-cyan-300 bg-cyan-400/30"></div>
+  </div>
+        <p class="text-xs text-slate-300 hidden sm:block">Кампус будущего провизора: от молекулы и растения до аптеки</p>
+      </div>
+    </div>
+
+    <!-- Student Record Book (Зачётная книжка) & Action Buttons -->
+    <div class="flex items-center gap-2 pointer-events-auto">
+      <button id="btn-record-book" class="glass rounded-2xl px-3.5 py-2 flex items-center gap-2.5 hover:border-emerald-400/60 transition cursor-pointer">
+        <div class="text-left">
+          <div class="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Зачётка</div>
+          <div class="text-xs sm:text-sm font-bold text-emerald-300"><span id="credits-count">0</span> / 4 зачёта</div>
+        </div>
+        <div class="flex gap-1" id="credit-dots">
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500" data-dot="garden"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500" data-dot="chem"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500" data-dot="forms"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500" data-dot="pharmacy"></span>
+        </div>
+      </button>
+
+      <button id="btn-handbook" class="glass rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-cyan-200 hover:bg-cyan-500/20 transition flex items-center gap-2 cursor-pointer">
+        <span>📖</span>
+        <span class="hidden md:inline">Справочник & Карьера</span>
+        <span class="md:hidden">Справочник</span>
+      </button>
+
+      <button id="btn-sound" class="glass rounded-2xl p-2.5 text-slate-200 hover:text-cyan-300 transition cursor-pointer" title="Звук">
+        🔊
+      </button>
+    </div>
+  </header>
+
+  <!-- Hover Tooltip in 3D -->
+  <div id="hover-tooltip" class="fixed z-30 pointer-events-none hidden glass rounded-xl px-3 py-2 text-xs max-w-xs border-cyan-400/50">
+    <div id="tooltip-title" class="font-bold text-cyan-300"></div>
+    <div id="tooltip-desc" class="text-slate-300 mt-0.5"></div>
+  </div>
+
+  <!-- Toast Notification Banner -->
+  <div id="toast-banner" class="fixed top-20 left-1/2 -translate-x-1/2 z-40 pointer-events-none opacity-0 transition-all duration-300 transform -translate-y-2">
+    <div class="glass rounded-2xl px-5 py-3 border-emerald-400/50 flex items-center gap-3 shadow-2xl">
+      <span id="toast-icon" class="text-xl">✨</span>
+      <span id="toast-text" class="text-sm font-semibold text-white"></span>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation Bar (Quick Zone Teleport & Controls Hint) -->
+  <nav class="fixed bottom-3 left-3 right-3 z-20 flex flex-col items-center gap-2 pointer-events-none">
+    <div class="glass rounded-2xl p-1.5 flex flex-wrap justify-center gap-1.5 pointer-events-auto max-w-full">
+      <button data-nav="overview" class="nav-btn px-3 py-2 rounded-xl text-xs font-semibold bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 transition cursor-pointer">
+        🏛️ Кампус
+      </button>
+      <button data-nav="garden" class="nav-btn px-3 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:bg-emerald-500/20 border border-transparent transition cursor-pointer">
+        🌿 1. Ботаника (3)
+      </button>
+      <button data-nav="chem" class="nav-btn px-3 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:bg-sky-500/20 border border-transparent transition cursor-pointer">
+        ⚗️ 2. Фармхимия (3)
+      </button>
+      <button data-nav="forms" class="nav-btn px-3 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:bg-amber-500/20 border border-transparent transition cursor-pointer">
+        💊 3. Лекарства (4)
+      </button>
+      <button data-nav="pharmacy" class="nav-btn px-3 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:bg-violet-500/20 border border-transparent transition cursor-pointer">
+        🏥 4. Аптека (3)
+      </button>
+      <button data-nav="biopharm" class="nav-btn px-3 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:bg-rose-500/20 border border-transparent transition cursor-pointer">
+        🧬 5. ADME-центр (2)
+      </button>
+    </div>
+    <div class="text-[11px] text-slate-400 bg-slate-950/60 px-3 py-1 rounded-full backdrop-blur-sm hidden sm:block">
+      🖱️ Вращение: ЛКМ • Зум: Колёсико • Движение: WASD • Клик по 3D-станции или маркеру открывает практикум (15 заданий)
+    </div>
+  </nav>
+
+  <!-- Interactive Station Practice Modal (Overlay) -->
+  <div id="station-modal" class="fixed inset-0 z-30 hidden items-center justify-center p-3 sm:p-6 bg-slate-950/65 backdrop-blur-sm">
+    <div class="glass rounded-3xl w-full max-w-4xl max-h-[88vh] flex flex-col overflow-hidden border-cyan-400/40 shadow-2xl">
+      <!-- Modal Header -->
+      <div class="px-5 py-4 border-b border-slate-700/60 flex items-center justify-between bg-slate-900/60">
+        <div class="flex items-center gap-3">
+          <span id="modal-icon" class="text-2xl sm:text-3xl">🧪</span>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="modal-title" class="text-base sm:text-xl font-extrabold text-white">Лаборатория</h2>
+              <span id="modal-badge" class="text-[11px] mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">КАФЕДРА</span>
+            </div>
+            <p id="modal-subtitle" class="text-xs text-slate-300">Описание дисциплины</p>
+          </div>
+        </div>
+        <button id="btn-close-modal" class="w-9 h-9 rounded-xl bg-slate-800/80 hover:bg-rose-500/30 text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer text-lg">
+          ✕
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div id="modal-body" class="p-5 overflow-y-auto flex-1 space-y-4">
+        <!-- Dynamic content injected per station -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Welcome Intro Overlay -->
+  <div id="intro-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+    <div class="glass rounded-3xl max-w-3xl w-full p-6 sm:p-8 border-cyan-400/40 text-center space-y-5">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs mono">
+        <span>🎓 ДЕНЬ ОТКРЫТЫХ ДВЕРЕЙ В 3D • 15 ПРАКТИЧЕСКИХ ЗАДАНИЙ</span>
+      </div>
+      <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
+        Добро пожаловать на <span class="bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">Фармацевтический факультет</span>!
+      </h1>
+      <p class="text-sm sm:text-base text-slate-300 leading-relaxed">
+        Настоящий <strong class="text-cyan-300">провизор</strong> — это исследователь на стыке <strong class="text-emerald-300">химии, ботаники, биотехнологии и клинической медицины</strong>. Пройдите 15 практикумов на 5 кафедрах кампуса и получите диплом Магистра фармации!
+      </p>
+      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-left text-xs">
+        <div class="glass-card rounded-2xl p-3">
+          <div class="text-xl mb-1">🌿</div>
+          <div class="font-bold text-emerald-300">Фармакогнозия</div>
+          <div class="text-slate-400 mt-0.5">Сбор сырья, экстракция и микроскопия</div>
+        </div>
+        <div class="glass-card rounded-2xl p-3">
+          <div class="text-xl mb-1">⚗️</div>
+          <div class="font-bold text-sky-300">Фармхимия</div>
+          <div class="text-slate-400 mt-0.5">Титрование, ГФ и несовместимость</div>
+        </div>
+        <div class="glass-card rounded-2xl p-3">
+          <div class="text-xl mb-1">💊</div>
+          <div class="font-bold text-amber-300">Технология</div>
+          <div class="text-slate-400 mt-0.5">Таблетки, капсулы, мази, микстуры</div>
+        </div>
+        <div class="glass-card rounded-2xl p-3">
+          <div class="text-xl mb-1">🏥</div>
+          <div class="font-bold text-violet-300">Аптека</div>
+          <div class="text-slate-400 mt-0.5">Рецепты Rp., Списки А/Б, пациенты</div>
+        </div>
+        <div class="glass-card rounded-2xl p-3 col-span-2 sm:col-span-1">
+          <div class="text-xl mb-1">🧬</div>
+          <div class="font-bold text-rose-300">Биофармация</div>
+          <div class="text-slate-400 mt-0.5">Путь ADME и терапевтическое окно</div>
+        </div>
+      </div>
+      <div class="pt-2">
+        <button id="btn-start-campus" class="w-full sm:w-auto px-8 py-3.5 rounded-2xl font-bold text-slate-950 bg-gradient-to-r from-emerald-400 via-cyan-400 to-sky-400 hover:brightness-110 transition shadow-lg shadow-cyan-500/25 cursor-pointer text-sm sm:text-base">
+          🚀 Войти в 3D-кампус и открыть практикум
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main 3D & Interactive Logic -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // =========================================================================
+    // 1. PROCEDURAL WEB AUDIO ENGINE (No external audio files)
+    // =========================================================================
+    class SoundFX {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playTone(freq, type = 'sine', duration = 0.15, gainVal = 0.12, slideTo = null) {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, now + duration);
+        gain.gain.setValueAtTime(gainVal, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + duration);
+      }
+      click() { this.playTone(540, 'triangle', 0.08, 0.1, 780); }
+      drop() { this.playTone(680, 'sine', 0.14, 0.12, 320); }
+      grind() { this.playTone(180, 'sawtooth', 0.12, 0.06, 130); }
+      error() { this.playTone(190, 'sawtooth', 0.28, 0.12, 110); }
+      success() {
+        this.playTone(523.25, 'triangle', 0.16, 0.14);
+        setTimeout(() => this.playTone(659.25, 'triangle', 0.16, 0.14), 110);
+        setTimeout(() => this.playTone(783.99, 'triangle', 0.28, 0.16), 220);
+      }
+    }
+    const sfx = new SoundFX();
+
+    // =========================================================================
+    // 2. APPLICATION STATE & 15 CURRICULUM TASKS ACROSS 5 DEPARTMENTS
+    // =========================================================================
+    const state = {
+      activeStation: null,
+      activeTaskTab: 0,
+      xp: 0,
+      fpvMode: false,
+      completedTasks: {}, // key: 'garden_1', 'chem_2', etc. (total 15)
+
+      // Station 1: Pharmacognosy
+      gardenPlantIdx: 0,
+      gardenHarvested: [],
+      gardenExtractStep: 0,
+      gardenMicroAnswered: false,
+
+      // Station 2: Pharmaceutical Chemistry
+      chemDrops: 0,
+      chemTargetDrops: 6,
+      chemStdChecked: {},
+      chemIncompatAnswers: {},
+
+      // Station 3: Dosage Forms Technology
+      formsSolidWeight: 0,
+      formsSolidForm: null,
+      formsCapsShell: null,
+      formsCapsFill: false,
+      formsOintmentComp: { basis: false, adjuvans: false, corrigens: false, constituens: false },
+      formsLiquidEmulsifier: false,
+      formsLiquidLabel1: false,
+      formsLiquidLabel2: false,
+
+      // Station 4: Pharmacy & Clinical Pharmacology
+      pharmAuditChecks: { cito: false, dose: false, sign: false },
+      pharmStorageSorted: {},
+      pharmCaseIdx: 0,
+      pharmCasesDone: [],
+
+      // Station 5: Biopharmacy & Pharmacokinetics (ADME)
+      bioRouteSelected: null,
+      bioDoseMg: 10,
+      bioLiverActivated: false
+    };
+
+    const STATIONS_META = {
+      overview: {
+        title: 'Кампус Фармфака',
+        camPos: new THREE.Vector3(0, 19, 25),
+        target: new THREE.Vector3(0, 1.2, 0)
+      },
+      garden: {
+        id: 'garden',
+        title: '1. Ботанический сад',
+        short: 'Фармакогнозия',
+        badge: 'КАФЕДРА ФАРМАКОГНОЗИИ',
+        icon: '🌿',
+        color: '#10b981',
+        taskKeys: ['garden_1', 'garden_2', 'garden_3'],
+        taskNames: ['1.1 Сбор сырья', '1.2 Экстракция', '1.3 Микроскопия'],
+        subtitle: 'Сбор лекарственных растений, получение галеновых/новогаленовых препаратов и анализ подлинности',
+        pos: new THREE.Vector3(-9.5, 0, -7.0),
+        camPos: new THREE.Vector3(-13.5, 6.8, -1.0),
+        target: new THREE.Vector3(-9.5, 1.4, -7.0)
+      },
+      chem: {
+        id: 'chem',
+        title: '2. Хим. лаборатория',
+        short: 'Фармацевтическая химия',
+        badge: 'КАФЕДРА ФАРМХИМИИ',
+        icon: '⚗️',
+        color: '#38bdf8',
+        taskKeys: ['chem_1', 'chem_2', 'chem_3'],
+        taskNames: ['2.1 Титрование', '2.2 Фармакопея ГФ', '2.3 Несовместимость'],
+        subtitle: 'Количественное титрование, стандарты Государственной фармакопеи и выявление несовместимости',
+        pos: new THREE.Vector3(9.5, 0, -7.0),
+        camPos: new THREE.Vector3(13.5, 6.8, -1.0),
+        target: new THREE.Vector3(9.5, 1.5, -7.0)
+      },
+      forms: {
+        id: 'forms',
+        title: '3. Лекарственные формы',
+        short: 'Технология лекарств',
+        badge: 'КАФЕДРА ТЕХНОЛОГИИ ЛФ',
+        icon: '💊',
+        color: '#f59e0b',
+        taskKeys: ['forms_1', 'forms_2', 'forms_3', 'forms_4'],
+        taskNames: ['3.1 Твёрдые (Таблетки)', '3.2 Капсулы', '3.3 Мягкие (Мазь)', '3.4 Жидкие (Эмульсия)'],
+        subtitle: 'Изготовление всех 4 типов лекарственных форм: твёрдых, капсул, мягких и жидких',
+        pos: new THREE.Vector3(-10.0, 0, 5.5),
+        camPos: new THREE.Vector3(-14.2, 6.8, 11.5),
+        target: new THREE.Vector3(-10.0, 1.4, 5.5)
+      },
+      pharmacy: {
+        id: 'pharmacy',
+        title: '4. Аптека и клиника',
+        short: 'Клиническая фармакология',
+        badge: 'УЧЕБНАЯ АПТЕКА',
+        icon: '🏥',
+        color: '#a855f7',
+        taskKeys: ['pharmacy_1', 'pharmacy_2', 'pharmacy_3'],
+        taskNames: ['4.1 Аудит рецепта', '4.2 Списки А/Б и шкафы', '4.3 Консультация'],
+        subtitle: 'Экспертиза рецептов и доз, правила хранения Списков А/Б и фармконсультирование',
+        pos: new THREE.Vector3(10.0, 0, 5.5),
+        camPos: new THREE.Vector3(14.2, 6.8, 11.5),
+        target: new THREE.Vector3(10.0, 1.5, 5.5)
+      },
+      biopharm: {
+        id: 'biopharm',
+        title: '5. Биофармация ADME',
+        short: 'Фармакокинетика',
+        badge: 'ЦЕНТР БИОФАРМАЦИИ',
+        icon: '🧬',
+        color: '#f43f5e',
+        taskKeys: ['biopharm_1', 'biopharm_2'],
+        taskNames: ['5.1 Пути введения', '5.2 Пролекарство и окно'],
+        subtitle: 'Всасывание, распределение, метаболизм в печени и удержание концентрации в терапевтическом окне',
+        pos: new THREE.Vector3(0, 0, 11.5),
+        camPos: new THREE.Vector3(0, 7.2, 18.0),
+        target: new THREE.Vector3(0, 1.8, 11.5)
+      }
+    };
+
+    // =========================================================================
+    // 3. THREE.JS SCENE, LIGHTING & PROCEDURAL 3D CAMPUS
+    // =========================================================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#070d19');
+    scene.fog = new THREE.FogExp2('#070d19', 0.015);
+
+    const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 160);
+    camera.position.copy(STATIONS_META.overview.camPos);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.maxPolarAngle = Math.PI * 0.47;
+    controls.minDistance = 4;
+    controls.maxDistance = 42;
+    controls.target.copy(STATIONS_META.overview.target);
+
+    // Lighting
+    const hemiLight = new THREE.HemisphereLight('#bae6fd', '#0f172a', 0.95);
+    scene.add(hemiLight);
+
+    const dirLight = new THREE.DirectionalLight('#ffffff', 1.6);
+    dirLight.position.set(16, 26, 18);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.camera.near = 2;
+    dirLight.shadow.camera.far = 70;
+    const d = 24;
+    dirLight.shadow.camera.left = -d;
+    dirLight.shadow.camera.right = d;
+    dirLight.shadow.camera.top = d;
+    dirLight.shadow.camera.bottom = -d;
+    scene.add(dirLight);
+
+    const interactiveMeshes = [];
+    const stationGroups = {};
+    const animatedObjects = [];
+
+    // Ground & Futuristic Campus Plaza
+    const floor = new THREE.Mesh(
+      new THREE.CylinderGeometry(26, 26, 0.4, 64),
+      new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.65, metalness: 0.25 })
+    );
+    floor.position.y = -0.2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const gridHelper = new THREE.GridHelper(48, 48, '#1e3a5f', '#11223a');
+    gridHelper.position.y = 0.01;
+    scene.add(gridHelper);
+
+    // Central DNA / Molecular Sculpture Monument
+    const centerGroup = new THREE.Group();
+    scene.add(centerGroup);
+
+    const pedestal = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.3, 2.7, 0.45, 32),
+      new THREE.MeshStandardMaterial({ color: '#1e293b', metalness: 0.5, roughness: 0.3 })
+    );
+    pedestal.position.y = 0.22;
+    pedestal.receiveShadow = true;
+    centerGroup.add(pedestal);
+
+    const ringGlow = new THREE.Mesh(
+      new THREE.TorusGeometry(2.45, 0.06, 16, 64),
+      new THREE.MeshBasicMaterial({ color: '#38bdf8' })
+    );
+    ringGlow.rotation.x = Math.PI / 2;
+    ringGlow.position.y = 0.45;
+    centerGroup.add(ringGlow);
+
+    const dnaGroup = new THREE.Group();
+    dnaGroup.position.y = 1.1;
+    centerGroup.add(dnaGroup);
+    const strandMat1 = new THREE.MeshStandardMaterial({ color: '#34d399', emissive: '#059669', emissiveIntensity: 0.4, roughness: 0.2 });
+    const strandMat2 = new THREE.MeshStandardMaterial({ color: '#38bdf8', emissive: '#0284c7', emissiveIntensity: 0.4, roughness: 0.2 });
+    const bondMat = new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.4 });
+
+    for (let i = 0; i < 16; i++) {
+      const y = i * 0.28;
+      const angle = i * 0.52;
+      const r = 0.85;
+      const s1 = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16), strandMat1);
+      s1.position.set(Math.cos(angle) * r, y, Math.sin(angle) * r);
+      const s2 = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16), strandMat2);
+      s2.position.set(Math.cos(angle + Math.PI) * r, y, Math.sin(angle + Math.PI) * r);
+      const bond = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, r * 2, 8), bondMat);
+      bond.position.set(0, y, 0);
+      bond.rotation.z = Math.PI / 2;
+      bond.rotation.y = -angle;
+      dnaGroup.add(s1, s2, bond);
+    }
+    animatedObjects.push({ mesh: dnaGroup, type: 'spin', speed: 0.45 });
+
+    // Connecting glowing pathways from center to all 5 stations
+    Object.values(STATIONS_META).forEach((st) => {
+      if (!st.pos) return;
+      const len = st.pos.length();
+      const path = new THREE.Mesh(
+        new THREE.BoxGeometry(0.9, 0.04, len - 2.4),
+        new THREE.MeshStandardMaterial({ color: st.color, emissive: st.color, emissiveIntensity: 0.28, roughness: 0.4 })
+      );
+      path.position.copy(st.pos).multiplyScalar(0.5);
+      path.position.y = 0.02;
+      path.lookAt(st.pos.x, 0.02, st.pos.z);
+      scene.add(path);
+    });
+
+    function registerStationMesh(mesh, stationId, label, hint) {
+      mesh.userData = { stationId, label, hint };
+      interactiveMeshes.push(mesh);
+    }
+
+    // -------------------------------------------------------------------------
+    // ZONE 1: BOTANICAL GARDEN (Pharmacognosy)
+    // -------------------------------------------------------------------------
+    {
+      const meta = STATIONS_META.garden;
+      const group = new THREE.Group();
+      group.position.copy(meta.pos);
+      scene.add(group);
+      stationGroups.garden = group;
+
+      const light = new THREE.PointLight('#10b981', 2.2, 12);
+      light.position.set(0, 4.5, 0);
+      group.add(light);
+
+      const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(4.1, 4.4, 0.35, 32),
+        new THREE.MeshStandardMaterial({ color: '#132a24', roughness: 0.6 })
+      );
+      base.position.y = 0.17;
+      base.receiveShadow = true;
+      group.add(base);
+      registerStationMesh(base, 'garden', '1. Ботанический сад (3 задания)', 'Сбор сырья, экстракция и микроскопия');
+
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(4.0, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.48),
+        new THREE.MeshStandardMaterial({ color: '#34d399', transparent: true, opacity: 0.14, roughness: 0.1 })
+      );
+      dome.position.y = 0.35;
+      group.add(dome);
+
+      const planterOffsets = [
+        { x: -1.45, z: -1.3, color: '#fef08a', name: 'Ромашка аптечная' },
+        { x: 1.45, z: -1.3, color: '#34d399', name: 'Мята перечная' },
+        { x: -1.45, z: 1.35, color: '#f43f5e', name: 'Раувольфия змеиная' },
+        { x: 1.45, z: 1.35, color: '#c084fc', name: 'Наперстянка пурпурная' }
+      ];
+
+      planterOffsets.forEach((p, idx) => {
+        const box = new THREE.Mesh(
+          new THREE.BoxGeometry(1.65, 0.45, 1.65),
+          new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.5 })
+        );
+        box.position.set(p.x, 0.55, p.z);
+        box.castShadow = true;
+        group.add(box);
+
+        const soil = new THREE.Mesh(
+          new THREE.BoxGeometry(1.45, 0.1, 1.45),
+          new THREE.MeshStandardMaterial({ color: '#3f2e21', roughness: 0.9 })
+        );
+        soil.position.set(p.x, 0.78, p.z);
+        group.add(soil);
+
+        for (let s = 0; s < 5; s++) {
+          const sx = p.x + Math.cos(s * 1.3) * 0.4;
+          const sz = p.z + Math.sin(s * 1.3) * 0.4;
+          const h = 0.7 + (s % 3) * 0.25;
+          const stem = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.03, 0.04, h, 8),
+            new THREE.MeshStandardMaterial({ color: '#16a34a' })
+          );
+          stem.position.set(sx, 0.8 + h / 2, sz);
+          group.add(stem);
+
+          const flower = new THREE.Mesh(
+            idx % 2 === 0 ? new THREE.DodecahedronGeometry(0.16) : new THREE.ConeGeometry(0.16, 0.35, 8),
+            new THREE.MeshStandardMaterial({ color: p.color, emissive: p.color, emissiveIntensity: 0.25 })
+          );
+          flower.position.set(sx, 0.8 + h + 0.1, sz);
+          group.add(flower);
+          animatedObjects.push({ mesh: flower, type: 'bob', baseY: flower.position.y, phase: s + idx });
+        }
+        registerStationMesh(box, 'garden', `Грядка: ${p.name}`, 'Кликните для запуска практикума по фармакогнозии');
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // ZONE 2: CHEMICAL LABORATORY (Pharmaceutical Chemistry)
+    // -------------------------------------------------------------------------
+    {
+      const meta = STATIONS_META.chem;
+      const group = new THREE.Group();
+      group.position.copy(meta.pos);
+      scene.add(group);
+      stationGroups.chem = group;
+
+      const light = new THREE.PointLight('#38bdf8', 2.4, 12);
+      light.position.set(0, 4.5, 0);
+      group.add(light);
+
+      const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(4.1, 4.4, 0.35, 32),
+        new THREE.MeshStandardMaterial({ color: '#102338', roughness: 0.5 })
+      );
+      base.position.y = 0.17;
+      base.receiveShadow = true;
+      group.add(base);
+      registerStationMesh(base, 'chem', '2. Химическая лаборатория (3 задания)', 'Титрование, стандарты ГФ и несовместимость');
+
+      const table = new THREE.Mesh(
+        new THREE.BoxGeometry(4.3, 0.2, 2.3),
+        new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.25, metalness: 0.2 })
+      );
+      table.position.set(0, 1.35, 0);
+      table.castShadow = true;
+      group.add(table);
+      registerStationMesh(table, 'chem', 'Аналитический стол и титратор', 'Нажмите для запуска практикума по фармхимии');
+
+      [[-1.85, -0.85], [1.85, -0.85], [-1.85, 0.85], [1.85, 0.85]].forEach(([lx, lz]) => {
+        const leg = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.08, 0.08, 1.0, 12),
+          new THREE.MeshStandardMaterial({ color: '#475569', metalness: 0.7 })
+        );
+        leg.position.set(lx, 0.85, lz);
+        group.add(leg);
+      });
+
+      ['#38bdf8', '#22d3ee', '#f472b6'].forEach((col, i) => {
+        const fx = -1.3 + i * 1.15;
+        const cone = new THREE.Mesh(
+          new THREE.ConeGeometry(0.38, 0.75, 20),
+          new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.45, transparent: true, opacity: 0.85 })
+        );
+        cone.position.set(fx, 1.82, 0.15);
+        const neck = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.11, 0.13, 0.35, 16),
+          new THREE.MeshStandardMaterial({ color: '#cbd5e1', transparent: true, opacity: 0.6 })
+        );
+        neck.position.set(fx, 2.32, 0.15);
+        group.add(cone, neck);
+        registerStationMesh(cone, 'chem', 'Реакционная колба', 'Нажмите для проведения титрования и анализа');
+      });
+
+      const standPole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.04, 0.04, 1.9, 12),
+        new THREE.MeshStandardMaterial({ color: '#94a3b8', metalness: 0.8 })
+      );
+      standPole.position.set(1.5, 2.35, -0.4);
+      const burette = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.06, 0.06, 1.4, 16),
+        new THREE.MeshStandardMaterial({ color: '#7dd3fc', emissive: '#0284c7', emissiveIntensity: 0.3 })
+      );
+      burette.position.set(1.3, 2.55, -0.4);
+      group.add(standPole, burette);
+    }
+
+    // -------------------------------------------------------------------------
+    // ZONE 3: DOSAGE FORMS TECHNOLOGY (Tablets, Capsules, Ointments, Liquids)
+    // -------------------------------------------------------------------------
+    {
+      const meta = STATIONS_META.forms;
+      const group = new THREE.Group();
+      group.position.copy(meta.pos);
+      scene.add(group);
+      stationGroups.forms = group;
+
+      const light = new THREE.PointLight('#f59e0b', 2.2, 12);
+      light.position.set(0, 4.5, 0);
+      group.add(light);
+
+      const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(4.1, 4.4, 0.35, 32),
+        new THREE.MeshStandardMaterial({ color: '#2b1e10', roughness: 0.55 })
+      );
+      base.position.y = 0.17;
+      base.receiveShadow = true;
+      group.add(base);
+      registerStationMesh(base, 'forms', '3. Технология лекарственных форм (4 задания)', 'Таблетки, капсулы, мази и микстуры');
+
+      const bench = new THREE.Mesh(
+        new THREE.BoxGeometry(4.3, 0.22, 2.3),
+        new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.4 })
+      );
+      bench.position.set(0, 1.35, 0);
+      bench.castShadow = true;
+      group.add(bench);
+      registerStationMesh(bench, 'forms', 'Рецептурный стол технолога', 'Нажмите для изготовления 4 лекарственных форм');
+
+      [[-1.85, -0.85], [1.85, -0.85], [-1.85, 0.85], [1.85, 0.85]].forEach(([lx, lz]) => {
+        const leg = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.08, 0.08, 1.0, 12),
+          new THREE.MeshStandardMaterial({ color: '#64748b', metalness: 0.6 })
+        );
+        leg.position.set(lx, 0.85, lz);
+        group.add(leg);
+      });
+
+      const mortar = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.62, 0.4, 0.62, 24),
+        new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.2 })
+      );
+      mortar.position.set(-1.1, 1.76, 0);
+      const pestle = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.11, 0.72, 8, 16),
+        new THREE.MeshStandardMaterial({ color: '#fbbf24', roughness: 0.3 })
+      );
+      pestle.position.set(-0.95, 2.12, 0);
+      pestle.rotation.z = -0.45;
+      group.add(mortar, pestle);
+      registerStationMesh(mortar, 'forms', 'Ступка и пестик провизора', 'Измельчение и смешивание лекарственных форм');
+
+      const capGroup = new THREE.Group();
+      capGroup.position.set(1.1, 2.15, 0);
+      capGroup.rotation.z = 0.55;
+      const capTop = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.28, 0.55, 20),
+        new THREE.MeshStandardMaterial({ color: '#f97316', roughness: 0.2 })
+      );
+      capTop.position.y = 0.27;
+      const capBot = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.27, 0.27, 0.55, 20),
+        new THREE.MeshStandardMaterial({ color: '#fef08a', roughness: 0.2 })
+      );
+      capBot.position.y = -0.27;
+      capGroup.add(capTop, capBot);
+      group.add(capGroup);
+      animatedObjects.push({ mesh: capGroup, type: 'spinBob', baseY: 2.15, speed: 1.1 });
+      registerStationMesh(capTop, 'forms', 'Желатиновая капсула', 'Нажмите для работы с капсулами и таблетками');
+    }
+
+    // -------------------------------------------------------------------------
+    // ZONE 4: PHARMACY & CLINICAL PHARMACOLOGY
+    // -------------------------------------------------------------------------
+    {
+      const meta = STATIONS_META.pharmacy;
+      const group = new THREE.Group();
+      group.position.copy(meta.pos);
+      scene.add(group);
+      stationGroups.pharmacy = group;
+
+      const light = new THREE.PointLight('#a855f7', 2.2, 12);
+      light.position.set(0, 4.5, 0);
+      group.add(light);
+
+      const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(4.1, 4.4, 0.35, 32),
+        new THREE.MeshStandardMaterial({ color: '#241436', roughness: 0.55 })
+      );
+      base.position.y = 0.17;
+      base.receiveShadow = true;
+      group.add(base);
+      registerStationMesh(base, 'pharmacy', '4. Учебная аптека (3 задания)', 'Аудит рецептов, Списки А/Б и консультация');
+
+      const counter = new THREE.Mesh(
+        new THREE.BoxGeometry(4.1, 1.25, 1.35),
+        new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.4 })
+      );
+      counter.position.set(0, 0.97, 0.8);
+      counter.castShadow = true;
+      group.add(counter);
+      registerStationMesh(counter, 'pharmacy', 'Рецептурный отдел аптеки', 'Нажмите для открытия практикума провизора');
+
+      const shelfFrame = new THREE.Mesh(
+        new THREE.BoxGeometry(4.1, 2.8, 0.6),
+        new THREE.MeshStandardMaterial({ color: '#0f172a', metalness: 0.4, roughness: 0.4 })
+      );
+      shelfFrame.position.set(0, 1.75, -1.2);
+      group.add(shelfFrame);
+
+      const boxColors = ['#38bdf8', '#34d399', '#f43f5e', '#fbbf24', '#a855f7'];
+      for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 5; col++) {
+          const medBox = new THREE.Mesh(
+            new THREE.BoxGeometry(0.56, 0.42, 0.35),
+            new THREE.MeshStandardMaterial({
+              color: boxColors[(row + col) % boxColors.length],
+              emissive: boxColors[(row + col) % boxColors.length],
+              emissiveIntensity: 0.2
+            })
+          );
+          medBox.position.set(-1.5 + col * 0.75, 0.95 + row * 0.8, -0.95);
+          group.add(medBox);
+        }
+      }
+
+      const crossGroup = new THREE.Group();
+      crossGroup.position.set(0, 3.85, -1.1);
+      const crossMat = new THREE.MeshBasicMaterial({ color: '#10b981' });
+      const vBar = new THREE.Mesh(new THREE.BoxGeometry(0.32, 1.05, 0.14), crossMat);
+      const hBar = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.32, 0.14), crossMat);
+      crossGroup.add(vBar, hBar);
+      group.add(crossGroup);
+      animatedObjects.push({ mesh: crossGroup, type: 'spin', speed: 0.9 });
+      registerStationMesh(vBar, 'pharmacy', 'Аптечный крест', 'Нажмите для работы в аптеке');
+    }
+
+    // -------------------------------------------------------------------------
+    // ZONE 5: BIOPHARMACY & PHARMACOKINETICS (ADME HOLOGRAM)
+    // -------------------------------------------------------------------------
+    {
+      const meta = STATIONS_META.biopharm;
+      const group = new THREE.Group();
+      group.position.copy(meta.pos);
+      scene.add(group);
+      stationGroups.biopharm = group;
+
+      const light = new THREE.PointLight('#f43f5e', 2.4, 13);
+      light.position.set(0, 4.6, 0);
+      group.add(light);
+
+      const base = new THREE.Mesh(
+        new THREE.CylinderGeometry(4.1, 4.4, 0.35, 32),
+        new THREE.MeshStandardMaterial({ color: '#2b1220', roughness: 0.55 })
+      );
+      base.position.y = 0.17;
+      base.receiveShadow = true;
+      group.add(base);
+      registerStationMesh(base, 'biopharm', '5. Центр биофармации ADME (2 задания)', 'Пути введения, пролекарства и терапевтическое окно');
+
+      // Hologram scanner ring
+      const holoRing = new THREE.Mesh(
+        new THREE.TorusGeometry(2.2, 0.07, 16, 64),
+        new THREE.MeshBasicMaterial({ color: '#fb7185' })
+      );
+      holoRing.rotation.x = Math.PI / 2;
+      holoRing.position.y = 0.42;
+      group.add(holoRing);
+
+      // Stylized Holographic Human Silhouette (ADME Organs)
+      const holoGroup = new THREE.Group();
+      holoGroup.position.y = 0.6;
+      const holoMat = new THREE.MeshStandardMaterial({
+        color: '#fda4af',
+        emissive: '#e11d48',
+        emissiveIntensity: 0.35,
+        transparent: true,
+        opacity: 0.45,
+        wireframe: false
+      });
+
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.36, 20, 20), holoMat);
+      head.position.y = 3.15;
+      const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.55, 1.35, 12, 20), holoMat);
+      torso.position.y = 1.85;
+      const legs = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.3, 1.1, 16), holoMat);
+      legs.position.y = 0.55;
+
+      // Glowing Heart & Liver nodes inside hologram
+      const heartNode = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18, 16, 16),
+        new THREE.MeshBasicMaterial({ color: '#38bdf8' })
+      );
+      heartNode.position.set(0.14, 2.25, 0.25);
+
+      const liverNode = new THREE.Mesh(
+        new THREE.SphereGeometry(0.22, 16, 16),
+        new THREE.MeshBasicMaterial({ color: '#fbbf24' })
+      );
+      liverNode.position.set(-0.2, 1.65, 0.25);
+
+      holoGroup.add(head, torso, legs, heartNode, liverNode);
+      group.add(holoGroup);
+      animatedObjects.push({ mesh: holoGroup, type: 'spin', speed: 0.6 });
+      registerStationMesh(torso, 'biopharm', 'Голограмма фармакокинетики ADME', 'Нажмите, чтобы изучить путь лекарства в организме');
+    }
+
+    // Floating Ambient Bio-Particles
+    const particleCount = 200;
+    const pGeo = new THREE.BufferGeometry();
+    const pPositions = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      pPositions[i * 3] = (Math.random() - 0.5) * 38;
+      pPositions[i * 3 + 1] = 0.5 + Math.random() * 8.5;
+      pPositions[i * 3 + 2] = (Math.random() - 0.5) * 38;
+    }
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+    const pMat = new THREE.PointsMaterial({ color: '#67e8f9', size: 0.14, transparent: true, opacity: 0.65 });
+    const particles = new THREE.Points(pGeo, pMat);
+    scene.add(particles);
+
+    // =========================================================================
+    // 4. FLOATING HTML MARKERS OVER 3D STATIONS
+    // =========================================================================
+    const markersLayer = document.getElementById('markers-layer');
+    const markerElements = {};
+
+    ['garden', 'chem', 'forms', 'pharmacy', 'biopharm'].forEach((id) => {
+      const meta = STATIONS_META[id];
+      const el = document.createElement('button');
+      el.className = 'station-marker glass rounded-2xl px-3.5 py-2 flex items-center gap-2.5 text-left pulse-ring';
+      el.style.borderColor = meta.color;
+      el.innerHTML = `
+        <span class="text-xl">${meta.icon}</span>
+        <div>
+          <div class="text-xs font-extrabold text-white leading-tight">${meta.title}</div>
+          <div class="text-[10px] mono" style="color:${meta.color}">${meta.short}</div>
+        </div>
+        <span class="marker-status text-[11px] mono font-bold ml-1 px-1.5 py-0.5 rounded bg-slate-900/80 text-white">0/${meta.taskKeys.length}</span>
+      `;
+      el.addEventListener('click', () => {
+        sfx.click();
+        focusCameraOn(id);
+        openStationModal(id);
+      });
+      markersLayer.appendChild(el);
+      markerElements[id] = el;
+    });
+
+    function getStationDoneCount(id) {
+      return STATIONS_META[id].taskKeys.filter((k) => state.completedTasks[k]).length;
+    }
+
+    function updateMarkersProjection() {
+      const widthHalf = window.innerWidth / 2;
+      const heightHalf = window.innerHeight / 2;
+
+      ['garden', 'chem', 'forms', 'pharmacy', 'biopharm'].forEach((id) => {
+        const meta = STATIONS_META[id];
+        const el = markerElements[id];
+        const worldPos = meta.pos.clone().add(new THREE.Vector3(0, 3.8, 0));
+        worldPos.project(camera);
+
+        if (worldPos.z > 1) {
+          el.style.display = 'none';
+        } else {
+          el.style.display = 'flex';
+          const x = (worldPos.x * widthHalf) + widthHalf;
+          const y = -(worldPos.y * heightHalf) + heightHalf;
+          el.style.left = `${x}px`;
+          el.style.top = `${y}px`;
+        }
+
+        const done = getStationDoneCount(id);
+        const total = meta.taskKeys.length;
+        const statusBadge = el.querySelector('.marker-status');
+        statusBadge.textContent = done === total ? `✅ ${done}/${total}` : `${done}/${total}`;
+      });
+    }
+
+    // =========================================================================
+    // 5. CAMERA TRANSITIONS, FIRST-PERSON MODE (WASD + POINTERLOCK) & RAYCAST
+    // =========================================================================
+    let camAnim = null;
+    function focusCameraOn(zoneKey) {
+      if (state.fpvMode) exitFpvMode();
+      const meta = STATIONS_META[zoneKey] || STATIONS_META.overview;
+      camAnim = {
+        startPos: camera.position.clone(),
+        endPos: meta.camPos.clone(),
+        startTarget: controls.target.clone(),
+        endTarget: meta.target.clone(),
+        progress: 0
+      };
+      document.querySelectorAll('.nav-btn').forEach((btn) => {
+        const isSelected = btn.dataset.nav === zoneKey;
+        btn.classList.toggle('bg-cyan-500/25', isSelected);
+        btn.classList.toggle('text-cyan-200', isSelected);
+        btn.classList.toggle('border-cyan-400/40', isSelected);
+      });
+    }
+
+    // First-Person Mode toggle (WASD + PointerLock look)
+    let fpvYaw = 0;
+    let fpvPitch = 0;
+
+    function enterFpvMode() {
+      state.fpvMode = true;
+      camAnim = null;
+      controls.enabled = false;
+      camera.position.set(0, 2.2, 4);
+      fpvYaw = 0;
+      fpvPitch = 0;
+      document.getElementById('fpv-label').textContent = 'Выйти (ESC)';
+      document.getElementById('fpv-crosshair').classList.remove('hidden');
+      if (renderer.domElement.requestPointerLock) {
+        renderer.domElement.requestPointerLock();
+      }
+      showToast('🚶', 'Режим от 1-го лица: ходите на WASD, оглядывайтесь мышью, клик — открыть кафедру.');
+    }
+
+    function exitFpvMode() {
+      state.fpvMode = false;
+      controls.enabled = true;
+      document.getElementById('fpv-label').textContent = '1-е лицо';
+      document.getElementById('fpv-crosshair').classList.add('hidden');
+      if (document.pointerLockElement === renderer.domElement) {
+        document.exitPointerLock();
+      }
+      const forward = new THREE.Vector3();
+      camera.getWorldDirection(forward);
+      controls.target.copy(camera.position).add(forward.multiplyScalar(6));
+    }
+
+    document.getElementById('btn-fpv').addEventListener('click', () => {
+      sfx.click();
+      if (state.fpvMode) {
+        exitFpvMode();
+        focusCameraOn('overview');
+      } else {
+        enterFpvMode();
+      }
+    });
+
+    document.addEventListener('pointerlockchange', () => {
+      if (state.fpvMode && document.pointerLockElement !== renderer.domElement) {
+        // User pressed ESC to unlock pointer
+        exitFpvMode();
+      }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (state.fpvMode && document.pointerLockElement === renderer.domElement) {
+        fpvYaw -= e.movementX * 0.0022;
+        fpvPitch = Math.max(-Math.PI * 0.4, Math.min(Math.PI * 0.4, fpvPitch - e.movementY * 0.0022));
+        const euler = new THREE.Euler(fpvPitch, fpvYaw, 0, 'YXZ');
+        camera.quaternion.setFromEuler(euler);
+      }
+    });
+
+    // WASD / Arrow movement
+    const keysPressed = {};
+    window.addEventListener('keydown', (e) => {
+      if (document.getElementById('station-modal').classList.contains('flex')) return;
+      keysPressed[e.code] = true;
+    });
+    window.addEventListener('keyup', (e) => {
+      keysPressed[e.code] = false;
+    });
+
+    function handleKeyboardMovement(dt) {
+      const speed = (state.fpvMode ? 9 : 13) * dt;
+      const forward = new THREE.Vector3();
+      camera.getWorldDirection(forward);
+      forward.y = 0;
+      forward.normalize();
+      const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+      const move = new THREE.Vector3();
+      if (keysPressed['KeyW'] || keysPressed['ArrowUp']) move.add(forward);
+      if (keysPressed['KeyS'] || keysPressed['ArrowDown']) move.sub(forward);
+      if (keysPressed['KeyD'] || keysPressed['ArrowRight']) move.add(right);
+      if (keysPressed['KeyA'] || keysPressed['ArrowLeft']) move.sub(right);
+
+      if (move.lengthSq() > 0) {
+        camAnim = null;
+        move.normalize().multiplyScalar(speed);
+        camera.position.add(move);
+        // Keep within campus bounds
+        camera.position.x = Math.max(-22, Math.min(22, camera.position.x));
+        camera.position.z = Math.max(-22, Math.min(22, camera.position.z));
+        if (!state.fpvMode) {
+          controls.target.add(move);
+        }
+      }
+    }
+
+    // Raycaster for 3D Hover & Click
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const tooltip = document.getElementById('hover-tooltip');
+    let pointerDownPos = { x: 0, y: 0 };
+
+    renderer.domElement.addEventListener('pointermove', (e) => {
+      if (state.fpvMode) {
+        tooltip.classList.add('hidden');
+        return;
+      }
+      pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      if (document.getElementById('station-modal').classList.contains('flex')) {
+        tooltip.classList.add('hidden');
+        return;
+      }
+
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(interactiveMeshes, false);
+      if (hits.length > 0) {
+        const hit = hits[0].object;
+        document.body.style.cursor = 'pointer';
+        tooltip.classList.remove('hidden');
+        tooltip.style.left = `${Math.min(e.clientX + 14, window.innerWidth - 270)}px`;
+        tooltip.style.top = `${Math.min(e.clientY + 14, window.innerHeight - 90)}px`;
+        document.getElementById('tooltip-title').textContent = hit.userData.label;
+        document.getElementById('tooltip-desc').textContent = hit.userData.hint;
+      } else {
+        document.body.style.cursor = 'default';
+        tooltip.classList.add('hidden');
+      }
+    });
+
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      pointerDownPos = { x: e.clientX, y: e.clientY };
+    });
+
+    renderer.domElement.addEventListener('pointerup', (e) => {
+      if (document.getElementById('station-modal').classList.contains('flex')) return;
+
+      if (state.fpvMode) {
+        raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+      } else {
+        const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+        if (dist > 6) return;
+        pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+        pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+      }
+
+      const hits = raycaster.intersectObjects(interactiveMeshes, false);
+      if (hits.length > 0) {
+        const stId = hits[0].object.userData.stationId;
+        sfx.click();
+        focusCameraOn(stId);
+        openStationModal(stId);
+      }
+    });
+
+    // =========================================================================
+    // 6. UI HELPERS, XP, RANKS & RECORD BOOK (ЗАЧЁТКА)
+    // =========================================================================
+    let toastTimeout = null;
+    function showToast(icon, message) {
+      const banner = document.getElementById('toast-banner');
+      document.getElementById('toast-icon').textContent = icon;
+      document.getElementById('toast-text').textContent = message;
+      banner.classList.remove('opacity-0', '-translate-y-2');
+      banner.classList.add('opacity-100', 'translate-y-0');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        banner.classList.add('opacity-0', '-translate-y-2');
+        banner.classList.remove('opacity-100', 'translate-y-0');
+      }, 3600);
+    }
+
+    function getRankName(doneCount) {
+      if (doneCount >= 15) return 'МАГИСТР ФАРМАЦИИ';
+      if (doneCount >= 10) return 'ПРОВИЗОР-ИНТЕРН';
+      if (doneCount >= 5) return 'СТУДЕНТ-ПРОВИЗОР';
+      if (doneCount >= 1) return 'ПЕРВОКУРСНИК';
+      return 'АБИТУРИЕНТ';
+    }
+
+    function completeTask(taskKey, taskLabel, xpReward = 100) {
+      if (!state.completedTasks[taskKey]) {
+        state.completedTasks[taskKey] = true;
+        state.xp += xpReward;
+        sfx.success();
+        updateProgressUI();
+        const doneTotal = Object.keys(state.completedTasks).length;
+        showToast('🎓', `+${xpReward} XP! Выполнено: «${taskLabel}» (${doneTotal}/15)`);
+      } else {
+        sfx.success();
+        showToast('⭐', `Задание «${taskLabel}» уже зачтено!`);
+      }
+    }
+
+    function updateProgressUI() {
+      const doneTotal = Object.keys(state.completedTasks).length;
+      document.getElementById('tasks-done-count').textContent = doneTotal;
+      document.getElementById('rank-badge').textContent = `${getRankName(doneTotal)} • ${state.xp} XP`;
+
+      ['garden', 'chem', 'forms', 'pharmacy', 'biopharm'].forEach((id) => {
+        const dot = document.querySelector(`[data-dot="${id}"]`);
+        const done = getStationDoneCount(id);
+        const total = STATIONS_META[id].taskKeys.length;
+        if (dot) {
+          if (done === total) {
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400';
+          } else if (done > 0) {
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400';
+          } else {
+            dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-700 border border-slate-500';
+          }
+        }
+      });
+    }
+
+    // =========================================================================
+    // 7. STATION MODAL & 15 MULTI-STAGE INTERACTIVE TASKS
+    // =========================================================================
+    const modal = document.getElementById('station-modal');
+    const modalBody = document.getElementById('modal-body');
+
+    function closeModal() {
+      sfx.click();
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      state.activeStation = null;
+    }
+    document.getElementById('btn-close-modal').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    function openStationModal(stationId, tabIdx = null) {
+      state.activeStation = stationId;
+      const meta = STATIONS_META[stationId];
+
+      // Auto-select first incomplete task if tabIdx not specified
+      if (tabIdx === null) {
+        const firstIncomplete = meta.taskKeys.findIndex((k) => !state.completedTasks[k]);
+        state.activeTaskTab = firstIncomplete >= 0 ? firstIncomplete : 0;
+      } else {
+        state.activeTaskTab = tabIdx;
+      }
+
+      document.getElementById('modal-icon').textContent = meta.icon;
+      document.getElementById('modal-title').textContent = meta.title;
+      document.getElementById('modal-badge').textContent = meta.badge;
+      document.getElementById('modal-subtitle').textContent = meta.subtitle;
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
+      renderActiveStation();
+    }
+
+    function renderTaskTabsBar(stationId) {
+      const meta = STATIONS_META[stationId];
+      return `
+        <div class="flex flex-wrap gap-2 pb-3 border-b border-slate-700/60">
+          ${meta.taskNames.map((name, idx) => {
+            const key = meta.taskKeys[idx];
+            const isDone = !!state.completedTasks[key];
+            const isActive = state.activeTaskTab === idx;
+            return `
+              <button data-tab-idx="${idx}" class="station-tab-btn px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                isActive
+                  ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/60 shadow'
+                  : isDone
+                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
+                    : 'bg-slate-900/70 text-slate-300 border border-slate-700 hover:border-slate-500'
+              }">
+                <span>${isDone ? '✅' : '🔬'}</span>
+                <span>${name}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    function bindTabEvents() {
+      modalBody.querySelectorAll('.station-tab-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          sfx.click();
+          state.activeTaskTab = Number(btn.dataset.tabIdx);
+          renderActiveStation();
+        });
+      });
+    }
+
+    function renderActiveStation() {
+      const id = state.activeStation;
+      if (id === 'garden') renderGardenStation();
+      if (id === 'chem') renderChemStation();
+      if (id === 'forms') renderFormsStation();
+      if (id === 'pharmacy') renderPharmacyStation();
+      if (id === 'biopharm') renderBiopharmStation();
+    }
+
+    // =========================================================================
+    // ZONE 1: БОТАНИЧЕСКИЙ САД — 3 ЗАДАНИЯ (Сбор сырья, Экстракция, Микроскопия)
+    // =========================================================================
+    const PLANTS_DB = [
+      {
+        id: 'chamomile',
+        name: 'Ромашка аптечная',
+        latin: 'Matricaria chamomilla L.',
+        emoji: '🌼',
+        correctPart: 'flowers',
+        partLabel: 'Цветки (Flores)',
+        actives: 'Хамазулен, эфирное масло, флавоноиды',
+        effect: 'Противовоспалительное и спазмолитическое действие',
+        hint: 'Хамазулен и эфирное масло сосредоточены в соцветиях-корзинках!'
+      },
+      {
+        id: 'mint',
+        name: 'Мята перечная',
+        latin: 'Mentha × piperita L.',
+        emoji: '🌱',
+        correctPart: 'leaves',
+        partLabel: 'Листья (Folia)',
+        actives: 'Ментол (до 50–60% в эфирном масле)',
+        effect: 'Охлаждающее, спазмолитическое и успокаивающее средство',
+        hint: 'Кристаллический ментол синтезируется в желёзках листьев мяты.'
+      },
+      {
+        id: 'rauvolfia',
+        name: 'Раувольфия змеиная',
+        latin: 'Rauvolfia serpentina',
+        emoji: '🌿',
+        correctPart: 'roots',
+        partLabel: 'Корни (Radices)',
+        actives: 'Алкалоид резерпин (препарат «Раунатин»)',
+        effect: 'Снижает артериальное давление (гипотензивное действие)',
+        hint: 'Индольные алкалоиды (резерпин) накапливаются в подземных корнях.'
+      },
+      {
+        id: 'digitalis',
+        name: 'Наперстянка пурпурная',
+        latin: 'Digitalis purpurea L.',
+        emoji: '🌺',
+        correctPart: 'leaves',
+        partLabel: 'Листья (Folia)',
+        actives: 'Сердечные гликозиды (дигитоксин, гитоксин)',
+        effect: 'Усиливает сокращения сердца при сердечной недостаточности (Список А/Б!)',
+        hint: 'Кардиотонические гликозиды содержатся именно в листьях наперстянки.'
+      }
+    ];
+
+    function renderGardenStation() {
+      const tabs = renderTaskTabsBar('garden');
+      const tab = state.activeTaskTab;
+
+      if (tab === 0) {
+        // TASK 1.1: Harvest 4 medicinal plants
+        const task = PLANTS_DB[state.gardenPlantIdx % PLANTS_DB.length];
+        modalBody.innerHTML = tabs + `
+          <div class="glass-card rounded-2xl p-4 border-emerald-500/40 bg-emerald-950/20">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span class="text-xs mono text-emerald-300 uppercase">Задание 1.1 • Заготовка лекарственного растительного сырья</span>
+                <h3 class="text-lg font-bold text-white mt-0.5">Объект: ${task.emoji} ${task.name} <span class="text-xs font-normal italic text-slate-300">(${task.latin})</span></h3>
+              </div>
+              <span class="text-xs px-3 py-1 rounded-full bg-slate-800 text-emerald-300 border border-emerald-500/30">
+                Заготовлено: ${state.gardenHarvested.length} / ${PLANTS_DB.length}
+              </span>
+            </div>
+            <p class="text-xs sm:text-sm text-slate-300 mt-2">
+              Выберите правильную морфологическую группу сырья, в которой накапливаются действующие вещества:
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            ${[
+              { key: 'flowers', icon: '🌸', title: 'Цветки (Flores)', desc: 'Соцветия и бутоны в фазе распускания' },
+              { key: 'leaves', icon: '🍃', title: 'Листья (Folia)', desc: 'Листовые пластинки в фазе бутонизации' },
+              { key: 'roots', icon: '🥕', title: 'Корни (Radices)', desc: 'Подземные органы, выкопанные осенью' }
+            ].map(opt => `
+              <button data-part="${opt.key}" class="plant-part-btn glass-card rounded-2xl p-4 text-left hover:border-emerald-400 cursor-pointer flex flex-col justify-between">
+                <div>
+                  <div class="text-3xl mb-2">${opt.icon}</div>
+                  <div class="font-bold text-white text-sm">${opt.title}</div>
+                  <div class="text-xs text-slate-400 mt-1">${opt.desc}</div>
+                </div>
+                <div class="mt-3 text-[11px] mono text-emerald-300">Собрать сырьё →</div>
+              </button>
+            `).join('')}
+          </div>
+          <div id="garden-feedback" class="hidden rounded-2xl p-4 text-sm"></div>
+        `;
+        bindTabEvents();
+
+        modalBody.querySelectorAll('.plant-part-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const chosen = btn.dataset.part;
+            const fb = document.getElementById('garden-feedback');
+            fb.classList.remove('hidden');
+            if (chosen === task.correctPart) {
+              sfx.success();
+              if (!state.gardenHarvested.includes(task.id)) state.gardenHarvested.push(task.id);
+              fb.className = 'rounded-2xl p-4 text-sm bg-emerald-500/20 border border-emerald-400/50 text-emerald-100 space-y-2';
+              fb.innerHTML = `
+                <div class="font-bold text-emerald-300">✅ Верно! Собраны «${task.partLabel}»!</div>
+                <div><strong>Биологически активные вещества:</strong> ${task.actives}</div>
+                <div><strong>Фармакология:</strong> ${task.effect}</div>
+                <button id="btn-next-plant" class="mt-1 px-4 py-2 rounded-xl bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer">
+                  ${state.gardenHarvested.length >= PLANTS_DB.length ? '🎓 Завершить задание 1.1' : 'Следующее растение →'}
+                </button>
+              `;
+              document.getElementById('btn-next-plant').addEventListener('click', () => {
+                if (state.gardenHarvested.length >= PLANTS_DB.length) {
+                  completeTask('garden_1', 'Сбор лекарственного сырья');
+                  state.activeTaskTab = 1;
+                } else {
+                  state.gardenPlantIdx++;
+                }
+                renderGardenStation();
+              });
+            } else {
+              sfx.error();
+              fb.className = 'rounded-2xl p-4 text-sm bg-rose-500/20 border border-rose-400/50 text-rose-100';
+              fb.innerHTML = `<strong>❌ Неверно!</strong> ${task.hint}`;
+            }
+          });
+        });
+      } else if (tab === 1) {
+        // TASK 1.2: Simple vs Galenic vs Neogalenic Preparations
+        modalBody.innerHTML = tabs + `
+          <div class="glass-card rounded-2xl p-4 border-emerald-500/40">
+            <span class="text-xs mono text-emerald-300 uppercase">Задание 1.2 • Технология фитопрепаратов</span>
+            <h3 class="text-lg font-bold text-white mt-0.5">От сушёной травы до стерильной ампулы</h3>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1">
+              К вам поступил запрос из кардиологического отделения: нужен <strong>препарат сердечных гликозидов для внутривенного введения</strong>, максимально очищенный от белков, слизи и красящих балластных веществ. Какую группу препаратов должен выбрать провизор?
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            ${[
+              {
+                key: 'simple',
+                badge: 'I поколение',
+                title: 'Простые препараты',
+                desc: 'Высушенное и измельчённое лекарственное сырьё (сборы, порошки из трав). Содержат всю клетчатку и примеси.',
+                correct: false
+              },
+              {
+                key: 'galenic',
+                badge: 'II поколение (Клавдий Гален)',
+                title: 'Галеновы препараты',
+                desc: 'Настойки и экстракты, полученные извлечением. Частично освобождены от клетчатки, но содержат балластные белки и слизи — вводить в вену опасно!',
+                correct: false
+              },
+              {
+                key: 'neogalenic',
+                badge: 'III поколение • Высшая очистка',
+                title: 'Новогаленовы препараты',
+                desc: 'Глубоко очищенные извлечения (например, Лантозид), практически не содержащие балластных веществ — пригодны для парентерального (инъекционного) введения!',
+                correct: true
+              }
+            ].map(item => `
+              <button data-prep="${item.key}" data-ok="${item.correct}" class="prep-choice-btn glass-card rounded-2xl p-4 text-left hover:border-emerald-400 cursor-pointer flex flex-col justify-between">
+                <div>
+                  <span class="text-[10px] mono px-2 py-0.5 rounded bg-slate-800 text-emerald-300">${item.badge}</span>
+                  <div class="font-bold text-white text-sm mt-2">${item.title}</div>
+                  <p class="text-xs text-slate-300 mt-1.5 leading-relaxed">${item.desc}</p>
+                </div>
+                <div class="mt-3 text-xs mono text-cyan-300">Выбрать технологию →</div>
+              </button>
+            `).join('')}
+          </div>
+          <div id="extract-feedback" class="hidden rounded-2xl p-4 text-sm"></div>
+        `;
+        bindTabEvents();
+
+        modalBody.querySelectorAll('.prep-choice-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const isOk = btn.dataset.ok === 'true';
+            const fb = document.getElementById('extract-feedback');
+            fb.classList.remove('hidden');
+            if (isOk) {
+              fb.className = 'rounded-2xl p-4 text-sm bg-emerald-500/20 border border-emerald-400/50 text-emerald-100';
+              fb.innerHTML = `<strong>✅ Абсолютно верно!</strong> Только <strong>новогаленовы препараты</strong> очищены от балластных белков и слизей настолько, что безопасны для инъекций.`;
+              completeTask('garden_2', 'Галеновы и новогаленовы препараты');
+            } else {
+              sfx.error();
+              fb.className = 'rounded-2xl p-4 text-sm bg-rose-500/20 border border-rose-400/50 text-rose-100';
+              fb.innerHTML = `<strong>⚠️ Опасно для пациента!</strong> Балластные белки и примеси в обычных и галеновых препаратах вызовут тяжёлую реакцию при введении в вену.`;
+            }
+          });
+        });
+      } else {
+        // TASK 1.3: Microscopic & Macroscopic Authenticity Control
+        modalBody.innerHTML = tabs + `
+          <div class="glass-card rounded-2xl p-4 border-emerald-500/40">
+            <span class="text-xs mono text-emerald-300 uppercase">Задание 1.3 • Фармакогностический анализ подлинности</span>
+            <h3 class="text-lg font-bold text-white mt-0.5">Микроскопия сырья: найдите фальсификат!</h3>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1">
+              На склад поступили три партии измельчённого растительного сырья. Изучите диагностические признаки под микроскопом и укажите <strong>недоброкачественную партию</strong>, в которой обнаружена ядовитая примесь!
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            ${[
+              {
+                id: 'b1',
+                title: 'Партия №101: Лист мяты',
+                micro: 'Эфирномасличные желёзки с 8 радиально расположенными выделительными клетками, устьица диацитного типа.',
+                bad: false
+              },
+              {
+                id: 'b2',
+                title: 'Партия №102: Цветки ромашки',
+                micro: 'Обнаружены корзинки с полым коническим цветоложем, но 35% массы составляют стебли, почерневшие соцветия и примесь пупавки собачьей!',
+                bad: true
+              },
+              {
+                id: 'b3',
+                title: 'Партия №103: Лист шалфея',
+                micro: 'Многоклеточные изогнутые волоски и эфирномасличные желёзки с 6–8 клетками.',
+                bad: false
+              }
+            ].map(b => `
+              <button data-bad="${b.bad}" class="micro-btn glass-card rounded-2xl p-4 text-left hover:border-amber-400 cursor-pointer flex flex-col justify-between">
+                <div>
+                  <div class="text-2xl mb-1.5">🔬</div>
+                  <div class="font-bold text-white text-sm">${b.title}</div>
+                  <div class="text-xs text-slate-300 mt-2 bg-slate-950/70 p-2.5 rounded-xl border border-slate-800">
+                    ${b.micro}
+                  </div>
+                </div>
+                <div class="mt-3 text-xs mono text-amber-300">Забраковать партию →</div>
+              </button>
+            `).join('')}
+          </div>
+          <div id="micro-feedback" class="hidden rounded-2xl p-4 text-sm"></div>
+        `;
+        bindTabEvents();
+
+        modalBody.querySelectorAll('.micro-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const isBad = btn.dataset.bad === 'true';
+            const fb = document.getElementById('micro-feedback');
+            fb.classList.remove('hidden');
+            if (isBad) {
+              fb.className = 'rounded-2xl p-4 text-sm bg-emerald-500/20 border border-emerald-400/50 text-emerald-100';
+              fb.innerHTML = `<strong>✅ Партия №102 забракована!</strong> Полое коническое цветоложе — верный признак ромашки аптечной, но 35% стеблей и примесь пупавки нарушают нормы Государственной фармакопеи.`;
+              completeTask('garden_3', 'Микроскопия и контроль подлинности сырья');
+            } else {
+              sfx.error();
+              fb.className = 'rounded-2xl p-4 text-sm bg-rose-500/20 border border-rose-400/50 text-rose-100';
+              fb.innerHTML = `<strong>❌ Ошибка!</strong> Эта партия полностью соответствует микроскопическим диагностическим признакам подлинного сырья.`;
+            }
+          });
+        });
+      }
+    }
+
+    // =========================================================================
+    // ZONE 2: ХИМИЧЕСКАЯ ЛАБОРАТОРИЯ — 3 ЗАДАНИЯ (Титрование, ГФ, Несовместимость)
+    // =========================================================================
+    function renderChemStation() {
+      const tabs = renderTaskTabsBar('chem');
+      const tab = state.activeTaskTab;
+
+      if (tab === 0) {
+        // TASK 2.1: Interactive Titration
+        const target = state.chemTargetDrops;
+        const drops = state.chemDrops;
+        let liquidColor = '#38bdf8';
+        let statusLabel = 'Исходный раствор ацетилсалициловой кислоты (pH 3.2)';
+        if (drops > 0 && drops < target) {
+          liquidColor = '#818cf8';
+          statusLabel = `Идёт нейтрализация... (pH ${(3.2 + (drops / target) * 4.0).toFixed(1)})`;
+        } else if (drops === target) {
+          liquidColor = '#f472b6';
+          statusLabel = '✨ Точка эквивалентности! Нежно-розовое окрашивание (pH 7.2 — Эталон!)';
+        } else if (drops > target) {
+          liquidColor = '#e11d48';
+          statusLabel = '⚠️ Перетитрование! Избыток NaOH (pH > 9.5). Нажмите «Сброс».';
+        }
+
+        modalBody.innerHTML = tabs + `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="glass-card rounded-2xl p-4 flex flex-col justify-between space-y-3">
+              <div>
+                <span class="text-xs mono text-sky-300 uppercase">Задание 2.1 • Алкалиметрия</span>
+                <h3 class="text-base sm:text-lg font-bold text-white mt-0.5">Титрование субстанции до точки эквивалентности</h3>
+                <p class="text-xs text-slate-300 mt-1">
+                  Добавляйте 0,1 М раствор NaOH по каплям (индикатор — фенолфталеин). Нужно ровно <strong>${target} капель</strong> для устойчивого бледно-розового цвета.
+                </p>
+              </div>
+              <div class="bg-slate-950/70 rounded-2xl p-4 border border-slate-800 flex flex-col items-center">
+                <div class="text-xs mono text-slate-400 mb-1">Добавлено капель: <strong class="text-sky-300 text-base">${drops}</strong></div>
+                <svg class="w-32 h-32" viewBox="0 0 120 120">
+                  <path d="M48 12 H72 V34 L98 96 A10 10 0 0 1 89 110 H31 A10 10 0 0 1 22 96 L48 34 Z" fill="rgba(255,255,255,0.06)" stroke="#94a3b8" stroke-width="2.5"/>
+                  <path d="M36 66 H84 L95 95 A8 8 0 0 1 88 107 H32 A8 8 0 0 1 25 95 Z" fill="${liquidColor}" opacity="0.88"/>
+                </svg>
+                <div class="text-xs text-center font-semibold mt-2" style="color:${liquidColor}">${statusLabel}</div>
+              </div>
+              <div class="flex gap-2">
+                <button id="btn-add-drop" class="flex-1 py-2.5 px-4 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs sm:text-sm cursor-pointer">💧 +1 капля NaOH</button>
+                <button id="btn-reset-chem" class="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs sm:text-sm cursor-pointer">🔄 Сброс</button>
+              </div>
+            </div>
+
+            <div class="glass-card rounded-2xl p-4 flex flex-col justify-between space-y-3">
+              <div class="space-y-2 text-xs">
+                <span class="text-xs mono text-emerald-300 uppercase">Расчёт массовой доли</span>
+                <h4 class="text-base font-bold text-white">Протокол количественного анализа</h4>
+                <p class="text-slate-300">По норме Государственной фармакопеи содержание действующего вещества должно быть от <strong>99,0% до 100,5%</strong>.</p>
+                <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-700 mono space-y-1">
+                  <div>V(титранта) = ${(drops * 0.5).toFixed(1)} мл</div>
+                  <div>Расчётная чистота = <span class="${drops === target ? 'text-emerald-300 font-bold' : 'text-amber-300'}">${drops === 0 ? '0.0%' : ((drops / target) * 99.8).toFixed(1) + '%'}</span></div>
+                </div>
+              </div>
+              <button id="btn-finish-titration" ${drops === target ? '' : 'disabled'} class="w-full py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition ${
+                drops === target ? 'bg-emerald-400 text-slate-950 cursor-pointer' : 'bg-slate-800/60 text-slate-500 cursor-not-allowed'
+              }">
+                ${drops === target ? '🎓 Подтвердить 99.8% и зачесть задание 2.1' : 'Достигните точки эквивалентности (6 капель)'}
+              </button>
+            </div>
+          </div>
+        `;
+        bindTabEvents();
+
+        document.getElementById('btn-add-drop').addEventListener('click', () => {
+          state.chemDrops++;
+          state.chemDrops === state.chemTargetDrops ? sfx.success() : (state.chemDrops > state.chemTargetDrops ? sfx.error() : sfx.drop());
+          renderChemStation();
+        });
+        document.getElementById('btn-reset-chem').addEventListener('click', () => {
+          sfx.click();
+          state.chemDrops = 0;
+          renderChemStation();
+        });
+        const finBtn = document.getElementById('btn-finish-titration');
+        if (finBtn && !finBtn.disabled) {
+          finBtn.addEventListener('click', () => {
+            completeTask('chem_1', 'Количественное титрование субстанции');
+            state.activeTaskTab = 1;
+            renderChemStation();
+          });
+        }
+      } else if (tab === 1) {
+        // TASK 2.2: State Pharmacopoeia Standard Verification
+        const params = [
+          { id: 'mp', name: 'Температура плавления', norm: '135–136 °C', actual: '135.4 °C', ok: true },
+          { id: 'imp', name: 'Тяжёлые металлы (свинец)', norm: 'Не более 0,001%', actual: '0,008% (превышение в 8 раз!)', ok: false },
+          { id: 'sol', name: 'Растворимость в спирте 96%', norm: 'Легко растворим', actual: 'Легко растворим', ok: true }
+        ];
+        modalBody.innerHTML = tabs + `
+          <div class="glass-card rounded-2xl p-4 border-sky-500/40">
+            <span class="text-xs mono text-sky-300 uppercase">Задание 2.2 • Экспертиза по Государственной фармакопее (ГФ)</span>
+            <h3 class="text-lg font-bold text-white mt-0.5">Сверьте показатели серии с фармакопейной статьёй</h3>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1">
+              Фармакопея устанавливает жёсткие нормы тождественности и доброкачественности. Проверьте 3 показателя новой партии субстанции и вынесите вердикт:
+            </p>
+          </div>
+
+          <div class="space-y-2.5">
+            ${params.map(p => `
+              <div class="glass-card rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm">
+                <div>
+                  <div class="font-bold text-white">${p.name}</div>
+                  <div class="text-slate-400">Норма ГФ: <span class="text-cyan-300 mono">${p.norm}</span> • Факт: <span class="text-amber-200 mono">${p.actual}</span></div>
+                </div>
+                <div class="flex gap-2">
+                  <button data-pid="${p.id}" data-verdict="pass" class="gf-btn px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer ${
+                    state.chemStdChecked[p.id] === 'pass' ? 'bg-emerald-500/30 border-emerald-400 text-emerald-200' : 'bg-slate-900 border-slate-700 text-slate-300'
+                  }">✅ Норма</button>
+                  <button data-pid="${p.id}" data-verdict="fail" class="gf-btn px-3 py-1.5 rounded-xl border text-xs font-bold cursor-pointer ${
+                    state.chemStdChecked[p.id] === 'fail' ? 'bg-rose-500/30 border-rose-400 text-rose-200' : 'bg-slate-900 border-slate-700 text-slate-300'
+                  }">🚫 Брак</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <button id="btn-verify-gf" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-sky-400 to-cyan-400 text-slate-950 cursor-pointer">
+            📋 Подписать заключение по Государственной фармакопее
+          </button>
+        `;
+        bindTabEvents();
+
+        modalBody.querySelectorAll('.gf-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            sfx.click();
+            state.chemStdChecked[btn.dataset.pid] = btn.dataset.verdict;
+            renderChemStation();
+          });
+        });
+
+        document.getElementById('btn-verify-gf').addEventListener('click', () => {
+          const c = state.chemStdChecked;
+          if (c.mp === 'pass' && c.imp === 'fail' && c.sol === 'pass') {
+            completeTask('chem_2', 'Контроль по Государственной фармакопее');
+            state.activeTaskTab = 2;
+            renderChemStation();
+          } else {
+            sfx.error();
+            showToast('⚠️', 'Внимательно сравните фактические значения с нормой ГФ (обратите внимание на тяжёлые металлы)!');
+          }
+        });
+      } else {
+        // TASK 2.3: Drug Incompatibility Detector
+        const pairs = [
+          {
+            id: 'p1',
+            title: 'Сульфаниламид (Стрептоцид) + Новокаин (прокаин)',
+            hint: 'Новокаин в организме расщепляется с образованием пара-аминобензойной кислоты (ПАБК), которая нейтрализует антимикробное действие сульфаниламидов!',
+            correct: 'pharm'
+          },
+          {
+            id: 'p2',
+            title: 'Раствор кальция хлорида + Раствор натрия гидрокарбоната (соды)',
+            hint: 'В пробирке мгновенно выпадает нерастворимый белый осадок карбоната кальция (CaCO₃↓)!',
+            correct: 'chem'
+          }
+        ];
+        modalBody.innerHTML = tabs + `
+          <div class="glass-card rounded-2xl p-4 border-sky-500/40">
+            <span class="text-xs mono text-sky-300 uppercase">Задание 2.3 • Фармацевтическая и фармакологическая несовместимость</span>
+            <h3 class="text-lg font-bold text-white mt-0.5">Определите тип несовместимости комбинаций</h3>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1">
+              Провизор обязан предотвращать опасное взаимодействие веществ как в одном флаконе, так и в организме пациента:
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            ${pairs.map(p => `
+              <div class="glass-card rounded-2xl p-4 space-y-2.5">
+                <div class="font-bold text-sm text-white">🧪 Комбинация: <span class="text-cyan-300">${p.title}</span></div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <button data-pair="${p.id}" data-type="chem" class="incompat-btn p-2.5 rounded-xl border text-left cursor-pointer ${
+                    state.chemIncompatAnswers[p.id] === 'chem' ? 'bg-sky-500/25 border-sky-400 text-white' : 'bg-slate-900/70 border-slate-700 text-slate-300'
+                  }">⚗️ Химическая несовместимость (осадок/реакция)</button>
+                  <button data-pair="${p.id}" data-type="pharm" class="incompat-btn p-2.5 rounded-xl border text-left cursor-pointer ${
+                    state.chemIncompatAnswers[p.id] === 'pharm' ? 'bg-sky-500/25 border-sky-400 text-white' : 'bg-slate-900/70 border-slate-700 text-slate-300'
+                  }">🧬 Фармакологический антагонизм в организме</button>
+                </div>
+                ${state.chemIncompatAnswers[p.id] ? `<div class="text-xs text-slate-300 bg-slate-950/60 p-2 rounded-lg">💡 ${p.hint}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+
+          <button id="btn-check-incompat" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-emerald-400 text-slate-950 cursor-pointer">
+            ✅ Подтвердить анализ совместимости
+          </button>
+        `;
+        bindTabEvents();
+
+        modalBody.querySelectorAll('.incompat-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            sfx.drop();
+            state.chemIncompatAnswers[btn.dataset.pair] = btn.dataset.type;
+            renderChemStation();
+          });
+        });
+
+        document.getElementById('btn-check-incompat').addEventListener('click', () => {
+          if (state.chemIncompatAnswers.p1 === 'pharm' && state.chemIncompatAnswers.p2 === 'chem') {
+            completeTask('chem_3', 'Выявление несовместимости лекарств');
+          } else {
+            sfx.error();
+            showToast('⚠️', 'Проверьте типы реакций: сульфаниламид+новокаин — антагонизм в организме, а CaCl₂+сода — осадок в пробирке!');
+          }
+        });
+      }
+    }
+
+    // =========================================================================
+    // ZONE 3: ЛЕКАРСТВЕННЫЕ ФОРМЫ — 4 ЗАДАНИЯ (Таблетки, Капсулы, Мазь, Микстура)
+    // =========================================================================
+    function renderFormsStation() {
+      const tabs = renderTaskTabsBar('forms');
+      const tab = state.activeTaskTab;
+
+      if (tab === 0) {
+        // TASK 3.1: Solid Dosage Forms (Tablets & Powders)
+        modalBody.innerHTML = tabs + `
+          <div class="glass-card rounded-2xl p-4 border-amber-500/40 bg-amber-950/15">
+            <span class="text-xs mono text-amber-300 uppercase">Задание 3.1 • Твёрдые лекарственные формы</span>
+            <h3 class="text-lg font-bold text-white mt-0.5">Десятичное дозирование и прессование таблеток</h3>
+            <pre class="mono text-xs bg-slate-950/80 p-3 rounded-xl border border-slate-700 text-emerald-300 mt-2">Rp.: Acidi acetylsalicylici 0,25
+Da tales doses N. 10 in tabulettis
+S. По 1 таблетке после еды</pre>
+            <p class="text-xs text-slate-300 mt-2">
+              В рецептах дозы указывают в граммах в десятичной системе (1,0 = 1 г; 0,1 = 1 дециграмм; 0,01 = 1 сантиграмм). Отвесьте точную массу действующего вещества на <strong>1 таблетку (0,25 г)</strong> и выберите лекарственную форму:
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="glass-card rounded-2xl p-4 space-y-2">
+              <div class="text-xs font-bold text-amber-300">1. Электронные аналитические весы:</div>
+              <div class="text-2xl mono font-extrabold text-white bg-slate-950 p-3 rounded-xl text-center border border-slate-700">
+                ${state.formsSolidWeight.toFixed(2)} г
+              </div>
+              <div class="flex gap-2">
+                <button data-w="0.10" class="w-btn flex-1 py-2 rounded-xl bg-slate-800 hover:bg-amber-500/30 text-xs font-bold cursor-pointer">+0,10 г</button>
+                <button data-w="0.05" class="w-btn flex-1 py-2 rounded-xl bg-slate-800 hover:bg-amber-500/30 text-xs font-bold cursor-pointer">+0,05 г</button>
+                <button id="w-reset" class="py-2 px-3 rounded-xl bg-slate-900 text-xs text-slate-400 cursor-pointer">0</button>
+              </div>
+            </div>
+
+            <div class="glass-card rounded-2xl p-4 space-y-2">
+              <div class="text-xs font-bold text-amber-300">2. Расшифруйте «in tabulettis»:</div>
+              ${[
+                { id: 'tab', label: '⚪ Таблетки (спрессованная твёрдая форма)' },
+                { id: 'ung', label: '🧴 Мазь на вазелиновой основе' },
+                { id: 'amp', label: '💉 Стерильный раствор в ампулах' }
+              ].map(f => `
+                <button data-sf="${f.id}" class="sf-btn w-full p-2.5 rounded-xl border text-left text-xs cursor-pointer ${
+                  state.formsSolidForm === f.id ? 'bg-amber-500/25 border-amber-400 text-white' : 'bg-slate-900/70 border-slate-700 text-slate-300'
+                }">${f.label}</button>
+              `).join('')}
+            </div>
+          </div>
+
+          <button id="btn-press-tablet" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 cursor-pointer">
+            ⚙️ Спрессовать партию таблеток
+          </button>
+        `;
+        bindTabEvents();
+
+        modalBody.querySelectorAll('.w-btn').forEach(b => {
+          b.addEventListener('click', () => {
+            sfx.click();
+            state.formsSolidWeight = Math.round((state.formsSolidWeight + Number(b.dataset.w)) * 100) / 100;
+            renderFormsStation();
+          });
+        });
+        document.getElementById('w-reset').addEventListener('click', () => {
+          sfx.click();
+          state.formsSolidWeight = 0;
+          renderFormsStation();
+        });
+        modalBody.querySelectorAll('.sf-btn').forEach(b => {
+          b.addEventListener('click', () => {
+            sfx.click();
+            state.formsSolidForm = b.dataset.sf;
+            renderFormsStation();
+          });
+        });
+        document.getElementById('btn-press-tablet').addEventListener('click', () => {
+          if (Math.abs(state.formsSolidWeight - 0.25) < 0.001 && state.formsSolidForm === 'tab') {
+            completeTask('forms_1', 'Твёрдые лекарственные формы (Таблетки)');
+            state.activeTaskTab = 1;
+            renderFormsStation();
+          } else {
+            sfx.error();
+            showToast('⚠️', 'Нужно отвесить ровно 0,25 г и выбрать форму «Таблетки»!');
+          }
+        });
+      } else if (tab === 1) {
+        // TASK 3.2: Gelatin Capsules (in caps. gel.)
+        modalBody.innerHTML = tabs + `
+          <div class="glass-card rounded-2xl p-4 border-amber-500/40">
+            <span class="text-xs mono text-amber-300 uppercase">Задание 3.2 • Капсулы (in capsulis gelatinosis)</span>
+            <h3 class="text-lg font-bold text-white mt-0.5">Защита действующего вещества от кислоты желудка</h3>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1">
+              Ферментный препарат (панкреатин) разрушается в кислой среде желудка (pH 1.5), но должен сработать в щелочной среде <strong>тонкого кишечника</strong>. Какую оболочку капсулы выберет провизор-технолог?
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            ${[
+              {
+                id: 'plain',
+                title: 'Обычная крахмальная облатка',
+                desc: 'Мгновенно растворяется во рту и желудке — фермент погибнет от соляной кислоты.',
+                ok: false
+              },
+              {
+                id: 'enteric',
+                title: 'Кишечнорастворимая желатиновая капсула',
+                desc: 'Устойчива к желудочному соку и растворяется только при pH > 6.8 в кишечнике!',
+                ok: true
+              },
+              {
+                id: 'wax',
+                title: 'Нерастворимая полимерная оболочка',
+                desc: 'Не растворяется вовсе — лекарство выйдет из организма транзитом без эффекта.',
+                ok: false
+              }
+            ].map(c => `
+              <button data-ok="${c.ok}" class="cap-choice glass-card rounded-2xl p-4 text-left hover:border-amber-400 cursor-pointer flex flex-col justify-between">
+                <div>
+                  <div class="text-2xl mb-1.5">💊</div>
+                  <div class="font-bold text-sm text-white">${c.title}</div>
+                  <p class="text-xs text-slate-300 mt-1.5">${c.desc}</p>
+                </div>
+                <div class="mt-3 text-xs mono text-amber-300">Инкапсулировать →</div>
+              </button>
+            `).join('')}
+          </div>
+        `;
+        bindTabEvents();
+
+        modalBody.querySelectorAll('.cap-choice').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (btn.dataset.ok === 'true') {
+              completeTask('forms_2', 'Кишечнорастворимые капсулы');
+              state.activeTaskTab = 2;
+              renderFormsStation();
+            } else {
+              sfx.error();
+              showToast('❌', 'Эта оболочка не защитит препарат от соляной кислоты или не высвободит его в кишечнике!');
+            }
+          });
+        });
+      } else if (tab === 2) {
+        // TASK 3.3: Soft Dosage Forms (Ointments — 4 components of prescription)
+        const allAdded = Object.values(state.formsOintmentComp).every(Boolean);
+        modalBody.innerHTML = tabs + `
+          <div class="glass-card rounded-2xl p-4 border-amber-500/40 bg-amber-950/15">
+            <span class="text-xs mono text-amber-300 uppercase">Задание 3.3 • Мягкие лекарственные формы (Мази)</span>
+            <h3 class="text-lg font-bold text-white mt-0.5">Соберите все 4 классические части прописи в ступке</h3>
+            <pre class="mono text-xs bg-slate-950/80 p-3 rounded-xl border border-slate-700 text-emerald-300 mt-2">Rp.: Mentholi 0,1
+Zinci oxydi 1,0
+Olei Lavandulae gtts. II
+Vaselini ad 10,0
+M. f. unguentum (Смешай, чтобы образовалась мазь)</pre>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            ${[
+              { key: 'basis', latin: 'Basis', ru: 'Ментол 0,1 (главное вещество)' },
+              { key: 'adjuvans', latin: 'Adjuvans', ru: 'Цинка оксид 1,0 (усиливает эффект)' },
+              { key: 'corrigens', latin: 'Corrigens', ru: 'Масло лаванды 2 кап. (запах)' },
+              { key: 'constituens', latin: 'Constituens', ru: 'Вазелин до 10,0 (мазевая основа)' }
+            ].map(c => {
+              const added = state.formsOintmentComp[c.key];
+              return `
+                <button data-comp="${c.key}" class="oint-comp rounded-2xl p-3 text-left border transition cursor-pointer ${
+                  added ? 'bg-emerald-500/20 border-emerald-400 text-emerald-100' : 'bg-slate-900/70 border-slate-700 hover:border-amber-400 text-slate-300'
+                }">
+                  <div class="flex justify-between font-bold mono text-xs text-amber-300">
+                    <span>${c.latin}</span>
+                    <span>${added ? '✅' : '➕'}</span>
+                  </div>
+                  <div class="text-[11px] mt-1">${c.ru}</div>
+                </button>
+              `;
+            }).join('')}
+          </div>
+
+          <button id="btn-mix-ointment" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 cursor-pointer">
+            🥣 Растереть в ступке (Misce ut fiat unguentum!)
+          </button>
+        `;
+        bindTabEvents();
+
+        modalBody.querySelectorAll('.oint-comp').forEach(b => {
+          b.addEventListener('click', () => {
+            sfx.grind();
+            state.formsOintmentComp[b.dataset.comp] = !state.formsOintmentComp[b.dataset.comp];
+            renderFormsStation();
+          });
+        });
+
+        document.getElementById('btn-mix-ointment').addEventListener('click', () => {
+          if (allAdded) {
+            completeTask('forms_3', 'Мягкие лекарственные формы (Мази)');
+            state.activeTaskTab = 3;
+            renderFormsStation();
+          } else {
+            sfx.error();
+            showToast('⚠️', 'Добавьте все 4 компонента прописи: Basis, Adjuvans, Corrigens и Constituens!');
+          }
+        });
+      } else {
+        // TASK 3.4: Liquid Dosage Forms (Emulsions & Suspensions + Labels)
+        modalBody.innerHTML = tabs + `
+          <div class="glass-card rounded-2xl p-4 border-amber-500/40">
+            <span class="text-xs mono text-amber-300 uppercase">Задание 3.4 • Жидкие лекарственные формы (Микстуры и суспензии)</span>
+            <h3 class="text-lg font-bold text-white mt-0.5">Стабилизация суспензии и предупредительные этикетки</h3>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1">
+              Вы приготовили жидкую <strong>суспензию</strong> (взвесь нерастворимого порошка в воде). Чтобы частицы не слипались, и чтобы пациент правильно её применил, выберите <strong>стабилизатор</strong> и <strong>обязательную предупредительную этикетку</strong>:
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div class="glass-card rounded-2xl p-4 space-y-2">
+              <div class="font-bold text-amber-300">1. Технологический приём:</div>
+              <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/70 border border-slate-700 cursor-pointer">
+                <input type="checkbox" id="chk-emuls" ${state.formsLiquidEmulsifier ? 'checked' : ''} class="accent-amber-400">
+                <span>Добавить стабилизатор / эмульгатор для равномерного распределения частиц</span>
+              </label>
+            </div>
+            <div class="glass-card rounded-2xl p-4 space-y-2">
+              <div class="font-bold text-amber-300">2. Обязательная этикетка на флакон:</div>
+              <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/70 border border-slate-700 cursor-pointer">
+                <input type="checkbox" id="chk-shake" ${state.formsLiquidLabel1 ? 'checked' : ''} class="accent-amber-400">
+                <span>🏷️ «Перед употреблением взбалтывать!»</span>
+              </label>
+              <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/70 border border-slate-700 cursor-pointer">
+                <input type="checkbox" id="chk-cool" ${state.formsLiquidLabel2 ? 'checked' : ''} class="accent-amber-400">
+                <span>❄️ «Хранить в прохладном, защищённом от света месте»</span>
+              </label>
+            </div>
+          </div>
+
+          <button id="btn-finish-liquid" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-emerald-400 text-slate-950 cursor-pointer">
+            🧪 Оформить флакон к отпуску
+          </button>
+        `;
+        bindTabEvents();
+
+        document.getElementById('chk-emuls').addEventListener('change', (e) => { state.formsLiquidEmulsifier = e.target.checked; });
+        document.getElementById('chk-shake').addEventListener('change', (e) => { state.formsLiquidLabel1 = e.target.checked; });
+        document.getElementById('chk-cool').addEventListener('change', (e) => { state.formsLiquidLabel2 = e.target.checked; });
+
+        document.getElementById('btn-finish-liquid').addEventListener('click', () => {
+          if (state.formsLiquidEmulsifier && state.formsLiquidLabel1 && state.formsLiquidLabel2) {
+            completeTask('forms_4', 'Жидкие лекарственные формы (Суспензии и микстуры)');
+          } else {
+            sfx.error();
+            showToast('⚠️', 'Для суспензии обязательны стабилизатор и обе предупредительные этикетки!');
+          }
+        });
+      }
+    }
+
+    // =========================================================================
+    // ZONE 4: АПТЕКА И КЛИНИКА — 3 ЗАДАНИЯ (Аудит рецепта, Хранение, Консультация)
+    // =========================================================================
+    function renderPharmacyStation() {
+      const tabs = renderTaskTabsBar('pharmacy');
+      const tab = state.activeTaskTab;
+
+      if (tab === 0) {
+        // TASK 4.1: Prescription Audit (Cito! + Max dose exceedance without '!')
+        modalBody.innerHTML = tabs + `
+          <div class="glass-card rounded-2xl p-4 border-violet-500/40 bg-violet-950/20">
+            <span class="text-xs mono text-violet-300 uppercase">Задание 4.1 • Фармацевтическая экспертиза рецепта</span>
+            <h3 class="text-lg font-bold text-white mt-0.5">Проверьте рецепт врача перед изготовлением!</h3>
+            <div class="mono text-xs bg-slate-950/90 p-3.5 rounded-xl border border-violet-400/40 text-slate-200 mt-2 space-y-1">
+              <div class="text-rose-400 font-bold">Cito!</div>
+              <div>Rp.: Atropini sulfatis 0,003 <span class="text-slate-400">(Высшая разовая доза в ГФ = 0,001 г!)</span></div>
+              <div>D. t. d. N. 6 in pulveribus</div>
+              <div>S. По 1 порошку 2 раза в день</div>
+            </div>
+            <p class="text-xs text-slate-300 mt-2">
+              Врач превысил высшую разовую дозу ядовитого вещества (0,003 г вместо 0,001 г), но <strong>НЕ написал дозу прописью с восклицательным знаком (!) и подписью</strong>. Как по закону должен поступить провизор?
+            </p>
+          </div>
+
+          <div class="space-y-2">
+            ${[
+              {
+                id: 'opt1',
+                text: '1) Изготовить и отпустить вне очереди (из-за пометки «Cito!»), но снизить дозу до 50% от высшей разовой дозы по Фармакопее (до 0,0005 г)',
+                ok: true
+              },
+              {
+                id: 'opt2',
+                text: '2) Отпустить 0,003 г как написано — врач всегда прав, проверять дозы не нужно',
+                ok: false
+              },
+              {
+                id: 'opt3',
+                text: '3) Отложить рецепт на 3 дня, так как «Cito!» означает «не спешить»',
+                ok: false
+              }
+            ].map(o => `
+              <button data-ok="${o.ok}" class="rx-audit-btn w-full glass-card rounded-2xl p-3.5 text-left text-xs sm:text-sm hover:border-violet-400 cursor-pointer">
+                ${o.text}
+              </button>
+            `).join('')}
+          </div>
+        `;
+        bindTabEvents();
+
+        modalBody.querySelectorAll('.rx-audit-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (btn.dataset.ok === 'true') {
+              completeTask('pharmacy_1', 'Фармацевтическая экспертиза рецепта и доз');
+              state.activeTaskTab = 1;
+              renderPharmacyStation();
+            } else {
+              sfx.error();
+              showToast('❌', 'Неверно! «Cito!» = срочно, а при неподтверждённом превышении дозы провизор снижает её до 50% от ВРД!');
+            }
+          });
+        });
+      } else if (tab === 1) {
+        // TASK 4.2: Storage Rules & Drug Lists
+        const items = [
+          { id: 'morph', name: 'Морфин / Атропин (ядовитые и наркотические)', correct: 'safeA' },
+          { id: 'vacc', name: 'Вакцина и иммуноглобулин (+2..+8 °C)', correct: 'fridge' },
+          { id: 'iod', name: 'Раствор нитроглицерина / светочувствительный раствор', correct: 'dark' }
+        ];
+        modalBody.innerHTML = tabs + `
+          <div class="glass-card rounded-2xl p-4 border-violet-500/40">
+            <span class="text-xs mono text-violet-300 uppercase">Задание 4.2 • Правила хранения лекарственных средств</span>
+            <h3 class="text-lg font-bold text-white mt-0.5">Распределите поступившие препараты по местам хранения</h3>
+            <p class="text-xs text-slate-300 mt-1">
+              Неправильное хранение разрушает лекарство или создаёт угрозу безопасности. Укажите правильное место хранения для каждой позиции:
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            ${items.map(it => `
+              <div class="glass-card rounded-2xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div class="font-bold text-white text-sm">📦 ${it.name}</div>
+                <select data-itemid="${it.id}" class="storage-sel bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-cyan-200 cursor-pointer">
+                  <option value="">-- Выберите шкаф --</option>
+                  <option value="safeA">🔐 Сейф «Список А» (с таблицей противоядий)</option>
+                  <option value="fridge">❄️ Холодильник (+2…+8 °C, отдельно от пищи)</option>
+                  <option value="dark">🌑 Шкаф с защитой от света (тёмное стекло)</option>
+                </select>
+              </div>
+            `).join('')}
+          </div>
+
+          <button id="btn-check-storage" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-violet-400 to-fuchsia-500 text-slate-950 cursor-pointer">
+            🔒 Проверить раскладку препаратов
+          </button>
+        `;
+        bindTabEvents();
+
+        modalBody.querySelectorAll('.storage-sel').forEach(sel => {
+          sel.value = state.pharmStorageSorted[sel.dataset.itemid] || '';
+          sel.addEventListener('change', (e) => {
+            sfx.click();
+            state.pharmStorageSorted[sel.dataset.itemid] = e.target.value;
+          });
+        });
+
+        document.getElementById('btn-check-storage').addEventListener('click', () => {
+          const s = state.pharmStorageSorted;
+          if (s.morph === 'safeA' && s.vacc === 'fridge' && s.iod === 'dark') {
+            completeTask('pharmacy_2', 'Правила хранения и Списки А/Б');
+            state.activeTaskTab = 2;
+            renderPharmacyStation();
+          } else {
+            sfx.error();
+            showToast('⚠️', 'Проверьте соответствие каждого препарата: Список А -> сейф, вакцины -> холодильник, светочувствительные -> тёмный шкаф.');
+          }
+        });
+      } else {
+        // TASK 4.3: Patient Consultation Simulator (3 cases)
+        const cases = [
+          {
+            id: 'c1',
+            patient: 'Пациент 1: «Мне прописали лекарство ДО ЕДЫ. Можно выпить его прямо за столом с чаем?»',
+            options: [
+              { text: 'Нет! Лекарство «до еды» принимают за 15 минут до приёма пищи и запивают чистой водой (а «натощак» — за 30–60 минут до завтрака).', ok: true },
+              { text: 'Да, запивайте сладким чаем или грейпфрутовым соком во время еды.', ok: false }
+            ]
+          },
+          {
+            id: 'c2',
+            patient: 'Пациент 2: «Таблетка в кишечнорастворимой оболочке крупная. Я раскушу её пополам?»',
+            options: [
+              { text: 'Категорически нельзя! Оболочка защищает желудок от раздражения, а само лекарство — от разрушения соляной кислотой.', ok: true },
+              { text: 'Конечно, можно растолочь в порошок.', ok: false }
+            ]
+          },
+          {
+            id: 'c3',
+            patient: 'Пациент 3: «Антибиотик назначен 4 раза в сутки, но температура уже спала на 2-й день. Бросаю пить?»',
+            options: [
+              { text: 'Нельзя прерывать курс! Антибиотик пьют строго по часам (каждые 6 часов) весь курс, иначе выживут устойчивые бактерии (антибиотикорезистентность).', ok: true },
+              { text: 'Да, раз стало легче — убирайте в аптечку до следующей простуды.', ok: false }
+            ]
+          }
+        ];
+        const curr = cases[state.pharmCaseIdx % cases.length];
+        modalBody.innerHTML = tabs + `
+          <div class="glass-card rounded-2xl p-4 border-violet-500/40 bg-violet-950/20">
+            <div class="flex justify-between items-center">
+              <span class="text-xs mono text-violet-300 uppercase">Задание 4.3 • Фармацевтическое консультирование</span>
+              <span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-900 text-violet-200">Консультаций: ${state.pharmCasesDone.length} / ${cases.length}</span>
+            </div>
+            <h3 class="text-base sm:text-lg font-bold text-white mt-1.5">🗣️ ${curr.patient}</h3>
+          </div>
+
+          <div class="space-y-2.5">
+            ${curr.options.map(o => `
+              <button data-ok="${o.ok}" class="consult-btn w-full glass-card rounded-2xl p-4 text-left text-xs sm:text-sm hover:border-violet-400 cursor-pointer">
+                🧑‍⚕️ ${o.text}
+              </button>
+            `).join('')}
+          </div>
+        `;
+        bindTabEvents();
+
+        modalBody.querySelectorAll('.consult-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (btn.dataset.ok === 'true') {
+              sfx.success();
+              if (!state.pharmCasesDone.includes(curr.id)) state.pharmCasesDone.push(curr.id);
+              if (state.pharmCasesDone.length >= cases.length) {
+                completeTask('pharmacy_3', 'Клиническое консультирование пациентов');
+              } else {
+                state.pharmCaseIdx++;
+                showToast('✅', 'Отличная рекомендация! Следующий посетитель аптеки...');
+              }
+              renderPharmacyStation();
+            } else {
+              sfx.error();
+              showToast('❌', 'Такой совет навредит пациенту! Попробуйте другой ответ.');
+            }
+          });
+        });
+      }
+    }
+
+    // =========================================================================
+    // ZONE 5: БИОФАРМАЦИЯ И ФАРМАКОКИНЕТИКА (ADME) — 2 ЗАДАНИЯ
+    // =========================================================================
+    function renderBiopharmStation() {
+      const tabs = renderTaskTabsBar('biopharm');
+      const tab = state.activeTaskTab;
+
+      if (tab === 0) {
+        // TASK 5.1: Routes of Administration & Bioavailability
+        const routes = [
+          {
+            id: 'iv',
+            name: 'Внутривенно (in amp. / i.v.)',
+            speed: '10–20 секунд',
+            bio: '100% биодоступность (сразу в системный кровоток, минуя печень)',
+            ok: true
+          },
+          {
+            id: 'po',
+            name: 'Внутрь в таблетках (per os)',
+            speed: '30–60 минут',
+            bio: '45–70% (эффект первого прохождения через печень)',
+            ok: false
+          },
+          {
+            id: 'ung',
+            name: 'Накожно в виде мази',
+            speed: '2–4 часа',
+            bio: 'Местное действие на кожу',
+            ok: false
+          }
+        ];
+
+        modalBody.innerHTML = tabs + `
+          <div class="glass-card rounded-2xl p-4 border-rose-500/40 bg-rose-950/20">
+            <span class="text-xs mono text-rose-300 uppercase">Задание 5.1 • Биофармация и пути введения (Absorption)</span>
+            <h3 class="text-lg font-bold text-white mt-0.5">Экстренная ситуация: анафилактический шок!</h3>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1">
+              У пациента развилась тяжёлая острая аллергическая реакция. Нужна <strong>100% биодоступность</strong> и действие препарата в течение считанных секунд. Какой путь введения обеспечит мгновенное попадание молекул в кровь?
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            ${routes.map(r => `
+              <button data-ok="${r.ok}" class="route-btn glass-card rounded-2xl p-4 text-left hover:border-rose-400 cursor-pointer flex flex-col justify-between">
+                <div>
+                  <div class="font-bold text-sm text-white">${r.name}</div>
+                  <div class="text-xs text-rose-300 mono mt-2">Скорость: ${r.speed}</div>
+                  <p class="text-xs text-slate-300 mt-1.5">${r.bio}</p>
+                </div>
+                <div class="mt-3 text-xs mono text-cyan-300">Выбрать путь введения →</div>
+              </button>
+            `).join('')}
+          </div>
+        `;
+        bindTabEvents();
+
+        modalBody.querySelectorAll('.route-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (btn.dataset.ok === 'true') {
+              completeTask('biopharm_1', 'Биодоступность и пути введения (ADME)');
+              state.activeTaskTab = 1;
+              renderBiopharmStation();
+            } else {
+              sfx.error();
+              showToast('⚠️', 'При острой реакции ждать всасывания из желудка или кожи слишком долго — нужна 100% биодоступность в крови!');
+            }
+          });
+        });
+      } else {
+        // TASK 5.2: Prodrug Liver Activation & Therapeutic Window
+        const dose = state.bioDoseMg;
+        // MEC = 12 mg, MTC (toxic) = 24 mg; optimal therapeutic window: 15..20 mg + liver activation ON
+        const inWindow = dose >= 15 && dose <= 20;
+        let statusColor = '#38bdf8';
+        let statusMsg = 'Подберите дозу (мг) так, чтобы концентрация попала в зелёное «Терапевтическое окно» (15–20 мг).';
+        if (dose < 15) {
+          statusColor = '#fbbf24';
+          statusMsg = '⬇️ Субтерапевтическая доза (ниже минимальной эффективной концентрации — лекарство не подействует).';
+        } else if (dose > 20) {
+          statusColor = '#f43f5e';
+          statusMsg = '⬆️ Токсическая концентрация (выше максимально переносимой — риск побочных эффектов!).';
+        } else {
+          statusColor = '#34d399';
+          statusMsg = '✅ Идеально! Концентрация строго внутри Терапевтического окна!';
+        }
+
+        modalBody.innerHTML = tabs + `
+          <div class="glass-card rounded-2xl p-4 border-rose-500/40">
+            <span class="text-xs mono text-rose-300 uppercase">Задание 5.2 • Метаболизм пролекарства и Терапевтическое окно</span>
+            <h3 class="text-lg font-bold text-white mt-0.5">Настройте дозировку и активацию в печени (CYP450)</h3>
+            <p class="text-xs text-slate-300 mt-1">
+              Многие современные препараты — это <strong>пролекарства</strong> (например, эналаприл): они неактивны в таблетке и превращаются в активный метаболит ферментами печени. Отрегулируйте дозу и включите биотрансформацию:
+            </p>
+          </div>
+
+          <div class="glass-card rounded-2xl p-4 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="text-sm font-bold text-white">Дозировка препарата: <span class="mono text-cyan-300 text-lg">${dose} мг</span></div>
+              <label class="flex items-center gap-2 text-xs bg-slate-900 px-3 py-2 rounded-xl border border-amber-400/40 cursor-pointer">
+                <input type="checkbox" id="chk-liver" ${state.bioLiverActivated ? 'checked' : ''} class="accent-amber-400">
+                <span class="text-amber-200 font-semibold">🫀 Включить активацию пролекарства ферментами печени</span>
+              </label>
+            </div>
+
+            <!-- Visual Therapeutic Window Meter -->
+            <div class="space-y-1.5">
+              <div class="flex justify-between text-[11px] mono text-slate-400">
+                <span>0 мг (Нет эффекта)</span>
+                <span class="text-emerald-300 font-bold">ТЕРАПЕВТИЧЕСКОЕ ОКНО (15–20 мг)</span>
+                <span class="text-rose-400">30 мг (Токсично!)</span>
+              </div>
+              <div class="w-full h-6 rounded-full bg-slate-950 border border-slate-700 relative overflow-hidden flex">
+                <div class="w-1/2 h-full bg-amber-500/20 border-r border-slate-700"></div>
+                <div class="w-1/6 h-full bg-emerald-500/35 border-r border-slate-700"></div>
+                <div class="w-2/6 h-full bg-rose-500/25"></div>
+                <!-- Marker -->
+                <div class="absolute top-0 bottom-0 w-1.5 bg-white shadow-lg transition-all" style="left: ${(dose / 30) * 100}%"></div>
+              </div>
+              <input type="range" id="slider-bio-dose" min="5" max="30" step="1" value="${dose}" class="w-full accent-cyan-400 cursor-pointer">
+              <div class="text-xs font-semibold" style="color:${statusColor}">${statusMsg}</div>
+            </div>
+
+            <button id="btn-finish-biopharm" class="w-full py-3 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-rose-400 to-amber-400 text-slate-950 cursor-pointer">
+              🧬 Зафиксировать фармакокинетический профиль
+            </button>
+          </div>
+        `;
+        bindTabEvents();
+
+        document.getElementById('slider-bio-dose').addEventListener('input', (e) => {
+          state.bioDoseMg = Number(e.target.value);
+          renderBiopharmStation();
+        });
+        document.getElementById('chk-liver').addEventListener('change', (e) => {
+          sfx.click();
+          state.bioLiverActivated = e.target.checked;
+        });
+        document.getElementById('btn-finish-biopharm').addEventListener('click', () => {
+          if (inWindow && state.bioLiverActivated) {
+            completeTask('biopharm_2', 'Метаболизм пролекарства и терапевтическое окно');
+          } else if (!state.bioLiverActivated) {
+            sfx.error();
+            showToast('⚠️', 'Включите ферментативную активацию пролекарства в печени!');
+          } else {
+            sfx.error();
+            showToast('⚠️', 'Выведите концентрацию строго в зелёное Терапевтическое окно (15–20 мг)!');
+          }
+        });
+      }
+    }
+
+    // =========================================================================
+    // 8. STUDENT RECORD BOOK (15 TASKS) & DIPLOMA GENERATOR
+    // =========================================================================
+    document.getElementById('btn-record-book').addEventListener('click', () => {
+      sfx.click();
+      const count = Object.keys(state.completedTasks).length;
+      const allDone = count === 15;
+
+      document.getElementById('modal-icon').textContent = '🎓';
+      document.getElementById('modal-title').textContent = 'Зачётная книжка студента-фармацевта';
+      document.getElementById('modal-badge').textContent = `${getRankName(count)} • ${count} / 15`;
+      document.getElementById('modal-subtitle').textContent = 'Выполните все 15 практикумов на 5 кафедрах, чтобы получить именной диплом Магистра фармации';
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
+      modalBody.innerHTML = `
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          ${['garden', 'chem', 'forms', 'pharmacy', 'biopharm'].map(id => {
+            const m = STATIONS_META[id];
+            const done = getStationDoneCount(id);
+            const total = m.taskKeys.length;
+            return `
+              <div class="glass-card rounded-2xl p-4 flex flex-col justify-between gap-2 ${done === total ? 'border-emerald-400/60 bg-emerald-950/20' : ''}">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2.5">
+                    <span class="text-2xl">${m.icon}</span>
+                    <div>
+                      <div class="font-bold text-sm text-white">${m.title}</div>
+                      <div class="text-xs text-slate-400">${m.short}</div>
+                    </div>
+                  </div>
+                  <span class="mono text-xs font-bold ${done === total ? 'text-emerald-300' : 'text-amber-300'}">${done}/${total}</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5 pt-1">
+                  ${m.taskNames.map((tName, tIdx) => {
+                    const tKey = m.taskKeys[tIdx];
+                    const tOk = !!state.completedTasks[tKey];
+                    return `
+                      <button data-jump="${id}" data-tab="${tIdx}" class="jump-task-btn text-[11px] px-2.5 py-1 rounded-lg border cursor-pointer transition ${
+                        tOk ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-200' : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-cyan-400'
+                      }">
+                        ${tOk ? '✅' : '▶️'} ${tName}
+                      </button>
+                    `;
+                  }).join('')}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        ${allDone ? `
+          <div class="rounded-3xl p-6 bg-gradient-to-br from-emerald-500/25 via-cyan-500/20 to-violet-500/25 border-2 border-emerald-400/70 text-center space-y-2 shadow-2xl">
+            <div class="text-4xl">🏆</div>
+            <div class="text-xs mono text-emerald-300 uppercase tracking-widest">ДИПЛОМ С ОТЛИЧИЕМ • PHARMALAB 3D</div>
+            <h3 class="text-xl sm:text-2xl font-extrabold text-white">Квалификация: МАГИСТР ФАРМАЦИИ (ПРОВИЗОР)</h3>
+            <p class="text-xs sm:text-sm text-slate-200 max-w-xl mx-auto">
+              Вы блестяще освоили все 15 практикумов: фармакогнозию, аналитическую фармхимию по Государственной фармакопее, технологию 4 лекарственных форм, экспертизу рецептов и биофармацию ADME!
+            </p>
+          </div>
+        ` : ''}
+      `;
+
+      modalBody.querySelectorAll('.jump-task-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetId = btn.dataset.jump;
+          const tIdx = Number(btn.dataset.tab);
+          sfx.click();
+          focusCameraOn(targetId);
+          openStationModal(targetId, tIdx);
+        });
+      });
+    });
+
+    document.getElementById('btn-handbook').addEventListener('click', () => {
+      sfx.click();
+      document.getElementById('modal-icon').textContent = '📖';
+      document.getElementById('modal-title').textContent = 'Справочник абитуриента Фармфака';
+      document.getElementById('modal-badge').textContent = 'ПРОФОРИЕНТАЦИЯ & ЛАТЫНЬ';
+      document.getElementById('modal-subtitle').textContent = 'Кем работают выпускники и какие термины используют каждый день';
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
+      modalBody.innerHTML = `
+        <div class="space-y-4">
+          <div class="glass-card rounded-2xl p-4">
+            <h3 class="font-bold text-cyan-300 text-sm uppercase tracking-wider mb-2">🚀 Кем можно работать после фармацевтического факультета?</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+              <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                <div class="font-bold text-emerald-300">🧬 R&D-разработчик лекарств</div>
+                <p class="text-slate-300 mt-1">Создание новых молекул, таргетных препаратов и биотехнологических вакцин в научных центрах.</p>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                <div class="font-bold text-sky-300">⚗️ Химик-аналитик / Эксперт качества</div>
+                <p class="text-slate-300 mt-1">Контроль подлинности и безопасности препаратов на фармзаводах и в государственных лабораториях.</p>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                <div class="font-bold text-amber-300">🏭 Провизор-технолог</div>
+                <p class="text-slate-300 mt-1">Управление современными автоматизированными линиями выпуска таблеток, капсул и стерильных ампул.</p>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                <div class="font-bold text-violet-300">🏥 Клинический провизор / Заведующий аптекой</div>
+                <p class="text-slate-300 mt-1">Экспертиза врачебных назначений, подбор безопасных комбинаций лекарств и управление аптечной сетью.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass-card rounded-2xl p-4">
+            <h3 class="font-bold text-amber-300 text-sm uppercase tracking-wider mb-2">📜 Мини-словарь рецептурной латыни</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs mono">
+              <div class="p-2 rounded-lg bg-slate-950/70"><span class="text-emerald-300 font-bold">Rp.:</span> — Возьми (Recipe)</div>
+              <div class="p-2 rounded-lg bg-slate-950/70"><span class="text-emerald-300 font-bold">D.t.d.</span> — Выдай таких доз</div>
+              <div class="p-2 rounded-lg bg-slate-950/70"><span class="text-emerald-300 font-bold">S.:</span> — Обозначь (Signa)</div>
+              <div class="p-2 rounded-lg bg-slate-950/70"><span class="text-emerald-300 font-bold">M. f.</span> — Смешай, чтобы образовалось</div>
+              <div class="p-2 rounded-lg bg-slate-950/70"><span class="text-emerald-300 font-bold">Cito!</span> — Скоро (срочно!)</div>
+              <div class="p-2 rounded-lg bg-slate-950/70"><span class="text-emerald-300 font-bold">Statim!</span> — Тотчас (немедленно!)</div>
+            </div>
+          </div>
+        </div>
+      `;
+    function updateMarkersProjection() {
+      const widthHalf = window.innerWidth / 2;
+      const heightHalf = window.innerHeight / 2;
+
+      ['garden', 'chem', 'forms', 'pharmacy', 'biopharm'].forEach((id) => {
+        const meta = STATIONS_META[id];
+        const el = markerElements[id];
+        const worldPos = meta.pos.clone().add(new THREE.Vector3(0, 3.8, 0));
+        worldPos.project(camera);
+
+        if (worldPos.z > 1) {
+          el.style.display = 'none';
+        } else {
+          el.style.display = 'flex';
+          const x = (worldPos.x * widthHalf) + widthHalf;
+          const y = -(worldPos.y * heightHalf) + heightHalf;
+          el.style.left = `${x}px`;
+          el.style.top = `${y}px`;
+        }
+
+        const done = getStationDoneCount(id);
+        const total = meta.taskKeys.length;
+        const statusBadge = el.querySelector('.marker-status');
+        statusBadge.textContent = done === total ? `✅ ${done}/${total}` : `${done}/${total}`;
+      });
+    }
+      });
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // =========================================================================
+    // 10. ANIMATION LOOP
+    // =========================================================================
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      const elapsed = clock.getElapsedTime();
+
+      // Smooth camera transition
+      if (camAnim) {
+        camAnim.progress = Math.min(1, camAnim.progress + dt * 1.8);
+        const ease = 1 - Math.pow(1 - camAnim.progress, 3);
+        camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, ease);
+        controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, ease);
+        if (camAnim.progress >= 1) camAnim = null;
+      } else {
+        handleKeyboardMovement(dt);
+      }
+
+      // Animate 3D procedural props
+      animatedObjects.forEach((item) => {
+        if (item.type === 'spin') {
+          item.mesh.rotation.y += dt * item.speed;
+        } else if (item.type === 'bob') {
+          item.mesh.position.y = item.baseY + Math.sin(elapsed * 2.2 + item.phase) * 0.08;
+        } else if (item.type === 'spinBob') {
+          item.mesh.rotation.y += dt * item.speed;
+          item.mesh.position.y = item.baseY + Math.sin(elapsed * 2.0) * 0.14;
+        }
+      });
+
+      particles.rotation.y = elapsed * 0.04;
+
+      controls.update();
+      updateMarkersProjection();
+      renderer.render(scene, camera);
+    }
+
+    window.onload = function () {
+      animate();
+    };
+  </script>
+</body>
+</html>

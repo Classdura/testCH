@@ -1,0 +1,2627 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Симулятор Физикальной Диагностики</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Inter', sans-serif;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b1120;
+            touch-action: none;
+        }
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* Glassmorphism panels */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        }
+        .glass-light {
+            background: rgba(30, 41, 59, 0.78);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+        }
+        /* Reticle / Crosshair */
+        #crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 15;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .reticle-ring {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.65);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.18s ease;
+        }
+        .reticle-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #38bdf8;
+            transition: all 0.18s ease;
+        }
+        #crosshair.targeted .reticle-ring {
+            width: 34px;
+            height: 34px;
+            border-color: #34d399;
+            background: rgba(52, 211, 153, 0.14);
+            box-shadow: 0 0 16px rgba(52, 211, 153, 0.55);
+        }
+        #crosshair.targeted .reticle-dot {
+            background: #34d399;
+            transform: scale(1.4);
+        }
+        /* Virtual Joystick */
+        #joystick-zone {
+            position: fixed;
+            bottom: 96px;
+            left: 24px;
+            width: 124px;
+            height: 124px;
+            border-radius: 50%;
+            background: rgba(15, 23, 42, 0.55);
+            border: 2px solid rgba(56, 189, 248, 0.35);
+            backdrop-filter: blur(6px);
+            z-index: 25;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+        }
+        #joystick-knob {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #38bdf8, #0284c7);
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.6);
+            position: relative;
+            pointer-events: none;
+            transition: transform 0.04s linear;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.6);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.8);
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.45); }
+            50% { box-shadow: 0 0 0 8px rgba(52, 211, 153, 0); }
+        }
+        .pulse-btn {
+            animation: pulseGlow 2s infinite;
+        }
+    </style>
+</head>
+<body class="text-slate-100">
+
+    <!-- 3D Viewport -->
+    <div id="canvas-container"></div>
+
+    <!-- Center Crosshair & Target Label -->
+    <div id="crosshair">
+        <div class="reticle-ring">
+            <div class="reticle-dot"></div>
+        </div>
+        <div id="target-badge" class="mt-2 px-3 py-1 rounded-full text-xs font-semibold tracking-wide bg-slate-900/85 border border-emerald-400/50 text-emerald-300 opacity-0 transition-opacity duration-150 whitespace-nowrap shadow-lg">
+            Зона тела
+        </div>
+    </div>
+
+    <!-- Top HUD -->
+    <header class="fixed top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        <!-- Patient Info & Score -->
+        <div class="glass-panel rounded-2xl px-4 py-2.5 flex items-center gap-3 pointer-events-auto">
+            <div class="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-400 font-bold text-sm">
+                №<span id="case-number">1</span>
+            </div>
+            <div>
+                <div class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Пациент в палате</div>
+                <div id="patient-header-info" class="text-sm font-semibold text-white">Загрузка...</div>
+            </div>
+            <div class="h-7 w-px bg-slate-700 mx-1 hidden sm:block"></div>
+            <div class="hidden sm:flex flex-col">
+                <span class="text-[11px] text-slate-400">Зафиксировано</span>
+                <span class="text-sm font-bold text-emerald-400"><span id="recorded-count">0</span> признаков</span>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-2 pointer-events-auto">
+            <button id="btn-pointer-lock" title="Режим обзора мышью без зажатия (ESC для выхода)" class="glass-panel hover:bg-slate-800/90 text-slate-200 px-3 py-2.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition cursor-pointer hidden md:flex">
+                <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
+                <span>Захват мыши</span>
+            </button>
+            <button id="btn-open-book" class="glass-panel hover:bg-emerald-950/80 border-emerald-500/40 text-emerald-300 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition cursor-pointer shadow-lg">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                <span>Мед. книжка / Диагноз</span>
+                <span id="book-badge" class="bg-emerald-500 text-slate-950 text-[11px] font-bold px-1.5 py-0.5 rounded-full">0</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Virtual Analog Joystick (Bottom Left) -->
+    <div id="joystick-zone" title="Джойстик перемещения (или клавиши WASD / Стрелки)">
+        <div id="joystick-knob"></div>
+        <span class="absolute -bottom-5 text-[10px] text-slate-400 font-medium tracking-wider uppercase">Ходьба</span>
+    </div>
+
+    <!-- Finding Card Popup (Appears when examining a body zone) -->
+    <div id="finding-card" class="fixed top-20 right-3 sm:right-5 w-[calc(100%-24px)] sm:w-96 glass-panel rounded-2xl p-4 z-30 transform translate-x-[120%] transition-transform duration-300 border-sky-400/40">
+        <div class="flex items-start justify-between gap-2 mb-2">
+            <div>
+                <span id="finding-method-tag" class="inline-block px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-sky-500/20 text-sky-300 border border-sky-400/30 mb-1">
+                    Аускультация
+                </span>
+                <h3 id="finding-zone-title" class="text-sm font-bold text-white">Грудная клетка / Легкие</h3>
+            </div>
+            <button id="btn-close-finding" class="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+
+        <div class="bg-slate-950/60 rounded-xl p-3 border border-slate-700/60 mb-3">
+            <p id="finding-text" class="text-sm text-slate-100 leading-relaxed">
+                Выслушивается ослабленное везикулярное дыхание и локальная крепитация в нижней доле справа.
+            </p>
+            <div id="finding-sound-indicator" class="hidden mt-2 pt-2 border-t border-slate-800 flex items-center gap-2 text-xs text-amber-300">
+                <span class="inline-block w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                <span id="finding-sound-label">Воспроизводится акустический феномен...</span>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between gap-2">
+            <button id="btn-replay-sound" class="hidden px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                <span>Звук</span>
+            </button>
+            <button id="btn-record-finding" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-md">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span id="record-btn-label">Зафиксировать в карту</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Bottom Examination Action & Tool Selector -->
+    <div class="fixed bottom-3 left-3 right-3 z-20 flex flex-col items-center gap-2 pointer-events-none">
+        <!-- Context Examine Button when aiming at patient -->
+        <button id="btn-examine-action" class="hidden pointer-events-auto pulse-btn bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm px-5 py-2.5 rounded-full shadow-xl flex items-center gap-2 transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <span id="examine-btn-text">Провести обследование</span>
+        </button>
+
+        <!-- 5 Physical Exam Methods Bar -->
+        <div class="glass-panel rounded-2xl p-1.5 flex items-center gap-1 sm:gap-2 pointer-events-auto max-w-full overflow-x-auto">
+            <button data-tool="anamnesis" class="tool-btn active flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer bg-sky-500 text-slate-950">
+                <span class="text-sm">🗣️</span>
+                <span>1. Опрос</span>
+            </button>
+            <button data-tool="inspection" class="tool-btn flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer text-slate-300 hover:bg-slate-800">
+                <span class="text-sm">👁️</span>
+                <span>2. Осмотр</span>
+            </button>
+            <button data-tool="palpation" class="tool-btn flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer text-slate-300 hover:bg-slate-800">
+                <span class="text-sm">✋</span>
+                <span>3. Пальпация</span>
+            </button>
+            <button data-tool="percussion" class="tool-btn flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer text-slate-300 hover:bg-slate-800">
+                <span class="text-sm">敲</span>
+                <span>4. Перкуссия</span>
+            </button>
+            <button data-tool="auscultation" class="tool-btn flex flex-col sm:flex-row items-center gap-1 sm:gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer text-slate-300 hover:bg-slate-800">
+                <span class="text-sm">🩺</span>
+                <span>5. Аускультация</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Medical Reference Book & Patient Chart Modal -->
+    <div id="medical-book-modal" class="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-md hidden flex items-center justify-center p-2 sm:p-5">
+        <div class="glass-panel w-full max-w-6xl h-[92vh] rounded-3xl flex flex-col overflow-hidden border-slate-600/40">
+            <!-- Modal Header -->
+            <div class="px-5 py-3.5 border-b border-slate-700/80 flex items-center justify-between bg-slate-900/90">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    </div>
+                    <div>
+                        <h2 class="text-base sm:text-lg font-bold text-white">Медицинская карта пациента и Клинический справочник</h2>
+                        <p class="text-xs text-slate-400">Сопоставьте зафиксированные симптомы со справочником из 15 нозологий и верифицируйте диагноз</p>
+                    </div>
+                </div>
+                <button id="btn-close-book" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <!-- Modal Split Body -->
+            <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+                <!-- Left Column: Recorded Symptoms (Patient Chart) -->
+                <div class="lg:col-span-5 border-b lg:border-b-0 lg:border-r border-slate-700/80 flex flex-col overflow-hidden bg-slate-900/40">
+                    <div class="p-3.5 border-b border-slate-800 flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-sky-400">Зафиксированные признаки пациента</span>
+                        <span id="chart-patient-meta" class="text-xs text-slate-400"></span>
+                    </div>
+                    <div id="recorded-list-container" class="flex-1 overflow-y-auto p-3.5 space-y-2.5">
+                        <div class="text-center py-10 text-slate-500 text-sm">
+                            Пока не зафиксировано ни одного признака.<br>Вернитесь в палату, наведите прицел на зону тела пациента и проведите обследование.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: 15 Diseases Reference Book & Diagnosis Confirmation -->
+                <div class="lg:col-span-7 flex flex-col overflow-hidden bg-slate-950/40">
+                    <div class="p-3.5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Справочник заболеваний (15 нозологий)</span>
+                        <input id="disease-search" type="text" placeholder="Поиск по симптому или названию..." class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400 w-full sm:w-64">
+                    </div>
+
+                    <div class="flex-1 grid grid-cols-1 sm:grid-cols-12 overflow-hidden">
+                        <!-- Disease List -->
+                        <div id="disease-list" class="sm:col-span-5 border-b sm:border-b-0 sm:border-r border-slate-800 overflow-y-auto p-2 space-y-1 max-h-44 sm:max-h-none">
+                            <!-- Populated by JS -->
+                        </div>
+
+                        <!-- Selected Disease Details -->
+                        <div class="sm:col-span-7 flex flex-col overflow-hidden">
+                            <div id="disease-detail-view" class="flex-1 overflow-y-auto p-4 space-y-3 text-xs">
+                                <!-- Populated by JS -->
+                            </div>
+                            <!-- Confirm Diagnosis Footer -->
+                            <div class="p-3.5 border-t border-slate-800 bg-slate-900/90 flex items-center justify-between gap-3">
+                                <div class="truncate">
+                                    <div class="text-[10px] text-slate-400 uppercase">Выбранный диагноз:</div>
+                                    <div id="selected-diagnosis-name" class="text-xs sm:text-sm font-bold text-emerald-300 truncate">Выберите заболевание</div>
+                                </div>
+                                <button id="btn-submit-diagnosis" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold whitespace-nowrap transition cursor-pointer shadow-lg">
+                                    Поставить диагноз
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Diagnosis Result Overlay Modal -->
+    <div id="result-modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-xl w-full rounded-3xl p-6 border-slate-600/50 space-y-4">
+            <div class="flex items-center gap-3">
+                <div id="result-icon" class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-400/40">
+                    ✓
+                </div>
+                <div>
+                    <h3 id="result-title" class="text-xl font-bold text-white">Диагноз подтвержден!</h3>
+                    <p id="result-subtitle" class="text-xs text-slate-400">Клинический разбор завершен</p>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800 space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Ваш диагноз:</span>
+                    <span id="result-user-diag" class="font-semibold text-white"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Истинный диагноз:</span>
+                    <span id="result-true-diag" class="font-bold text-emerald-400"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Полнота обследования:</span>
+                    <span id="result-completeness" class="font-semibold text-sky-400"></span>
+                </div>
+            </div>
+
+            <div>
+                <div class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Ключевые патогномоничные признаки случая:</div>
+                <ul id="result-key-signs" class="space-y-1.5 text-xs text-slate-300 max-h-40 overflow-y-auto pr-1">
+                </ul>
+            </div>
+
+            <div class="pt-2 flex justify-end gap-3">
+                <button id="btn-next-patient" class="w-full py-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-sm transition cursor-pointer shadow-lg">
+                    Принять следующего пациента →
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Intro / Start Screen Overlay -->
+    <div id="start-overlay" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="glass-panel max-w-lg w-full rounded-3xl p-6 sm:p-8 text-center space-y-5 border-sky-500/30">
+            <div class="w-16 h-16 mx-auto rounded-2xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-3xl">
+                🩺
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-white tracking-tight">3D Симулятор Физикальной Диагностики</h1>
+                <p class="text-sm text-slate-300 mt-2 leading-relaxed">
+                    Проведите полноценный клинический обход в палате от первого лица. Исследуйте пациента по всем канонам пропедевтики, фиксируйте симптомы и ставьте точный диагноз по справочнику из 15 заболеваний.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5 text-left text-xs bg-slate-900/70 p-3.5 rounded-2xl border border-slate-800">
+                <div class="flex items-start gap-2">
+                    <span class="text-sky-400 font-bold">🕹️ Движение:</span>
+                    <span class="text-slate-300">Виртуальный джойстик слева или клавиши WASD</span>
+                </div>
+                <div class="flex items-start gap-2">
+                    <span class="text-sky-400 font-bold">👀 Обзор:</span>
+                    <span class="text-slate-300">Свайп/перетаскивание мышью по экрану</span>
+                </div>
+                <div class="flex items-start gap-2">
+                    <span class="text-emerald-400 font-bold">🔍 Осмотр:</span>
+                    <span class="text-slate-300">Выберите метод (1–5), наведите на зону тела и нажмите</span>
+                </div>
+                <div class="flex items-start gap-2">
+                    <span class="text-amber-400 font-bold">📖 Справочник:</span>
+                    <span class="text-slate-300">Фиксируйте признаки и сверяйте с мед. книжкой</span>
+                </div>
+            </div>
+
+            <button id="btn-start-sim" class="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-base transition cursor-pointer shadow-xl">
+                Начать врачебный обход
+            </button>
+        </div>
+    </div>
+
+    <!-- Three.js Module Script -->
+    <script type="module">
+        import * as THREE from 'https://esm.sh/three@0.160.0';
+
+        // ==========================================
+        // 1. CLINICAL DATABASE (15 DISEASES)
+        // ==========================================
+        // Anatomical zones:
+        // 'head' (Голова, лицо и шея)
+        // 'lungs' (Грудная клетка / Легкие)
+        // 'heart' (Область сердца)
+        // 'epigastrium' (Эпигастрий и правое подреберье)
+        // 'abdomen' (Нижние отделы живота / подвздошная и надлобковая области)
+        // 'lumbar' (Поясничная область / бока)
+        // 'limbs' (Конечности / кожа и пульс)
+
+        const ZONES = {
+            head: 'Голова, лицо и шея',
+            lungs: 'Грудная клетка / Легкие',
+            heart: 'Область сердца',
+            epigastrium: 'Эпигастрий и правое подреберье',
+            abdomen: 'Нижние отделы живота (подвздошная/надлобковая)',
+            lumbar: 'Поясничная область и бока',
+            limbs: 'Конечности, кожа и пульс'
+        };
+
+        const METHODS = {
+            anamnesis: 'Опрос',
+            inspection: 'Осмотр',
+            palpation: 'Пальпация',
+            percussion: 'Перкуссия',
+            auscultation: 'Аускультация'
+        };
+
+        const DISEASES = [
+            {
+                id: 'pneumonia',
+                name: 'Внебольничная долевая пневмония',
+                etiology: 'Бактериальная (Streptococcus pneumoniae) / альвеолярная экссудация',
+                patientInfo: 'Мужчина, 42 года. Поступил с высокой температурой.',
+                visualCue: { cheekFlush: true, pale: false, swollenLegs: false, jaundiced: false },
+                summary: {
+                    anamnesis: 'Острое начало, озноб, лихорадка 39,5 °C, кашель с «ржавой» мокротой, колющая боль в груди справа при вдохе.',
+                    inspection: 'Гиперемия правой щеки (facies pneumonica), герпес на губах, отставание правой половины грудной клетки при дыхании.',
+                    palpation: 'Болезненность межреберий справа, резкое усиление голосового дрожания в нижних отделах справа.',
+                    percussion: 'Притупление (тупой) перкуторный звук над нижней долей правого легкого.',
+                    auscultation: 'Ослабленное везикулярное дыхание с бронхиальным оттенком, звонкая крепитация (crepitatio indux) справа внизу, усиленная бронхофония.'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'Жалобы на озноб, головную боль и лихорадку до 39,5 °C с утра.',
+                        inspection: 'Яркая гиперемия правой щеки и высыпания herpes labialis на верхней губе.',
+                        palpation: 'Кожа лица горячая на ощупь, регионарные лимфоузлы не увеличены.',
+                        percussion: 'Перкуссия придаточных пазух носа безболезненна.',
+                        auscultation: 'Дыхание через нос учащенное (ЧДД 26/мин), крылья носа раздуваются.'
+                    },
+                    lungs: {
+                        anamnesis: 'Мучительный кашель с отделением вязкой «ржавой» мокроты, острая боль справа при глубоком вдохе.',
+                        inspection: 'Правая половина грудной клетки заметно отстает в акте дыхания.',
+                        palpation: 'Резкое усиление голосового дрожания в нижнебоковых отделах справа.',
+                        percussion: { text: 'Выраженное притупление (тупой) перкуторный звук ниже угла правой лопатки.', sound: 'perc_dull' },
+                        auscultation: { text: 'Бронхиальное дыхание и локальная крепитация на высоте вдоха в нижней доле правого легкого.', sound: 'ausc_crepitation' }
+                    },
+                    heart: {
+                        anamnesis: 'Ощущение учащенного сердцебиения на высоте лихорадки.',
+                        inspection: 'Верхушечный толчок визуально не смещен.',
+                        palpation: 'Верхушечный толчок в V межреберье по среднеключичной линии, умеренно усилен.',
+                        percussion: { text: 'Границы относительной сердечной тупости в пределах возрастной нормы.', sound: 'perc_dull' },
+                        auscultation: { text: 'Тахикардия (ЧСС 108 уд/мин), тоны сердца ритмичные, акцент II тона над легочной артерией.', sound: 'ausc_heart_normal' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Снижение аппетита на фоне интоксикации, тошноты и рвоты нет.',
+                        inspection: 'Живот симметричный, участвует в дыхании.',
+                        palpation: 'Живот мягкий, безболезненный; край печени у края реберной дуги.',
+                        percussion: { text: 'Тимпанический звук над желудком, размеры печени по Курлову 9×8×7 см.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Выслушивается нормальная кишечная перистальтика.', sound: 'ausc_bowel' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Стул регулярный, дизурических явлений не отмечает.',
+                        inspection: 'Вздутия или асимметрии нижних отделов живота нет.',
+                        palpation: 'Мягкий, безболезненный во всех отделах, симптомы раздражения брюшины отрицательны.',
+                        percussion: { text: 'Притупления в отлогих местах живота не определяется.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Перистальтические шумы обычной звучности.', sound: 'ausc_bowel' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Болей в поясничной области не предъявляет.',
+                        inspection: 'Поясничная область не изменена, симметрична.',
+                        palpation: 'Почки не пальпируются, поясничные мышцы безболезненны.',
+                        percussion: { text: 'Симптом Пастернацкого отрицательный с обеих сторон.', sound: 'perc_dull' },
+                        auscultation: { text: 'Сосудистые шумы в проекции почечных артерий не выслушиваются.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'Выраженная общая слабость, ломота в мышцах.',
+                        inspection: 'Кожа горячая, влажная, отеков нижних конечностей нет.',
+                        palpation: 'Пульс 108 уд/мин, ритмичный, удовлетворительного наполнения.',
+                        percussion: { text: 'Костно-суставной аппарат без перкуторной болезненности.', sound: 'perc_dull' },
+                        auscultation: { text: 'Артериальное давление 115/75 мм рт. ст.', sound: 'ausc_heart_normal' }
+                    }
+                }
+            },
+            {
+                id: 'asthma',
+                name: 'Бронхиальная астма (приступ)',
+                etiology: 'Иммуноаллергическая / бронхоспазм, гиперсекреция слизи и отек стенки бронхов',
+                patientInfo: 'Женщина, 29 лет. Затрудненное дыхание, свисты в груди.',
+                visualCue: { cheekFlush: false, pale: false, swollenLegs: false, jaundiced: false },
+                summary: {
+                    anamnesis: 'Приступ экспираторного удушья после контакта с пыльцой, дистанционные свистящие хрипы, приступообразный кашель со скудной стекловидной мокротой.',
+                    inspection: 'Вынужденное положение ортопноэ, бочкообразная грудная клетка, участие вспомогательной мускулатуры шеи в дыхании, легкий акроцианоз.',
+                    palpation: 'Ригидность грудной клетки, ослабление голосового дрожания с обеих сторон.',
+                    percussion: 'Коробочный перкуторный звук над всей поверхностью легких, опущение нижних границ.',
+                    auscultation: 'Жесткое дыхание с резко удлиненным выдохом, множество сухих свистящих хрипов над всеми легочными полями.'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'В анамнезе поллиноз; отмечает затруднение выдоха, страх нехватки воздуха.',
+                        inspection: 'Легкий цианоз губ, набухание шейных вен на выдохе, напряжение грудино-ключично-сосцевидных мышц.',
+                        palpation: 'Напряжение вспомогательной дыхательной мускулатуры шеи.',
+                        percussion: 'Без особенностей.',
+                        auscultation: 'Слышны дистанционные свистящие хрипы при дыхании.'
+                    },
+                    lungs: {
+                        anamnesis: 'Чувство заложенности в груди, удушье с затрудненным выдохом, в конце приступа отходит вязкая «стекловидная» мокрота.',
+                        inspection: 'Грудная клетка эмфизематозно расширена (бочкообразная), межреберья сглажены.',
+                        palpation: 'Снижение эластичности грудной клетки, ослабление голосового дрожания с обеих сторон.',
+                        percussion: { text: 'Громкий коробочный перкуторный звук над всеми полями легких, нижние границы опущены на 1 ребро.', sound: 'perc_resonant' },
+                        auscultation: { text: 'Дыхание с резко удлиненным выдохом, масса рассеянных сухих свистящих хрипов на выдохе.', sound: 'ausc_wheeze' }
+                    },
+                    heart: {
+                        anamnesis: 'Сердцебиение во время приступа удушья.',
+                        inspection: 'Верхушечный толчок ослаблен из-за эмфиземы.',
+                        palpation: 'Верхушечный толчок пальпируется с трудом.',
+                        percussion: { text: 'Уменьшение площади абсолютной сердечной тупости за счет воздушности легких.', sound: 'perc_resonant' },
+                        auscultation: { text: 'Тоны сердца приглушены, ритмичные, тахикардия 104 уд/мин.', sound: 'ausc_heart_normal' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Диспепсических жалоб нет.',
+                        inspection: 'Живот обычной формы.',
+                        palpation: 'Мягкий, безболезненный.',
+                        percussion: { text: 'Тимпанит над желудком.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Нормальная перистальтика кишечника.', sound: 'ausc_bowel' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Физиологические отправления в норме.',
+                        inspection: 'Без патологических изменений.',
+                        palpation: 'Живот мягкий, безболезненный во всех отделах.',
+                        percussion: { text: 'Обычный тимпанический звук.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Перистальтика выслушивается.', sound: 'ausc_bowel' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Болей в пояснице нет.',
+                        inspection: 'Без изменений.',
+                        palpation: 'Почки не пальпируются.',
+                        percussion: { text: 'Симптом Пастернацкого отрицательный.', sound: 'perc_dull' },
+                        auscultation: { text: 'Патологических шумов нет.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'Небольшая дрожь в руках после ингаляции бета-агониста.',
+                        inspection: 'Легкий акроцианоз ногтевых фаланг, отеков нет.',
+                        palpation: 'Пульс 104 уд/мин, ритмичный, ослабление пульсовой волны на вдохе (pulsus paradoxus).',
+                        percussion: { text: 'Без особенностей.', sound: 'perc_dull' },
+                        auscultation: { text: 'АД 125/80 мм рт. ст.', sound: 'ausc_heart_normal' }
+                    }
+                }
+            },
+            {
+                id: 'pleurisy',
+                name: 'Экссудативный плеврит',
+                etiology: 'Инфекционная или парапневмоническая / накопление экссудата в плевральной полости',
+                patientInfo: 'Мужчина, 54 года. Одышка и тяжесть в левом боку.',
+                visualCue: { cheekFlush: false, pale: true, swollenLegs: false, jaundiced: false },
+                summary: {
+                    anamnesis: 'Постепенно нарастающая одышка, сухой рефлекторный кашель, ощущение тяжести в левой половине грудной клетки.',
+                    inspection: 'Асимметрия грудной клетки, выбухание и сглаженность межреберий слева, отставание левой половины при дыхании.',
+                    palpation: 'Полное отсутствие голосового дрожания слева внизу, смещение верхушечного толчка вправо.',
+                    percussion: 'Бедренная тупость слева ниже IV ребра по линии Эллиса — Дамуазо — Соколова.',
+                    auscultation: 'Резкое ослабление/отсутствие дыхания и бронхофонии над зоной выпота, шум трения плевры выше границы жидкости.'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'Отмечает субфебрильную температуру 37,8 °C, потливость по ночам.',
+                        inspection: 'Бледность кожи, легкий цианоз губ.',
+                        palpation: 'Смещение трахеи слегка вправо при пальпации яремной вырезки.',
+                        percussion: 'Без особенностей.',
+                        auscultation: 'Учащенное поверхностное дыхание (ЧДД 24/мин).'
+                    },
+                    lungs: {
+                        anamnesis: 'Острая боль в левом боку беспокоила 3 дня назад, но стихла с появлением нарастающей одышки и тяжести.',
+                        inspection: 'Сглаженность и выбухание межреберий в нижних отделах слева, отставание левой половины грудной клетки.',
+                        palpation: 'Голосовое дрожание слева внизу полностью не проводится.',
+                        percussion: { text: 'Абсолютная (бедренная) тупость слева с косой верхней границей (линия Дамуазо), треугольник Раухфуса — Грокко справа.', sound: 'perc_dull' },
+                        auscultation: { text: 'Дыхательные шумы и бронхофония слева внизу отсутствуют; над верхней границей выпота — грубый шум трения плевры.', sound: 'ausc_silent' }
+                    },
+                    heart: {
+                        anamnesis: 'Ощущение перебоев и давления в груди при повороте на правый бок.',
+                        inspection: 'Верхушечный толчок смещен медиально к грудине.',
+                        palpation: 'Верхушечный толчок пальпируется у левого края грудины (смещен вправо выпотом).',
+                        percussion: { text: 'Смещение правой границы относительной сердечной тупости вправо на 1,5 см.', sound: 'perc_dull' },
+                        auscultation: { text: 'Тоны сердца ритмичные, приглушены, ЧСС 96 уд/мин.', sound: 'ausc_heart_normal' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Тяжести в животе нет.',
+                        inspection: 'Живот симметричен.',
+                        palpation: 'Мягкий, безболезненный.',
+                        percussion: { text: 'Исчезновение тимпанита в пространстве Траубе из-за левостороннего выпота.', sound: 'perc_dull' },
+                        auscultation: { text: 'Перистальтика кишечника обычная.', sound: 'ausc_bowel' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Жалоб со стороны ЖКТ и мочевыделения нет.',
+                        inspection: 'Без патологии.',
+                        palpation: 'Мягкий, безболезненный.',
+                        percussion: { text: 'Тимпанит над петлями кишечника.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Перистальтика сохранена.', sound: 'ausc_bowel' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Поясница не болит.',
+                        inspection: 'Симметрична.',
+                        palpation: 'Безболезненна.',
+                        percussion: { text: 'Симптом Пастернацкого отрицательный.', sound: 'perc_dull' },
+                        auscultation: { text: 'Без шумов.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'Быстрая утомляемость при ходьбе.',
+                        inspection: 'Отеков нет, легкая бледность кожных покровов.',
+                        palpation: 'Пульс 96 уд/мин, ритмичный.',
+                        percussion: { text: 'Без особенностей.', sound: 'perc_dull' },
+                        auscultation: { text: 'АД 110/70 мм рт. ст.', sound: 'ausc_heart_normal' }
+                    }
+                }
+            },
+            {
+                id: 'miocardial_infarction',
+                name: 'Острый инфаркт миокарда',
+                etiology: 'Атеротромботическая / окклюзия коронарной артерии и ишемический некроз миокарда',
+                patientInfo: 'Мужчина, 58 лет. Жгучая боль за грудиной, холодный пот.',
+                visualCue: { cheekFlush: false, pale: true, swollenLegs: false, jaundiced: false },
+                summary: {
+                    anamnesis: 'Интенсивная давяще-жгучая боль за грудиной более 30 минут, не снимается нитроглицерином, иррадиирует в левую руку и нижнюю челюсть, страх смерти.',
+                    inspection: 'Резкая бледность кожи, холодный липкий пот, акроцианоз, двигательное беспокойство.',
+                    palpation: 'Пульс частый, слабого наполнения и напряжения (нитевидный), аритмичный; верхушечный толчок ослаблен.',
+                    percussion: 'Умеренное расширение границ относительной сердечной тупости влево.',
+                    auscultation: 'Резкая приглушенность I тона на верхушке, патологический III тон (ритм галопа), акцент II тона над легочной артерией.'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'Боль отдает в левую половину нижней челюсти и шею, выраженная тревога и страх смерти.',
+                        inspection: 'Бледность лица, капли холодного пота на лбу, цианоз губ.',
+                        palpation: 'Кожа лба холодная и влажная.',
+                        percussion: 'Без особенностей.',
+                        auscultation: 'Дыхание поверхностное, учащенное.'
+                    },
+                    lungs: {
+                        anamnesis: 'Ощущение нехватки воздуха на фоне загрудинной боли.',
+                        inspection: 'Грудная клетка симметрична.',
+                        palpation: 'Голосовое дрожание не изменено.',
+                        percussion: { text: 'Ясный легочный звук, в нижних отделах с легким притуплением из-за начального венозного застоя.', sound: 'perc_resonant' },
+                        auscultation: { text: 'Везикулярное дыхание, единичные незвонкие мелкопузырчатые хрипы в самых нижних отделах.', sound: 'ausc_vesicular' }
+                    },
+                    heart: {
+                        anamnesis: 'Нестерпимое жжение и сдавление за грудиной («как плиту положили»), продолжается 45 минут.',
+                        inspection: 'Верхушечный толчок визуально не определяется.',
+                        palpation: 'Верхушечный толчок ослаблен, разлит, смещен влево на 1 см.',
+                        percussion: { text: 'Левая граница относительной сердечной тупости смещена на 1,5 см кнаружи от среднеключичной линии.', sound: 'perc_dull' },
+                        auscultation: { text: 'Глухой I тон на верхушке, трехчленный ритм галопа (патологический III тон), экстрасистолия.', sound: 'ausc_heart_gallop' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Была однократная тошнота в начале болевого приступа.',
+                        inspection: 'Живот не вздут.',
+                        palpation: 'Мягкий, безболезненный (исключена абдоминальная катастрофа).',
+                        percussion: { text: 'Тимпанит над желудком.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Перистальтика обычная.', sound: 'ausc_bowel' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Жалоб нет.',
+                        inspection: 'Без патологии.',
+                        palpation: 'Мягкий, безболезненный.',
+                        percussion: { text: 'Тимпанический звук.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Перистальтика сохранена.', sound: 'ausc_bowel' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Болей в пояснице нет.',
+                        inspection: 'Симметрична.',
+                        palpation: 'Безболезненна.',
+                        percussion: { text: 'Симптом Пастернацкого отрицательный.', sound: 'perc_dull' },
+                        auscultation: { text: 'Шумов нет.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'Иррадиация боли и онемение в левой руке до мизинца.',
+                        inspection: 'Кожа кистей холодная, мраморная, акроцианоз.',
+                        palpation: 'Пульс 112 уд/мин, малого наполнения и напряжения, единичные выпадения пульсовой волны.',
+                        percussion: { text: 'Без особенностей.', sound: 'perc_dull' },
+                        auscultation: { text: 'АД снижено до 90/60 мм рт. ст.', sound: 'ausc_heart_gallop' }
+                    }
+                }
+            },
+            {
+                id: 'chf',
+                name: 'Хроническая сердечная недостаточность (IIБ–III ст.)',
+                etiology: 'Постинфарктный кардиосклероз / снижение насосной функции и застой по обоим кругам кровообращения',
+                patientInfo: 'Мужчина, 67 лет. Одышка в покое, выраженные отеки ног.',
+                visualCue: { cheekFlush: false, pale: false, swollenLegs: true, jaundiced: false },
+                summary: {
+                    anamnesis: 'Одышка при малейшей нагрузке и в положении лежа (ортопноэ), приступы удушья ночью, массивные отеки голеней к вечеру, тяжесть в правом подреберье.',
+                    inspection: 'Акроцианоз, набухание яремных вен, симметричные плотные отеки стоп и голеней, увеличение живота (асцит).',
+                    palpation: 'Разлитой смещенный влево и вниз верхушечный толчок, увеличенная плотная болезненная печень, ямка при надавливании на голени.',
+                    percussion: 'Значительное расширение границ сердца влево и вправо; тупость в отлогих местах живота и нижних отделах легких.',
+                    auscultation: 'Систолический шум относительной недостаточности митрального клапана на верхушке, застойные влажные незвонкие хрипы в нижних отделах легких.'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'Спит с тремя подушками, просыпается ночью от нехватки воздуха.',
+                        inspection: 'Цианоз губ и кончика носа, выраженное набухание и пульсация яремных вен.',
+                        palpation: 'Положительный венный пульс.',
+                        percussion: 'Без особенностей.',
+                        auscultation: 'Дыхание учащенное, ЧДД 24/мин.'
+                    },
+                    lungs: {
+                        anamnesis: 'Одышка усиливается в горизонтальном положении, периодически кашель со скудной мокротой.',
+                        inspection: 'Грудная клетка симметрична, экскурсия в нижних отделах снижена.',
+                        palpation: 'Ослабление голосового дрожания в самых нижних отделах с обеих сторон.',
+                        percussion: { text: 'Притупление перкуторного звука в нижнезадних отделах легких с обеих сторон (двусторонний гидроторакс).', sound: 'perc_dull' },
+                        auscultation: { text: 'Ослабленное везикулярное дыхание и влажные мелкопузырчатые незвонкие застойные хрипы в нижних отделах с обеих сторон.', sound: 'ausc_crepitation' }
+                    },
+                    heart: {
+                        anamnesis: 'Перенес инфаркт миокарда 4 года назад, перебои в работе сердца.',
+                        inspection: 'Разлитая пульсация в V–VI межреберье слева, эпигастральная пульсация.',
+                        palpation: 'Верхушечный толчок смещен в VI межреберье по передней подмышечной линии, разлитой, ослабленный.',
+                        percussion: { text: 'Границы относительной сердечной тупости резко расширены влево и вправо (поперечник 18 см).', sound: 'perc_dull' },
+                        auscultation: { text: 'Глухой I тон и дующий систолический шум на верхушке, мерцательная аритмия (дефицит пульса).', sound: 'ausc_heart_murmur' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Постоянная тупая тяжесть и распирание в правом подреберье.',
+                        inspection: 'Выбухание в области правого подреберья.',
+                        palpation: 'Печень выступает из-под реберной дуги на 5 см, плотная, край закруглен, болезненный при пальпации (застойная печень).',
+                        percussion: { text: 'Размеры печени по Курлову увеличены: 14×12×10 см.', sound: 'perc_dull' },
+                        auscultation: { text: 'Перистальтика вялая.', sound: 'ausc_bowel' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Отмечает увеличение объема живота в последние 2 месяца.',
+                        inspection: 'Живот увеличен в объеме, пупок сглажен.',
+                        palpation: 'Определяется симптом флюктуации (свободная жидкость в брюшной полости).',
+                        percussion: { text: 'Притупление перкуторного звука в отлогих фланкирующих отделах живота (асцит).', sound: 'perc_dull' },
+                        auscultation: { text: 'Перистальтические шумы ослаблены.', sound: 'ausc_bowel' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Уменьшение дневного диуреза, учащенное мочеиспускание ночью (никтурия).',
+                        inspection: 'Пастозность мягких тканей пояснично-крестцовой области.',
+                        palpation: 'Глубокая ямка при надавливании на крестец.',
+                        percussion: { text: 'Симптом Пастернацкого отрицательный.', sound: 'perc_dull' },
+                        auscultation: { text: 'Шумов нет.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'Тяжесть и распирание в ногах, обувь стала мала.',
+                        inspection: 'Выраженные симметричные отеки стоп, голеней и нижней трети бедер, кожа холодная, синюшная.',
+                        palpation: 'Плотные отеки (остается глубокая медленно исчезающая ямка), пульс аритмичный 98 уд/мин.',
+                        percussion: { text: 'Без особенностей.', sound: 'perc_dull' },
+                        auscultation: { text: 'АД 105/70 мм рт. ст.', sound: 'ausc_heart_murmur' }
+                    }
+                }
+            },
+            {
+                id: 'endocarditis',
+                name: 'Инфекционный эндокардит',
+                etiology: 'Бактериальная (Staphylococcus / Streptococcus) / вегетации и деструкция клапанов, септицемия',
+                patientInfo: 'Мужчина, 36 лет. Гектическая лихорадка с ознобами, потливость.',
+                visualCue: { cheekFlush: false, pale: true, swollenLegs: false, jaundiced: false },
+                summary: {
+                    anamnesis: 'Гектическая лихорадка до 39,8 °C с потрясающими ознобами и проливными потами, нарастающая одышка, боли в суставах.',
+                    inspection: 'Бледность кожи с серо-желтым оттенком («кофе с молоком»), петехии на конъюнктиве (симптом Лукина), болезненные узелки Ослера на пальцах.',
+                    palpation: 'Спленомегалия, высокий и скорый («скачущий») пульс при поражении аортального клапана.',
+                    percussion: 'Расширение границ сердца влево и вниз, увеличение перкуторных размеров селезенки.',
+                    auscultation: 'Появление грубого протодиастолического шума недостаточности аортального клапана в точке Боткина — Эрба.'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'Лихорадка с ознобами в течение 3 недель после стоматологического вмешательства.',
+                        inspection: 'Кожа лица цвета «кофе с молоком», на нижней переходной складке конъюнктивы — петехиальные кровоизлияния (симптом Лукина — Либмана).',
+                        palpation: 'Пульсация сонных артерий («пляска каротид»).',
+                        percussion: 'Без особенностей.',
+                        auscultation: 'Проводится грубый шум с аорты на сонные артерии.'
+                    },
+                    lungs: {
+                        anamnesis: 'Появилась одышка при ходьбе в последние дни.',
+                        inspection: 'Грудная клетка симметрична.',
+                        palpation: 'Голосовое дрожание не изменено.',
+                        percussion: { text: 'Ясный легочный звук.', sound: 'perc_resonant' },
+                        auscultation: { text: 'Везикулярное дыхание, хрипов нет.', sound: 'ausc_vesicular' }
+                    },
+                    heart: {
+                        anamnesis: 'Ощущение сильных толчков в груди и шее, ноющая боль в области сердца.',
+                        inspection: 'Усиленный приподнимающий верхушечный толчок в VI межреберье.',
+                        palpation: 'Куполообразный разлитой верхушечный толчок в VI межреберье слева.',
+                        percussion: { text: 'Смещение левой границы относительной сердечной тупости влево на 2 см.', sound: 'perc_dull' },
+                        auscultation: { text: 'Ослабление II тона над аортой и мягкий убывающий протодиастолический шум в точке Боткина — Эрба.', sound: 'ausc_heart_murmur' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Тяжесть в левом подреберье, снижение аппетита.',
+                        inspection: 'Живот симметричен.',
+                        palpation: 'В левом подреберье пальпируется увеличенная мягкоэластическая селезенка (выступает на 3 см).',
+                        percussion: { text: 'Перкуторные размеры селезенки увеличены: длинник 13 см, поперечник 8 см.', sound: 'perc_dull' },
+                        auscultation: { text: 'Перистальтика кишечника обычная.', sound: 'ausc_bowel' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Стул в норме.',
+                        inspection: 'Без патологии.',
+                        palpation: 'Мягкий, безболезненный.',
+                        percussion: { text: 'Тимпанит.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Перистальтика сохранена.', sound: 'ausc_bowel' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Болей в пояснице нет.',
+                        inspection: 'Симметрична.',
+                        palpation: 'Безболезненна.',
+                        percussion: { text: 'Симптом Пастернацкого отрицательный.', sound: 'perc_dull' },
+                        auscultation: { text: 'Шумов нет.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'Болезненные красные узелки на подушечках пальцев рук, боли в крупных суставах.',
+                        inspection: 'Узелки Ослера на ладонной поверхности пальцев, подногтевые кровоизлияния в виде «заноз», пятна Джейнуэя на ладонях.',
+                        palpation: 'Высокий, скорый, скачущий пульс (pulsus celer et altus) 106 уд/мин.',
+                        percussion: { text: 'Без особенностей.', sound: 'perc_dull' },
+                        auscultation: { text: 'Двойной тон Траубе и двойной шум Виноградова — Дюрозье на бедренной артерии, АД 140/45 мм рт. ст.', sound: 'ausc_heart_murmur' }
+                    }
+                }
+            },
+            {
+                id: 'peptic_ulcer',
+                name: 'Язвенная болезнь ДПК (обострение)',
+                etiology: 'Helicobacter pylori / кислотно-пептическая агрессия и дефект слизистой двенадцатиперстной кишки',
+                patientInfo: 'Мужчина, 34 года. «Голодные» и ночные боли в подложечной области.',
+                visualCue: { cheekFlush: false, pale: false, swollenLegs: false, jaundiced: false },
+                summary: {
+                    anamnesis: '«Голодные» и ночные жгучие боли в эпигастрии через 2–3 часа после еды, купирующиеся приемом пищи или антацидов; кислая отрыжка, изжога.',
+                    inspection: 'Язык обложен белым налетом у корня, следы пигментации кожи в эпигастрии от грелки.',
+                    palpation: 'Локальная болезненность и умеренная резистентность мышц в пилородуоденальной зоне (справа от срединной линии).',
+                    percussion: 'Локальная перкуторная болезненность в эпигастрии (положительный симптом Менделя).',
+                    auscultation: 'Живая перистальтика кишечника, патологических шумов нет.'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'Кислая отрыжка, изжога, сухости во рту нет.',
+                        inspection: 'Язык влажный, у корня обложен густым бело-желтым налетом.',
+                        palpation: 'Лимфоузлы не увеличены.',
+                        percussion: 'Без особенностей.',
+                        auscultation: 'Дыхание спокойное.'
+                    },
+                    lungs: {
+                        anamnesis: 'Жалоб со стороны органов дыхания нет.',
+                        inspection: 'Грудная клетка симметрична.',
+                        palpation: 'Голосовое дрожание не изменено.',
+                        percussion: { text: 'Ясный легочный звук.', sound: 'perc_resonant' },
+                        auscultation: { text: 'Везикулярное дыхание.', sound: 'ausc_vesicular' }
+                    },
+                    heart: {
+                        anamnesis: 'Болей в сердце нет.',
+                        inspection: 'Без патологии.',
+                        palpation: 'Верхушечный толчок в норме.',
+                        percussion: { text: 'Границы сердца в норме.', sound: 'perc_dull' },
+                        auscultation: { text: 'Тоны сердца ясные, ритмичные, ЧСС 74 уд/мин.', sound: 'ausc_heart_normal' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Интенсивные «голодные» и ночные боли в подложечной области; после стакана молока или еды боль стихает на 1,5 часа.',
+                        inspection: 'В эпигастральной области видна сетчатая пигментация кожи (симптом «грелки»).',
+                        palpation: 'Резкая локальная болезненность и умеренное напряжение правой прямой мышцы живота в пилородуоденальной зоне.',
+                        percussion: { text: 'Резко положительный симптом Менделя (болезненность при легком поколачивании пальцами в эпигастрии).', sound: 'perc_pain' },
+                        auscultation: { text: 'Выслушивается активная перистальтика желудка и двенадцатиперстной кишки.', sound: 'ausc_bowel' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Склонность к запорам в период обострения, стул обычного цвета (мелены нет).',
+                        inspection: 'Живот не вздут, симметрично участвует в дыхании.',
+                        palpation: 'Нижние отделы живота мягкие, безболезненные; симптом Щеткина — Блюмберга отрицательный.',
+                        percussion: { text: 'Обычный тимпанический звук.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Перистальтические шумы обычной звучности.', sound: 'ausc_bowel' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Иррадиация боли в спину на уровне Th10–Th12 (болевая точка Боаса).',
+                        inspection: 'Без изменений.',
+                        palpation: 'Болезненность при надавливании слева и справа от остистых отростков X–XII грудных позвонков (точка Боаса).',
+                        percussion: { text: 'Симптом Пастернацкого отрицательный.', sound: 'perc_dull' },
+                        auscultation: { text: 'Шумов нет.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'Жалоб нет.',
+                        inspection: 'Кожа обычной окраски, отеков нет.',
+                        palpation: 'Пульс 74 уд/мин, ритмичный, хорошего наполнения.',
+                        percussion: { text: 'Без особенностей.', sound: 'perc_dull' },
+                        auscultation: { text: 'АД 120/75 мм рт. ст.', sound: 'ausc_heart_normal' }
+                    }
+                }
+            },
+            {
+                id: 'appendicitis',
+                name: 'Острый аппендицит',
+                etiology: 'Бактериальная / обтурация просвета и острое гнойное воспаление червеобразного отростка',
+                patientInfo: 'Парень, 22 года. Боль внизу живота справа, тошнота, температура 37,6 °C.',
+                visualCue: { cheekFlush: false, pale: false, swollenLegs: false, jaundiced: false },
+                summary: {
+                    anamnesis: 'Боль возникла в эпигастрии 6 часов назад и переместилась в правую подвздошную область (симптом Кохера), тошнота, однократная рвота, субфебрилитет.',
+                    inspection: 'Сухой обложенный язык, отставание правого нижнего квадранта живота при дыхании, щадящая поза с согнутой правой ногой.',
+                    palpation: 'Локальная болезненность в точке Мак-Бурнея, мышечный дефанс, положительные симптомы Щеткина — Блюмберга, Ровзинга, Ситковского.',
+                    percussion: 'Локальная перкуторная болезненность в правой подвздошной области (симптом Раздольского).',
+                    auscultation: 'Ослабление кишечных перистальтических шумов в правой подвздошной области.'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'Сухость во рту, снижение аппетита, температура 37,6 °C.',
+                        inspection: 'Язык суховат, обложен белым налетом.',
+                        palpation: 'Без особенностей.',
+                        percussion: 'Без особенностей.',
+                        auscultation: 'Дыхание спокойное.'
+                    },
+                    lungs: {
+                        anamnesis: 'Жалоб нет.',
+                        inspection: 'Грудная клетка симметрична.',
+                        palpation: 'Голосовое дрожание в норме.',
+                        percussion: { text: 'Ясный легочный звук.', sound: 'perc_resonant' },
+                        auscultation: { text: 'Везикулярное дыхание.', sound: 'ausc_vesicular' }
+                    },
+                    heart: {
+                        anamnesis: 'Учащенное сердцебиение.',
+                        inspection: 'Без изменений.',
+                        palpation: 'Верхушечный толчок в норме.',
+                        percussion: { text: 'Границы сердца в норме.', sound: 'perc_dull' },
+                        auscultation: { text: 'Тахикардия 96 уд/мин (опережает температуру — симптом «ножниц»), тоны ясные.', sound: 'ausc_heart_normal' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Боли начинались в подложечной области, но затем полностью спустились вниз вправо (симптом Кохера — Волковича).',
+                        inspection: 'Верхние отделы живота участвуют в дыхании.',
+                        palpation: 'Эпигастрий и правое подреберье мягкие, безболезненные.',
+                        percussion: { text: 'Тимпанит над желудком.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Умеренная перистальтика в верхних отделах.', sound: 'ausc_bowel' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Постоянная ноющая боль в правой подвздошной области, усиливается при кашле и движении.',
+                        inspection: 'Правая подвздошная область отстает в акте дыхания.',
+                        palpation: 'Резкая болезненность в точке Мак-Бурнея, локальное напряжение мышц (дефанс), положительные симптомы Щеткина — Блюмберга, Ровзинга и Ситковского.',
+                        percussion: { text: 'Локальная болезненность при перкуссии в правой подвздошной области (положительный симптом Раздольского).', sound: 'perc_pain' },
+                        auscultation: { text: 'Резкое ослабление перистальтических шумов в правой подвздошной области.', sound: 'ausc_silent' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Дизурии нет.',
+                        inspection: 'Симметрична.',
+                        palpation: 'Безболезненна.',
+                        percussion: { text: 'Симптом Пастернацкого отрицательный.', sound: 'perc_dull' },
+                        auscultation: { text: 'Шумов нет.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'При ходьбе придерживает правый бок, лежа сгибает правую ногу.',
+                        inspection: 'Отеков нет.',
+                        palpation: 'Пульс 96 уд/мин, ритмичный; усиление боли внизу живота при поднимании выпрямленной правой ноги (симптом Образцова).',
+                        percussion: { text: 'Без особенностей.', sound: 'perc_dull' },
+                        auscultation: { text: 'АД 115/75 мм рт. ст.', sound: 'ausc_heart_normal' }
+                    }
+                }
+            },
+            {
+                id: 'cholecystitis',
+                name: 'Острый калькулезный холецистит',
+                etiology: 'Желчнокаменная болезнь / обтурация пузырного протока и острое воспаление желчного пузыря',
+                patientInfo: 'Женщина, 49 лет. Резкая боль в правом подреберье после застолья, горечь во рту.',
+                visualCue: { cheekFlush: false, pale: false, swollenLegs: false, jaundiced: true },
+                summary: {
+                    anamnesis: 'Интенсивная боль в правом подреберье после жирной пищи с иррадиацией в правое плечо и лопатку, горечь во рту, многократная рвота желчью, лихорадка 38,4 °C.',
+                    inspection: 'Субиктеричность склер, сухой язык с желто-белым налетом, щажение правого подреберья при дыхании.',
+                    palpation: 'Резкая болезненность и мышечная защита в правом подреберье; положительные симптомы Кера, Мерфи, Мюсси — Георгиевского.',
+                    percussion: 'Резко положительный симптом Ортнера (болезненность при поколачивании по правой реберной дуге).',
+                    auscultation: 'Ослабление перистальтических шумов в правом верхнем квадранте живота.'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'Горечь во рту, многократная рвота с примесью желчи, не приносящая облегчения.',
+                        inspection: 'Субиктеричность склер, язык сухой, обложен густым желтовато-коричневым налетом.',
+                        palpation: 'Болезненность при надавливании между ножками правой грудино-ключично-сосцевидной мышцы (симптом Мюсси — Георгиевского).',
+                        percussion: 'Без особенностей.',
+                        auscultation: 'Дыхание учащенное.'
+                    },
+                    lungs: {
+                        anamnesis: 'Глубокий вдох обрывается из-за боли в правом подреберье.',
+                        inspection: 'Ограничение экскурсии правого купола диафрагмы.',
+                        palpation: 'Голосовое дрожание не изменено.',
+                        percussion: { text: 'Ясный легочный звук.', sound: 'perc_resonant' },
+                        auscultation: { text: 'Везикулярное дыхание, ослаблено в самом низу справа из-за щажения.', sound: 'ausc_vesicular' }
+                    },
+                    heart: {
+                        anamnesis: 'Сердцебиение на фоне боли и лихорадки.',
+                        inspection: 'Без патологии.',
+                        palpation: 'Верхушечный толчок в норме.',
+                        percussion: { text: 'Границы сердца в норме.', sound: 'perc_dull' },
+                        auscultation: { text: 'Тоны сердца ритмичные, ЧСС 98 уд/мин.', sound: 'ausc_heart_normal' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Приступ возник через 2 часа после употребления жареного мяса; боль отдает в правую лопатку и ключицу.',
+                        inspection: 'Умеренное вздутие в верхних отделах живота, правое подреберье отстает при дыхании.',
+                        palpation: 'Резкая болезненность и мышечное напряжение в точке желчного пузыря (симптом Кера), обрыв вдоха при пальпации (симптом Мерфи).',
+                        percussion: { text: 'Резкая болезненность при поколачивании ребром ладони по правой реберной дуге (положительный симптом Ортнера).', sound: 'perc_pain' },
+                        auscultation: { text: 'Перистальтика в правом верхнем квадранте ослаблена.', sound: 'ausc_bowel' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Задержка газов, стула не было сутки.',
+                        inspection: 'Нижние отделы не изменены.',
+                        palpation: 'Мягкий, безболезненный в нижних отделах, симптом Щеткина — Блюмберга отрицательный.',
+                        percussion: { text: 'Тимпанит над кишечником.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Единичные кишечные шумы.', sound: 'ausc_bowel' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Боль иррадиирует под правую лопатку.',
+                        inspection: 'Симметрична.',
+                        palpation: 'Безболезненна в проекции почек.',
+                        percussion: { text: 'Симптом Пастернацкого отрицательный.', sound: 'perc_dull' },
+                        auscultation: { text: 'Шумов нет.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'Озноб, слабость.',
+                        inspection: 'Отеков нет.',
+                        palpation: 'Пульс 98 уд/мин, ритмичный.',
+                        percussion: { text: 'Без особенностей.', sound: 'perc_dull' },
+                        auscultation: { text: 'АД 130/80 мм рт. ст.', sound: 'ausc_heart_normal' }
+                    }
+                }
+            },
+            {
+                id: 'cirrhosis',
+                name: 'Цирроз печени (декомпенсированный)',
+                etiology: 'Вирусный гепатит C / фиброз, узловая регенерация печени и портальная гипертензия',
+                patientInfo: 'Мужчина, 51 год. Желтуха, большой живот, сосудистые звездочки.',
+                visualCue: { cheekFlush: false, pale: false, swollenLegs: true, jaundiced: true },
+                summary: {
+                    anamnesis: 'Нарастающая слабость, желтушность кожи, кожный зуд, увеличение живота в объеме, кровоточивость десен, потемнение мочи.',
+                    inspection: 'Желтуха кожи и склер, телеангиэктазии («сосудистые звездочки») на груди, пальмарная эритема, «голова медузы» на животе, гинекомастия.',
+                    palpation: 'Плотная, мелкобугристая печень с острым безболезненным краем, спленомегалия, флюктуация жидкости в животе.',
+                    percussion: 'Тупой перкуторный звук в отлогих местах живота, смещающийся при повороте на бок (асцит).',
+                    auscultation: 'Венозный шум в области пупка (симптом Крювелье — Баумгартена).'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'Кровоточивость десен при чистке зубов, сонливость днем и бессонница ночью.',
+                        inspection: 'Интенсивная желтушность склер и кожи лица, «печеночный» язык (малиновый, лакированный).',
+                        palpation: 'Увеличение околоушных слюнных желез.',
+                        percussion: 'Без особенностей.',
+                        auscultation: 'Сладковатый «печеночный» запах изо рта.'
+                    },
+                    lungs: {
+                        anamnesis: 'Одышка при ходьбе из-за высокого стояния диафрагмы.',
+                        inspection: 'Телеангиэктазии («сосудистые звездочки») на коже груди и плеч, двусторонняя гинекомастия.',
+                        palpation: 'Голосовое дрожание в норме.',
+                        percussion: { text: 'Нижние границы легких приподняты на 1 ребро из-за асцита.', sound: 'perc_resonant' },
+                        auscultation: { text: 'Везикулярное дыхание, хрипов нет.', sound: 'ausc_vesicular' }
+                    },
+                    heart: {
+                        anamnesis: 'Сердцебиение при нагрузке.',
+                        inspection: 'Верхушечный толчок приподнят в IV межреберье.',
+                        palpation: 'Верхушечный толчок в IV межреберье по среднеключичной линии.',
+                        percussion: { text: 'Границы сердца смещены вверх за счет высокого стояния диафрагмы.', sound: 'perc_dull' },
+                        auscultation: { text: 'Тоны сердца ритмичные, мягкий функциональный систолический шум, ЧСС 88 уд/мин.', sound: 'ausc_heart_normal' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Тяжесть и распирание в правом и левом подреберьях.',
+                        inspection: 'Выбухание в эпигастрии, расширенные подкожные вены.',
+                        palpation: 'Печень каменистой плотности, мелкобугристая, с острым безболезненным краем (+3 см); пальпируется плотная селезенка (+4 см).',
+                        percussion: { text: 'Размеры печени по Курлову 13×11×9 см, селезенка 15×9 см.', sound: 'perc_dull' },
+                        auscultation: { text: 'Нежный венозный «шум волчка» в околопупочной области (симптом Крювелье — Баумгартена).', sound: 'ausc_heart_murmur' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Быстрое увеличение живота за последний месяц, моча цвета темного пива.',
+                        inspection: 'Большой «лягушачий» живот, пупок выпячен, вокруг пупка сеть расширенных вен («голова медузы»).',
+                        palpation: 'Положительный симптом флюктуации (волна жидкости в брюшной полости).',
+                        percussion: { text: 'Тупой звук в отлогих местах живота с горизонтальным уровнем, перемещающийся при повороте на бок (асцит).', sound: 'perc_dull' },
+                        auscultation: { text: 'Перистальтика кишечника ослаблена.', sound: 'ausc_bowel' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Уменьшение количества мочи.',
+                        inspection: 'Желтушность кожи спины, следы расчесов от кожного зуда.',
+                        palpation: 'Безболезненна.',
+                        percussion: { text: 'Симптом Пастернацкого отрицательный.', sound: 'perc_dull' },
+                        auscultation: { text: 'Шумов нет.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'Кожный зуд, синяки даже от легких прикосновений, отеки стоп.',
+                        inspection: 'Яркая пальмарная эритема («печеночные ладони»), экхимозы на предплечьях, мягкие отеки стоп и голеней.',
+                        palpation: 'Пульс 88 уд/мин, ритмичный, мягкий; мелкоразмашистый хлопающий тремор кистей (астериксис).',
+                        percussion: { text: 'Без особенностей.', sound: 'perc_dull' },
+                        auscultation: { text: 'АД 100/65 мм рт. ст.', sound: 'ausc_heart_normal' }
+                    }
+                }
+            },
+            {
+                id: 'pyelonephritis',
+                name: 'Острый пиелонефрит',
+                etiology: 'Бактериальная (Escherichia coli) / острое инфекционно-воспалительное поражение лоханки и интерстиция почки',
+                patientInfo: 'Женщина, 27 лет. Высокая лихорадка с ознобом и боль в правой пояснице.',
+                visualCue: { cheekFlush: false, pale: true, swollenLegs: false, jaundiced: false },
+                summary: {
+                    anamnesis: 'Острое начало с потрясающим ознобом и лихорадкой до 39,2 °C, постоянная тупая боль в правой поясничной области, мутная моча, учащенное мочеиспускание.',
+                    inspection: 'Бледность кожи, гипергидроз, выраженная интоксикация, отеков на лице и ногах нет.',
+                    palpation: 'Болезненность при глубокой пальпации в правом реберно-позвоночном углу и в правой подреберной (мочеточниковой) точке.',
+                    percussion: 'Резко положительный симптом Пастернацкого (поколачивания) справа.',
+                    auscultation: 'Сосудистых шумов над почечными артериями нет.'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'Головная боль, слабость, потрясающий озноб и проливной пот.',
+                        inspection: 'Бледность кожных покровов, влажный лоб, отеков век нет.',
+                        palpation: 'Кожа горячая.',
+                        percussion: 'Без особенностей.',
+                        auscultation: 'Дыхание учащенное на фоне лихорадки.'
+                    },
+                    lungs: {
+                        anamnesis: 'Кашля и боли в груди нет.',
+                        inspection: 'Грудная клетка симметрична.',
+                        palpation: 'Голосовое дрожание в норме.',
+                        percussion: { text: 'Ясный легочный звук.', sound: 'perc_resonant' },
+                        auscultation: { text: 'Везикулярное дыхание.', sound: 'ausc_vesicular' }
+                    },
+                    heart: {
+                        anamnesis: 'Сердцебиение при повышении температуры.',
+                        inspection: 'Без патологии.',
+                        palpation: 'Верхушечный толчок в норме.',
+                        percussion: { text: 'Границы сердца в норме.', sound: 'perc_dull' },
+                        auscultation: { text: 'Тахикардия 104 уд/мин, тоны сердца ясные, ритмичные.', sound: 'ausc_heart_normal' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Тошнота на высоте лихорадки.',
+                        inspection: 'Живот симметричен.',
+                        palpation: 'Печень и селезенка не увеличены; болезненность в правой верхней мочеточниковой точке (у наружного края прямой мышцы на уровне пупка).',
+                        percussion: { text: 'Тимпанит над желудком.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Перистальтика обычная.', sound: 'ausc_bowel' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Умеренное учащение мочеиспускания, мутная моча с хлопьями.',
+                        inspection: 'Живот не вздут.',
+                        palpation: 'Болезненность в правой средней мочеточниковой точке; симптомов раздражения брюшины нет.',
+                        percussion: { text: 'Тимпанит над кишечником.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Перистальтика сохранена.', sound: 'ausc_bowel' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Постоянная ноющая боль в правой половине поясницы в течение 2 дней после переохлаждения.',
+                        inspection: 'Поясничная область симметрична, гиперемии нет.',
+                        palpation: 'Резкая болезненность при бимануальной пальпации в правом реберно-позвоночном углу и по ходу правого мочеточника.',
+                        percussion: { text: 'Резко положительный симптом Пастернацкого справа (выраженная болезненность при легком поколачивании), слева отрицательный.', sound: 'perc_pain' },
+                        auscultation: { text: 'Шумы над почечными артериями не выслушиваются.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'Ломота в теле.',
+                        inspection: 'Периферических отеков нет.',
+                        palpation: 'Пульс 104 уд/мин, ритмичный.',
+                        percussion: { text: 'Без особенностей.', sound: 'perc_dull' },
+                        auscultation: { text: 'АД 115/75 мм рт. ст.', sound: 'ausc_heart_normal' }
+                    }
+                }
+            },
+            {
+                id: 'cystitis',
+                name: 'Острый цистит',
+                etiology: 'Бактериальная (Escherichia coli) / острое поверхностное воспаление слизистой оболочки мочевого пузыря',
+                patientInfo: 'Девушка, 24 года. Рези при мочеиспускании каждые 15 минут, боль над лобком.',
+                visualCue: { cheekFlush: false, pale: false, swollenLegs: false, jaundiced: false },
+                summary: {
+                    anamnesis: 'Резко учащенное болезненное мочеиспускание малыми порциями (поллакиурия), сильные рези и жжение в конце акта, ноющая боль над лобком, температура 36,9 °C.',
+                    inspection: 'Общее состояние удовлетворительное, кожные покровы обычной окраски, отеков нет.',
+                    palpation: 'Локальная болезненность при надавливании в надлобковой области (проекция мочевого пузыря); почки не пальпируются.',
+                    percussion: 'Симптом Пастернацкого отрицательный с обеих сторон.',
+                    auscultation: 'Без патологических изменений со стороны внутренних органов.'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'Общее самочувствие не страдает, озноба и высокой лихорадки нет (температура 36,9 °C).',
+                        inspection: 'Кожа лица обычной окраски, отеков век нет.',
+                        palpation: 'Без особенностей.',
+                        percussion: 'Без особенностей.',
+                        auscultation: 'Дыхание ровное.'
+                    },
+                    lungs: {
+                        anamnesis: 'Жалоб нет.',
+                        inspection: 'Грудная клетка симметрична.',
+                        palpation: 'Голосовое дрожание в норме.',
+                        percussion: { text: 'Ясный легочный звук.', sound: 'perc_resonant' },
+                        auscultation: { text: 'Везикулярное дыхание.', sound: 'ausc_vesicular' }
+                    },
+                    heart: {
+                        anamnesis: 'Жалоб нет.',
+                        inspection: 'Без изменений.',
+                        palpation: 'Верхушечный толчок в норме.',
+                        percussion: { text: 'Границы сердца в норме.', sound: 'perc_dull' },
+                        auscultation: { text: 'Тоны сердца ясные, ритмичные, ЧСС 76 уд/мин.', sound: 'ausc_heart_normal' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Аппетит сохранен, тошноты нет.',
+                        inspection: 'Живот симметричен.',
+                        palpation: 'Мягкий, безболезненный.',
+                        percussion: { text: 'Тимпанит над желудком.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Перистальтика обычная.', sound: 'ausc_bowel' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Позывы к мочеиспусканию каждые 15–20 минут малыми порциями, острые рези в конце мочеиспускания, иногда капля крови в конце (терминальная гематурия).',
+                        inspection: 'Живот не вздут, надлобковая область визуально не изменена.',
+                        palpation: 'Локальная болезненность при глубокой пальпации строго в надлобковой области; мышечной защиты и симптома Щеткина — Блюмберга нет.',
+                        percussion: { text: 'Болезненность при легкой перкуссии над лобком, притупления нет (пузырь опорожнен).', sound: 'perc_pain' },
+                        auscultation: { text: 'Нормальная перистальтика кишечника.', sound: 'ausc_bowel' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Болей в поясничной области нет.',
+                        inspection: 'Поясница симметрична.',
+                        palpation: 'Почки и мочеточниковые точки безболезненны.',
+                        percussion: { text: 'Симптом Пастернацкого четко отрицательный с обеих сторон.', sound: 'perc_dull' },
+                        auscultation: { text: 'Шумов нет.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'Отмечает переохлаждение ног накануне.',
+                        inspection: 'Отеков нет.',
+                        palpation: 'Пульс 76 уд/мин, ритмичный.',
+                        percussion: { text: 'Без особенностей.', sound: 'perc_dull' },
+                        auscultation: { text: 'АД 115/75 мм рт. ст.', sound: 'ausc_heart_normal' }
+                    }
+                }
+            },
+            {
+                id: 'glomerulonephritis',
+                name: 'Острый постстрептококковый гломерулонефрит',
+                etiology: 'Иммунокомплексная / диффузное иммунное воспаление клубочков почек после стрептококковой ангины',
+                patientInfo: 'Мужчина, 25 лет. Моча цвета «мясных помоев», отеки лица по утрам.',
+                visualCue: { cheekFlush: false, pale: true, swollenLegs: true, jaundiced: false },
+                summary: {
+                    anamnesis: 'Через 2 недели после ангины появилась моча цвета «мясных помоев», утренние отеки лица и век, уменьшение суточного количества мочи, головная боль.',
+                    inspection: 'Бледность кожи, выраженная одутловатость лица и отеки век по утрам (facies nephritica).',
+                    palpation: 'Напряженный, твердый пульс (артериальная гипертензия), мягкие отеки на лице и голенях.',
+                    percussion: 'Умеренное смещение левой границы сердца влево, симптом Пастернацкого слабо положительный с обеих сторон.',
+                    auscultation: 'Выраженный акцент II тона над аортой, приглушенность I тона на верхушке.'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'Перенес гнойную ангину 14 дней назад; беспокоит головная боль в затылке и отеки под глазами по утрам.',
+                        inspection: 'Типичное «лицо нефритика» (facies nephritica): бледное, одутловатое, с узкими глазными щелями из-за отека век.',
+                        palpation: 'Мягкий, тестоватый отек периорбитальной клетчатки.',
+                        percussion: 'Без особенностей.',
+                        auscultation: 'Дыхание спокойное.'
+                    },
+                    lungs: {
+                        anamnesis: 'Небольшая одышка при быстрой ходьбе.',
+                        inspection: 'Грудная клетка симметрична.',
+                        palpation: 'Голосовое дрожание в норме.',
+                        percussion: { text: 'Ясный легочный звук над всей поверхностью легких.', sound: 'perc_resonant' },
+                        auscultation: { text: 'Везикулярное дыхание, хрипов нет.', sound: 'ausc_vesicular' }
+                    },
+                    heart: {
+                        anamnesis: 'Ощущение пульсации в висках.',
+                        inspection: 'Усиленный верхушечный толчок в V межреберье.',
+                        palpation: 'Резистентный, приподнимающий верхушечный толчок в V межреберье слева.',
+                        percussion: { text: 'Левая граница относительной сердечной тупости на 1 см кнаружи от среднеключичной линии.', sound: 'perc_dull' },
+                        auscultation: { text: 'Резкий металлический акцент II тона над аортой, брадикардия 58 уд/мин (симптом Вольгарда).', sound: 'ausc_heart_normal' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Снижение аппетита, тошноты нет.',
+                        inspection: 'Живот симметричен.',
+                        palpation: 'Мягкий, безболезненный, печень не увеличена.',
+                        percussion: { text: 'Тимпанит над желудком.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Перистальтика обычная.', sound: 'ausc_bowel' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Резкое уменьшение объема мочи (олигурия до 400 мл/сут), моча буро-красная («мясные помои»).',
+                        inspection: 'Живот не вздут.',
+                        palpation: 'Мягкий, безболезненный.',
+                        percussion: { text: 'Свободной жидкости в брюшной полости нет.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Перистальтика сохранена.', sound: 'ausc_bowel' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Тупые тянущие ощущения с обеих сторон поясницы.',
+                        inspection: 'Поясничная область симметрична.',
+                        palpation: 'Почки не пальпируются, легкая болезненность при глубокой пальпации.',
+                        percussion: { text: 'Слабо положительный симптом Пастернацкого симметрично с обеих сторон (растяжение почечной капсулы).', sound: 'perc_dull' },
+                        auscultation: { text: 'Шумов над почечными артериями нет.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'Отеки стоп и голеней появляются к вечеру.',
+                        inspection: 'Бледные, теплые, рыхлые отеки на тыле стоп и голенях.',
+                        palpation: 'Пульс 58 уд/мин, ритмичный, твердый и напряженный (pulsus durus et magnus).',
+                        percussion: { text: 'Без особенностей.', sound: 'perc_dull' },
+                        auscultation: { text: 'Артериальное давление повышено до 165/105 мм рт. ст.', sound: 'ausc_heart_normal' }
+                    }
+                }
+            },
+            {
+                id: 'thyrotoxicosis',
+                name: 'Диффузный токсический зоб (Тиреотоксикоз)',
+                etiology: 'Аутоиммунная (болезнь Грейвса) / гиперпродукция тиреоидных гормонов и ускорение метаболизма',
+                patientInfo: 'Женщина, 33 года. Похудание на 8 кг, сердцебиение, тремор рук, пучеглазие.',
+                visualCue: { cheekFlush: true, pale: false, swollenLegs: false, jaundiced: false },
+                summary: {
+                    anamnesis: 'Похудание на фоне повышенного аппетита, постоянное сердцебиение, дрожь в руках и теле, потливость, непереносимость жары, плаксивость.',
+                    inspection: 'Двусторонний экзофтальм, симптомы Грефе, Мебиуса, Штельвага, диффузное утолщение шеи («зоб»), горячая влажная кожа.',
+                    palpation: 'Диффузно увеличенная эластическая безболезненная щитовидная железа II ст., мелкий тремор пальцев (симптом Мари), тахикардия.',
+                    percussion: 'Притупление за рукояткой грудины при загрудинном расположении доли зоба.',
+                    auscultation: 'Систолический «жужжащий» сосудистый шум над щитовидной железой, громкие хлопающие тоны сердца.'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'Раздражительность, плаксивость, чувство «песка» в глазах, суетливость.',
+                        inspection: 'Выраженный экзофтальм, блеск глаз, положительные глазные симптомы Грефе, Кохера, Штельвага и Мебиуса; диффузное увеличение щитовидной железы на передней поверхности шеи.',
+                        palpation: 'Щитовидная железа диффузно увеличена (II степень по ВОЗ), плотноэластической консистенции, безболезненная, подвижна при глотании.',
+                        percussion: 'Без особенностей.',
+                        auscultation: { text: 'Над боковыми долями щитовидной железы выслушивается непрерывный систолический «жужжащий» сосудистый шум.', sound: 'ausc_heart_murmur' }
+                    },
+                    lungs: {
+                        anamnesis: 'Ощущение нехватки воздуха в душном помещении.',
+                        inspection: 'Грудная клетка симметрична.',
+                        palpation: 'Голосовое дрожание в норме.',
+                        percussion: { text: 'Ясный легочный звук.', sound: 'perc_resonant' },
+                        auscultation: { text: 'Везикулярное дыхание, ЧДД 20/мин.', sound: 'ausc_vesicular' }
+                    },
+                    heart: {
+                        anamnesis: 'Постоянное сильное сердцебиение даже в покое и во сне.',
+                        inspection: 'Видимая усиленная пульсация в области верхушечного толчка и сонных артерий.',
+                        palpation: 'Усиленный, быстрый верхушечный толчок в V межреберье.',
+                        percussion: { text: 'Границы относительной сердечной тупости не расширены.', sound: 'perc_dull' },
+                        auscultation: { text: 'Выраженная синусовая тахикардия 124 уд/мин, громкие хлопающие тоны сердца, функциональный систолический шум на верхушке.', sound: 'ausc_heart_normal' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Повышенный аппетит («волчий голод») при прогрессирующей потере массы тела.',
+                        inspection: 'Живот втянут (похудание).',
+                        palpation: 'Мягкий, безболезненный.',
+                        percussion: { text: 'Тимпанит над желудком.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Усиленная, ускоренная перистальтика кишечника.', sound: 'ausc_bowel' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Склонность к учащенному кашицеобразному стулу (2–3 раза в день).',
+                        inspection: 'Без патологии.',
+                        palpation: 'Мягкий, безболезненный.',
+                        percussion: { text: 'Тимпанит.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Живая перистальтика.', sound: 'ausc_bowel' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Болей нет.',
+                        inspection: 'Влажная горячая кожа спины.',
+                        palpation: 'Безболезненна.',
+                        percussion: { text: 'Симптом Пастернацкого отрицательный.', sound: 'perc_dull' },
+                        auscultation: { text: 'Шумов нет.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'Постоянная дрожь в кончиках пальцев, влажные горячие ладони.',
+                        inspection: 'Кожа конечности горячая, бархатистая, влажная; отеков нет.',
+                        palpation: 'Мелкий высокочастотный тремор вытянутых пальцев рук (симптом Мари), быстрый скачущий пульс 124 уд/мин.',
+                        percussion: { text: 'Повышение сухожильных рефлексов.', sound: 'perc_dull' },
+                        auscultation: { text: 'Высокое пульсовое давление: АД 145/60 мм рт. ст.', sound: 'ausc_heart_normal' }
+                    }
+                }
+            },
+            {
+                id: 'stroke',
+                name: 'Ишемический инсульт (в левом полушарии)',
+                etiology: 'Атеротромботическая / острая фокальная ишемия и инфаркт мозга в бассейне левой средней мозговой артерии',
+                patientInfo: 'Мужчина, 65 лет. Внезапная слабость в правых конечностях, перекос лица и нарушение речи.',
+                visualCue: { cheekFlush: false, pale: false, swollenLegs: false, jaundiced: false },
+                summary: {
+                    anamnesis: 'Внезапное (утреннее) появление слабости и онемения в правой руке и ноге, перекос лица, затруднение подбора слов (моторная афазия); сознание ясное.',
+                    inspection: 'Асимметрия лица (сглаженность правой носогубной складки, опущение правого угла рта), девиация языка вправо, правосторонняя гемиплегия.',
+                    palpation: 'Снижение мышечного тонуса в правых конечностях, ослабление пульсации на левой внутренней сонной артерии.',
+                    percussion: 'Без специфических изменений со стороны внутренних органов.',
+                    auscultation: 'Систолический стенотический шум над бифуркацией левой сонной артерии; аритмичные тоны сердца (фибрилляция предсердий).'
+                },
+                findings: {
+                    head: {
+                        anamnesis: 'Утром при пробуждении не смог заговорить и поднять правую руку, головной боли и рвоты не было.',
+                        inspection: 'Выраженная асимметрия лица по центральному типу: сглажена правая носогубная складка, опущен правый угол рта, при высовывании язык отклоняется вправо.',
+                        palpation: 'Ослабление пульсации левой сонной артерии на шее.',
+                        percussion: 'Без особенностей.',
+                        auscultation: { text: 'Над бифуркацией левой сонной артерии выслушивается грубый систолический стенотический шум.', sound: 'ausc_heart_murmur' }
+                    },
+                    lungs: {
+                        anamnesis: 'Жалоб со стороны дыхания нет.',
+                        inspection: 'Грудная клетка симметрична.',
+                        palpation: 'Голосовое дрожание не изменено.',
+                        percussion: { text: 'Ясный легочный звук.', sound: 'perc_resonant' },
+                        auscultation: { text: 'Везикулярное дыхание, хрипов нет.', sound: 'ausc_vesicular' }
+                    },
+                    heart: {
+                        anamnesis: 'В анамнезе гипертоническая болезнь и перебои в сердце (не принимал антикоагулянты).',
+                        inspection: 'Без патологии.',
+                        palpation: 'Верхушечный толчок в V межреберье, умеренно усилен.',
+                        percussion: { text: 'Левая граница относительной сердечной тупости расширена на 1,5 см влево.', sound: 'perc_dull' },
+                        auscultation: { text: 'Тоны сердца неравномерной громкости, хаотично аритмичны (фибрилляция предсердий), акцент II тона над аортой.', sound: 'ausc_heart_gallop' }
+                    },
+                    epigastrium: {
+                        anamnesis: 'Жалоб нет.',
+                        inspection: 'Живот симметричен.',
+                        palpation: 'Мягкий, безболезненный.',
+                        percussion: { text: 'Тимпанит над желудком.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Перистальтика обычная.', sound: 'ausc_bowel' }
+                    },
+                    abdomen: {
+                        anamnesis: 'Физиологические отправления контролирует.',
+                        inspection: 'Без патологии.',
+                        palpation: 'Мягкий, безболезненный.',
+                        percussion: { text: 'Тимпанит.', sound: 'perc_tympanic' },
+                        auscultation: { text: 'Перистальтика сохранена.', sound: 'ausc_bowel' }
+                    },
+                    lumbar: {
+                        anamnesis: 'Болей нет.',
+                        inspection: 'Симметрична.',
+                        palpation: 'Безболезненна.',
+                        percussion: { text: 'Симптом Пастернацкого отрицательный.', sound: 'perc_dull' },
+                        auscultation: { text: 'Шумов нет.', sound: 'ausc_bowel' }
+                    },
+                    limbs: {
+                        anamnesis: 'Полное отсутствие активных движений в правой руке и ноге (гемиплегия).',
+                        inspection: 'Правая стопа ротирована кнаружи («симптом паруса» на правой ноге).',
+                        palpation: 'Мышечная гипотония в правой руке и ноге, пульс на лучевой артерии аритмичный (86 уд/мин), дефицит пульса.',
+                        percussion: { text: 'Положительный патологический рефлекс Бабинского справа.', sound: 'perc_dull' },
+                        auscultation: { text: 'Артериальное давление повышено: 170/95 мм рт. ст.', sound: 'ausc_heart_normal' }
+                    }
+                }
+            }
+        ];
+
+        // ==========================================
+        // 2. PROCEDURAL WEB AUDIO SYNTHESIZER
+        // ==========================================
+        class ClinicalAudio {
+            constructor() {
+                this.ctx = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+            play(type) {
+                if (!type) return;
+                this.init();
+                const now = this.ctx.currentTime;
+
+                if (type === 'perc_resonant') {
+                    // Clear / resonant / tympanic percussion (2 taps)
+                    [0, 0.24].forEach(offset => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(165, now + offset);
+                        osc.frequency.exponentialRampToValueAtTime(85, now + offset + 0.16);
+                        gain.gain.setValueAtTime(0.45, now + offset);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.18);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now + offset);
+                        osc.stop(now + offset + 0.19);
+                    });
+                } else if (type === 'perc_tympanic') {
+                    // Tympanic hollow drum-like sound
+                    [0, 0.25].forEach(offset => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(220, now + offset);
+                        osc.frequency.exponentialRampToValueAtTime(125, now + offset + 0.19);
+                        gain.gain.setValueAtTime(0.42, now + offset);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.2);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now + offset);
+                        osc.stop(now + offset + 0.21);
+                    });
+                } else if (type === 'perc_dull') {
+                    // Dull / flat thud (high frequency attenuated, short decay)
+                    [0, 0.24].forEach(offset => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(110, now + offset);
+                        osc.frequency.exponentialRampToValueAtTime(55, now + offset + 0.06);
+                        gain.gain.setValueAtTime(0.38, now + offset);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.07);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now + offset);
+                        osc.stop(now + offset + 0.08);
+                    });
+                } else if (type === 'perc_pain') {
+                    // Percussion tap + wince tone
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(130, now);
+                    osc.frequency.exponentialRampToValueAtTime(70, now + 0.08);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+
+                    // Subtle patient discomfort cue
+                    const vOsc = this.ctx.createOscillator();
+                    const vGain = this.ctx.createGain();
+                    vOsc.type = 'triangle';
+                    vOsc.frequency.setValueAtTime(340, now + 0.12);
+                    vOsc.frequency.linearRampToValueAtTime(280, now + 0.35);
+                    vGain.gain.setValueAtTime(0.15, now + 0.12);
+                    vGain.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
+                    vOsc.connect(vGain);
+                    vGain.connect(this.ctx.destination);
+                    vOsc.start(now + 0.12);
+                    vOsc.stop(now + 0.37);
+                } else if (type === 'ausc_vesicular' || type === 'ausc_crepitation' || type === 'ausc_wheeze') {
+                    // Filtered noise for breathing + crackles or wheezes
+                    const duration = 2.0;
+                    const bufferSize = this.ctx.sampleRate * duration;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = (Math.random() * 2 - 1);
+                    }
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'bandpass';
+                    filter.frequency.setValueAtTime(320, now);
+                    filter.Q.setValueAtTime(1.8, now);
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0.001, now);
+                    // Inhale
+                    gain.gain.linearRampToValueAtTime(0.22, now + 0.45);
+                    gain.gain.linearRampToValueAtTime(0.02, now + 0.9);
+                    // Exhale
+                    gain.gain.linearRampToValueAtTime(0.16, now + 1.15);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.95);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    noise.start(now);
+                    noise.stop(now + duration);
+
+                    if (type === 'ausc_wheeze') {
+                        // High-pitched expiratory whistle
+                        const wOsc = this.ctx.createOscillator();
+                        const wGain = this.ctx.createGain();
+                        wOsc.type = 'sine';
+                        wOsc.frequency.setValueAtTime(640, now + 1.0);
+                        wOsc.frequency.linearRampToValueAtTime(520, now + 1.85);
+                        wGain.gain.setValueAtTime(0.001, now + 0.95);
+                        wGain.gain.linearRampToValueAtTime(0.14, now + 1.15);
+                        wGain.gain.exponentialRampToValueAtTime(0.001, now + 1.9);
+                        wOsc.connect(wGain);
+                        wGain.connect(this.ctx.destination);
+                        wOsc.start(now + 0.95);
+                        wOsc.stop(now + 1.92);
+                    } else if (type === 'ausc_crepitation') {
+                        // Fine crackling pops at end of inspiration
+                        for (let k = 0; k < 10; k++) {
+                            const t = now + 0.55 + Math.random() * 0.35;
+                            const cOsc = this.ctx.createOscillator();
+                            const cGain = this.ctx.createGain();
+                            cOsc.type = 'square';
+                            cOsc.frequency.setValueAtTime(1100 + Math.random() * 600, t);
+                            cGain.gain.setValueAtTime(0.14, t);
+                            cGain.gain.exponentialRampToValueAtTime(0.001, t + 0.015);
+                            cOsc.connect(cGain);
+                            cGain.connect(this.ctx.destination);
+                            cOsc.start(t);
+                            cOsc.stop(t + 0.018);
+                        }
+                    }
+                } else if (type === 'ausc_heart_normal' || type === 'ausc_heart_murmur' || type === 'ausc_heart_gallop') {
+                    // Lub-dub heart sounds (2 cycles)
+                    [0, 0.72].forEach(cycle => {
+                        // S1 (Lub)
+                        this.playThump(now + cycle, 72, 0.45, 0.09);
+                        // S2 (Dub)
+                        this.playThump(now + cycle + 0.26, 95, 0.38, 0.07);
+
+                        if (type === 'ausc_heart_gallop') {
+                            // S3 pathological gallop
+                            this.playThump(now + cycle + 0.41, 62, 0.3, 0.07);
+                        } else if (type === 'ausc_heart_murmur') {
+                            // Blowing murmur between S1 and S2
+                            const dur = 0.22;
+                            const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * dur, this.ctx.sampleRate);
+                            const d = buf.getChannelData(0);
+                            for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+                            const src = this.ctx.createBufferSource();
+                            src.buffer = buf;
+                            const flt = this.ctx.createBiquadFilter();
+                            flt.type = 'bandpass';
+                            flt.frequency.value = 420;
+                            const g = this.ctx.createGain();
+                            g.gain.setValueAtTime(0.18, now + cycle + 0.06);
+                            g.gain.exponentialRampToValueAtTime(0.001, now + cycle + 0.27);
+                            src.connect(flt);
+                            flt.connect(g);
+                            g.connect(this.ctx.destination);
+                            src.start(now + cycle + 0.06);
+                        }
+                    });
+                } else if (type === 'ausc_bowel') {
+                    // Gentle gurgling bowel sounds
+                    [0.1, 0.45, 0.9].forEach((offset, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(180 + idx * 70, now + offset);
+                        osc.frequency.exponentialRampToValueAtTime(360 + idx * 50, now + offset + 0.14);
+                        gain.gain.setValueAtTime(0.12, now + offset);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.16);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now + offset);
+                        osc.stop(now + offset + 0.17);
+                    });
+                } else if (type === 'ausc_silent') {
+                    // Very faint stethoscope contact
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(65, now);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.21);
+                }
+            }
+
+            playThump(time, freq, vol, dur) {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, time);
+                osc.frequency.exponentialRampToValueAtTime(34, time + dur);
+                gain.gain.setValueAtTime(vol, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + dur + 0.02);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(time);
+                osc.stop(time + dur + 0.03);
+            }
+        }
+
+        const audio = new ClinicalAudio();
+
+        // ==========================================
+        // 3. GAME STATE
+        // ==========================================
+        let caseCounter = 1;
+        let currentDisease = null;
+        let activeTool = 'anamnesis';
+        let targetedZone = null;
+        let currentFinding = null;
+        let recordedSigns = []; // { id, zoneKey, zoneName, methodKey, methodName, text }
+        let selectedBookDiseaseId = DISEASES[0].id;
+        let usedDiseaseIds = [];
+
+        // ==========================================
+        // 4. THREE.JS 3D WARD & PATIENT SCENE
+        // ==========================================
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f172a);
+        scene.fog = new THREE.FogExp2(0x0f172a, 0.045);
+
+        const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 50);
+        // Player eye height 1.65m, standing near foot/side of bed
+        camera.position.set(1.65, 1.65, 2.2);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xdbeafe, 0.72);
+        scene.add(ambientLight);
+
+        const ceilingLight = new THREE.PointLight(0xffffff, 1.4, 14);
+        ceilingLight.position.set(0, 3.3, 0);
+        ceilingLight.castShadow = true;
+        ceilingLight.shadow.mapSize.width = 1024;
+        ceilingLight.shadow.mapSize.height = 1024;
+        scene.add(ceilingLight);
+
+        const windowLight = new THREE.DirectionalLight(0xe0f2fe, 1.15);
+        windowLight.position.set(-4, 2.8, -1.5);
+        scene.add(windowLight);
+
+        const bedSpotLight = new THREE.SpotLight(0xf8fafc, 0.9, 8, Math.PI / 4, 0.5);
+        bedSpotLight.position.set(0.8, 2.9, 0.4);
+        bedSpotLight.target.position.set(0, 0.9, 0);
+        scene.add(bedSpotLight);
+        scene.add(bedSpotLight.target);
+
+        // Procedural Tile Floor Texture
+        function createTileTexture() {
+            const c = document.createElement('canvas');
+            c.width = 256;
+            c.height = 256;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(0, 0, 256, 256);
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(4, 4, 120, 120);
+            ctx.fillRect(132, 132, 120, 120);
+            ctx.fillStyle = '#d8e1eb';
+            ctx.fillRect(132, 4, 120, 120);
+            ctx.fillRect(4, 132, 120, 120);
+            const tex = new THREE.CanvasTexture(c);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(8, 8);
+            return tex;
+        }
+
+        // Room Architecture (7m x 7m ward, height 3.5m)
+        const roomGroup = new THREE.Group();
+        scene.add(roomGroup);
+
+        const floorMat = new THREE.MeshStandardMaterial({ map: createTileTexture(), roughness: 0.45, metalness: 0.05 });
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(7.2, 7.2), floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        roomGroup.add(floor);
+
+        const ceiling = new THREE.Mesh(
+            new THREE.PlaneGeometry(7.2, 7.2),
+            new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.9 })
+        );
+        ceiling.rotation.x = Math.PI / 2;
+        ceiling.position.y = 3.5;
+        roomGroup.add(ceiling);
+
+        // Ceiling Lamp Panel
+        const lampFixture = new THREE.Mesh(
+            new THREE.BoxGeometry(1.4, 0.08, 0.6),
+            new THREE.MeshBasicMaterial({ color: 0xffffff })
+        );
+        lampFixture.position.set(0, 3.45, 0);
+        roomGroup.add(lampFixture);
+
+        // Walls (lower medical green/teal wainscot + upper clean cream/white)
+        const wallUpperMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.8 });
+        const wallLowerMat = new THREE.MeshStandardMaterial({ color: 0x0f766e, roughness: 0.65 });
+
+        function buildWall(w, h, x, y, z, rotY) {
+            const g = new THREE.Group();
+            const upper = new THREE.Mesh(new THREE.BoxGeometry(w, h - 1.2, 0.15), wallUpperMat);
+            upper.position.y = 1.2 + (h - 1.2) / 2;
+            upper.receiveShadow = true;
+            const lower = new THREE.Mesh(new THREE.BoxGeometry(w, 1.2, 0.16), wallLowerMat);
+            lower.position.y = 0.6;
+            lower.receiveShadow = true;
+            g.add(upper, lower);
+            g.position.set(x, y, z);
+            g.rotation.y = rotY;
+            roomGroup.add(g);
+        }
+        buildWall(7.2, 3.5, 0, 0, -3.5, 0);          // Back wall (head of bed)
+        buildWall(7.2, 3.5, 0, 0, 3.5, Math.PI);     // Front wall
+        buildWall(7.2, 3.5, 3.5, 0, 0, -Math.PI / 2); // Right wall
+        buildWall(7.2, 3.5, -3.5, 0, 0, Math.PI / 2); // Left wall
+
+        // Hospital Window on Left Wall
+        const windowFrame = new THREE.Mesh(
+            new THREE.BoxGeometry(0.22, 1.7, 2.4),
+            new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 })
+        );
+        windowFrame.position.set(-3.45, 1.9, -0.5);
+        roomGroup.add(windowFrame);
+
+        const windowGlass = new THREE.Mesh(
+            new THREE.PlaneGeometry(2.2, 1.5),
+            new THREE.MeshBasicMaterial({ color: 0xbae6fd })
+        );
+        windowGlass.rotation.y = Math.PI / 2;
+        windowGlass.position.set(-3.33, 1.9, -0.5);
+        roomGroup.add(windowGlass);
+
+        // Door on Front-Right Wall
+        const doorMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(1.1, 2.2, 0.2),
+            new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.5 })
+        );
+        doorMesh.position.set(2.2, 1.1, 3.45);
+        roomGroup.add(doorMesh);
+
+        // Hospital Bed in Center (z from -1.4 to +1.0, x centered at 0)
+        const bedGroup = new THREE.Group();
+        bedGroup.position.set(0, 0, -0.2);
+        scene.add(bedGroup);
+
+        const metalMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.65, roughness: 0.3 });
+        const mattressMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.75 });
+        const sheetMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.85 });
+
+        // Bed Frame & Legs
+        const bedBase = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.12, 2.25), metalMat);
+        bedBase.position.y = 0.58;
+        bedBase.castShadow = true;
+        bedBase.receiveShadow = true;
+        bedGroup.add(bedBase);
+
+        [[-0.5, -1.02], [0.5, -1.02], [-0.5, 1.02], [0.5, 1.02]].forEach(([lx, lz]) => {
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.58, 12), metalMat);
+            leg.position.set(lx, 0.29, lz);
+            leg.castShadow = true;
+            bedGroup.add(leg);
+        });
+
+        // Headboard & Footboard
+        const headboard = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.65, 0.06), metalMat);
+        headboard.position.set(0, 0.9, -1.12);
+        bedGroup.add(headboard);
+
+        const footboard = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.45, 0.06), metalMat);
+        footboard.position.set(0, 0.8, 1.12);
+        bedGroup.add(footboard);
+
+        // Mattress & Pillow
+        const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.06, 0.18, 2.16), mattressMat);
+        mattress.position.y = 0.73;
+        mattress.castShadow = true;
+        mattress.receiveShadow = true;
+        bedGroup.add(mattress);
+
+        const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.12, 0.38), mattressMat);
+        pillow.position.set(0, 0.86, -0.82);
+        pillow.rotation.x = 0.12;
+        bedGroup.add(pillow);
+
+        // Bedside Medical Cabinet & Animated ECG Monitor
+        const cabinet = new THREE.Mesh(
+            new THREE.BoxGeometry(0.55, 0.82, 0.55),
+            new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.5 })
+        );
+        cabinet.position.set(-1.15, 0.41, -0.95);
+        cabinet.castShadow = true;
+        scene.add(cabinet);
+
+        // ECG Monitor Box
+        const monitorBody = new THREE.Mesh(
+            new THREE.BoxGeometry(0.38, 0.28, 0.22),
+            new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 })
+        );
+        monitorBody.position.set(-1.15, 0.96, -0.95);
+        monitorBody.rotation.y = 0.45;
+        scene.add(monitorBody);
+
+        // Animated ECG Canvas Texture
+        const ecgCanvas = document.createElement('canvas');
+        ecgCanvas.width = 256;
+        ecgCanvas.height = 160;
+        const ecgCtx = ecgCanvas.getContext('2d');
+        const ecgTexture = new THREE.CanvasTexture(ecgCanvas);
+
+        const monitorScreen = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.33, 0.22),
+            new THREE.MeshBasicMaterial({ map: ecgTexture })
+        );
+        monitorScreen.position.set(-1.10, 0.96, -0.84);
+        monitorScreen.rotation.y = 0.45;
+        scene.add(monitorScreen);
+
+        let ecgPhase = 0;
+        function updateECGTexture() {
+            ecgCtx.fillStyle = '#020617';
+            ecgCtx.fillRect(0, 0, 256, 160);
+
+            // Grid
+            ecgCtx.strokeStyle = 'rgba(16, 185, 129, 0.15)';
+            ecgCtx.lineWidth = 1;
+            for (let x = 0; x < 256; x += 16) {
+                ecgCtx.beginPath(); ecgCtx.moveTo(x, 0); ecgCtx.lineTo(x, 160); ecgCtx.stroke();
+            }
+            for (let y = 0; y < 160; y += 16) {
+                ecgCtx.beginPath(); ecgCtx.moveTo(0, y); ecgCtx.lineTo(256, y); ecgCtx.stroke();
+            }
+
+            // ECG Wave
+            ecgCtx.strokeStyle = '#10b981';
+            ecgCtx.lineWidth = 2.5;
+            ecgCtx.beginPath();
+            for (let x = 0; x < 256; x++) {
+                const t = (x + ecgPhase) % 85;
+                let y = 85;
+                if (t > 15 && t < 22) y -= Math.sin((t - 15) / 7 * Math.PI) * 8; // P
+                else if (t >= 28 && t < 31) y += 8; // Q
+                else if (t >= 31 && t < 35) y -= 48; // R
+                else if (t >= 35 && t < 39) y += 16; // S
+                else if (t >= 48 && t < 60) y -= Math.sin((t - 48) / 12 * Math.PI) * 14; // T
+                if (x === 0) ecgCtx.moveTo(x, y);
+                else ecgCtx.lineTo(x, y);
+            }
+            ecgCtx.stroke();
+
+            ecgCtx.fillStyle = '#38bdf8';
+            ecgCtx.font = 'bold 14px monospace';
+            ecgCtx.fillText('ЭКГ МОНИТОР  SpO2 97%', 10, 20);
+            ecgTexture.needsUpdate = true;
+        }
+
+        // IV Drip Stand
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.9, 8), metalMat);
+        pole.position.set(0.85, 0.95, -1.05);
+        scene.add(pole);
+        const dripBag = new THREE.Mesh(
+            new THREE.BoxGeometry(0.12, 0.22, 0.06),
+            new THREE.MeshStandardMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.8 })
+        );
+        dripBag.position.set(0.85, 1.72, -0.98);
+        scene.add(dripBag);
+
+        // ==========================================
+        // 5. PROCEDURAL 3D ARTICULATED PATIENT & HITBOXES
+        // ==========================================
+        const patientGroup = new THREE.Group();
+        patientGroup.position.set(0, 0.83, -0.2);
+        scene.add(patientGroup);
+
+        const skinMat = new THREE.MeshStandardMaterial({ color: 0xf1c29b, roughness: 0.65 });
+        const gownMat = new THREE.MeshStandardMaterial({ color: 0x7dd3fc, roughness: 0.85 });
+        const pantsMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.85 });
+        const cheekFlushMat = new THREE.MeshStandardMaterial({ color: 0xf43f5e, transparent: true, opacity: 0.0 });
+
+        // Head & Neck
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.075, 0.12, 16), skinMat);
+        neck.rotation.x = Math.PI / 2;
+        neck.position.set(0, 0.11, -0.62);
+        patientGroup.add(neck);
+
+        const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.125, 24, 24), skinMat);
+        headMesh.scale.set(0.92, 1.05, 1.12);
+        headMesh.position.set(0, 0.16, -0.78);
+        headMesh.castShadow = true;
+        patientGroup.add(headMesh);
+
+        // Hair cap
+        const hairMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.128, 20, 20, 0, Math.PI * 2, 0, Math.PI * 0.52),
+            new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9 })
+        );
+        hairMesh.rotation.x = -Math.PI * 0.58;
+        hairMesh.position.set(0, 0.165, -0.79);
+        patientGroup.add(hairMesh);
+
+        // Right cheek flush indicator (for lobar pneumonia / fever)
+        const rightCheek = new THREE.Mesh(new THREE.SphereGeometry(0.032, 12, 12), cheekFlushMat);
+        rightCheek.position.set(-0.075, 0.18, -0.75);
+        patientGroup.add(rightCheek);
+
+        // Torso (Chest + Abdomen)
+        const chestMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.16, 0.44, 20), gownMat);
+        chestMesh.rotation.x = Math.PI / 2;
+        chestMesh.scale.set(1.15, 1, 0.72);
+        chestMesh.position.set(0, 0.12, -0.34);
+        chestMesh.castShadow = true;
+        patientGroup.add(chestMesh);
+
+        const abdomenMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.17, 0.36, 20), gownMat);
+        abdomenMesh.rotation.x = Math.PI / 2;
+        abdomenMesh.scale.set(1.12, 1, 0.72);
+        abdomenMesh.position.set(0, 0.11, 0.05);
+        abdomenMesh.castShadow = true;
+        patientGroup.add(abdomenMesh);
+
+        // Pelvis & Legs
+        const pelvisMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.16, 0.22, 20), pantsMat);
+        pelvisMesh.rotation.x = Math.PI / 2;
+        pelvisMesh.scale.set(1.12, 1, 0.72);
+        pelvisMesh.position.set(0, 0.11, 0.32);
+        patientGroup.add(pelvisMesh);
+
+        const leftLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.055, 0.76, 16), pantsMat);
+        leftLeg.rotation.x = Math.PI / 2;
+        leftLeg.position.set(0.1, 0.08, 0.78);
+        leftLeg.castShadow = true;
+        patientGroup.add(leftLeg);
+
+        const rightLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.055, 0.76, 16), pantsMat);
+        rightLeg.rotation.x = Math.PI / 2;
+        rightLeg.position.set(-0.1, 0.08, 0.78);
+        rightLeg.castShadow = true;
+        patientGroup.add(rightLeg);
+
+        // Arms
+        const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.04, 0.56, 14), skinMat);
+        leftArm.rotation.x = Math.PI / 2;
+        leftArm.position.set(0.25, 0.08, -0.24);
+        patientGroup.add(leftArm);
+
+        const rightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.04, 0.56, 14), skinMat);
+        rightArm.rotation.x = Math.PI / 2;
+        rightArm.position.set(-0.25, 0.08, -0.24);
+        patientGroup.add(rightArm);
+
+        // Interactive Raycast Anatomical Hitboxes (Gently highlighted on hover)
+        const hitboxMeshes = [];
+        function createHitbox(zoneKey, w, h, d, x, y, z) {
+            const mat = new THREE.MeshBasicMaterial({
+                color: 0x34d399,
+                transparent: true,
+                opacity: 0.0,
+                depthWrite: false
+            });
+            const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+            box.position.set(x, y, z);
+            box.userData.zoneKey = zoneKey;
+            patientGroup.add(box);
+            hitboxMeshes.push(box);
+            return box;
+        }
+
+        // Note: Patient lies supine with head at -Z (-0.78), feet at +Z (+1.1)
+        // Patient's anatomical RIGHT is -X, anatomical LEFT is +X
+        createHitbox('head',        0.34, 0.30, 0.34,  0.00, 0.16, -0.74);
+        createHitbox('lungs',       0.42, 0.26, 0.36,  0.00, 0.16, -0.36);
+        createHitbox('heart',       0.20, 0.28, 0.22,  0.08, 0.18, -0.36); // Precordial (left chest)
+        createHitbox('epigastrium', 0.38, 0.25, 0.22, -0.02, 0.15, -0.08);
+        createHitbox('abdomen',     0.38, 0.25, 0.28,  0.00, 0.15,  0.18);
+        createHitbox('lumbar',      0.48, 0.22, 0.34,  0.00, 0.09,  0.02); // Flanks / lumbar
+        createHitbox('limbs',       0.58, 0.22, 0.78,  0.00, 0.09,  0.75);
+
+        function applyPatientVisualCues(disease) {
+            const cue = disease.visualCue;
+            if (cue.jaundiced) {
+                skinMat.color.setHex(0xead07a);
+            } else if (cue.pale) {
+                skinMat.color.setHex(0xf8dfd0);
+            } else {
+                skinMat.color.setHex(0xf1c29b);
+            }
+            cheekFlushMat.opacity = cue.cheekFlush ? 0.55 : 0.0;
+
+            if (cue.swollenLegs) {
+                leftLeg.scale.set(1.38, 1, 1.32);
+                rightLeg.scale.set(1.38, 1, 1.32);
+            } else {
+                leftLeg.scale.set(1, 1, 1);
+                rightLeg.scale.set(1, 1, 1);
+            }
+        }
+
+        // ==========================================
+        // 6. FIRST-PERSON CONTROLS & VIRTUAL JOYSTICK
+        // ==========================================
+        let yaw = 0.62;
+        let pitch = -0.25;
+        const moveInput = { x: 0, y: 0 };
+        const keysPressed = {};
+
+        // Virtual Joystick Logic
+        const joystickZone = document.getElementById('joystick-zone');
+        const joystickKnob = document.getElementById('joystick-knob');
+        let joyActive = false;
+        let joyTouchId = null;
+        const maxJoyRadius = 38;
+
+        function updateJoystick(clientX, clientY) {
+            const rect = joystickZone.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            let dx = clientX - centerX;
+            let dy = clientY - centerY;
+            const dist = Math.hypot(dx, dy);
+            if (dist > maxJoyRadius) {
+                dx = (dx / dist) * maxJoyRadius;
+                dy = (dy / dist) * maxJoyRadius;
+            }
+            joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+            moveInput.x = dx / maxJoyRadius;
+            moveInput.y = -dy / maxJoyRadius; // Forward is positive
+        }
+
+        function resetJoystick() {
+            joyActive = false;
+            joyTouchId = null;
+            joystickKnob.style.transform = 'translate(0px, 0px)';
+            moveInput.x = 0;
+            moveInput.y = 0;
+        }
+
+        joystickZone.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            joyActive = true;
+            joyTouchId = e.pointerId;
+            joystickZone.setPointerCapture(e.pointerId);
+            updateJoystick(e.clientX, e.clientY);
+        });
+
+        joystickZone.addEventListener('pointermove', (e) => {
+            if (!joyActive || e.pointerId !== joyTouchId) return;
+            e.stopPropagation();
+            updateJoystick(e.clientX, e.clientY);
+        });
+
+        joystickZone.addEventListener('pointerup', (e) => {
+            if (e.pointerId === joyTouchId) resetJoystick();
+        });
+        joystickZone.addEventListener('pointercancel', resetJoystick);
+
+        // Look Controls (Drag / Swipe on Canvas + Optional PointerLock)
+        let isDraggingLook = false;
+        let lookPointerId = null;
+        let lastLookX = 0;
+        let lastLookY = 0;
+        let dragDistance = 0;
+
+        const canvasEl = renderer.domElement;
+
+        canvasEl.addEventListener('pointerdown', (e) => {
+            if (document.pointerLockElement === canvasEl) {
+                // Click while pointer-locked triggers examination if targeted
+                if (targetedZone) performExamination(targetedZone, activeTool);
+                return;
+            }
+            if (isDraggingLook) return;
+            isDraggingLook = true;
+            lookPointerId = e.pointerId;
+            lastLookX = e.clientX;
+            lastLookY = e.clientY;
+            dragDistance = 0;
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (document.pointerLockElement === canvasEl) {
+                yaw -= e.movementX * 0.0024;
+                pitch -= e.movementY * 0.0024;
+                pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitch));
+                return;
+            }
+            if (!isDraggingLook || e.pointerId !== lookPointerId) return;
+            const dx = e.clientX - lastLookX;
+            const dy = e.clientY - lastLookY;
+            dragDistance += Math.hypot(dx, dy);
+            lastLookX = e.clientX;
+            lastLookY = e.clientY;
+
+            yaw -= dx * 0.0038;
+            pitch -= dy * 0.0038;
+            pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitch));
+        });
+
+        window.addEventListener('pointerup', (e) => {
+            if (e.pointerId === lookPointerId) {
+                // If user tapped quickly without dragging (< 8px), examine targeted body part!
+                if (dragDistance < 8 && targetedZone) {
+                    performExamination(targetedZone, activeTool);
+                }
+                isDraggingLook = false;
+                lookPointerId = null;
+            }
+        });
+
+        // Optional PointerLock button for desktop users
+        document.getElementById('btn-pointer-lock').addEventListener('click', () => {
+            canvasEl.requestPointerLock();
+        });
+
+        // Keyboard WASD + Shortcuts (1-5 tools, Tab/M book, E/Space examine)
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            keysPressed[e.code] = true;
+
+            if (e.code === 'Digit1') selectTool('anamnesis');
+            else if (e.code === 'Digit2') selectTool('inspection');
+            else if (e.code === 'Digit3') selectTool('palpation');
+            else if (e.code === 'Digit4') selectTool('percussion');
+            else if (e.code === 'Digit5') selectTool('auscultation');
+            else if (e.code === 'KeyE' || e.code === 'Space') {
+                if (targetedZone && document.getElementById('medical-book-modal').classList.contains('hidden')) {
+                    e.preventDefault();
+                    performExamination(targetedZone, activeTool);
+                }
+            } else if (e.code === 'Tab' || e.code === 'KeyM') {
+                e.preventDefault();
+                toggleMedicalBook();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keysPressed[e.code] = false;
+        });
+
+        // Movement & Collision Bounds
+        function updatePlayerMovement(dt) {
+            let forward = moveInput.y;
+            let strafe = moveInput.x;
+
+            if (keysPressed['KeyW'] || keysPressed['ArrowUp']) forward += 1;
+            if (keysPressed['KeyS'] || keysPressed['ArrowDown']) forward -= 1;
+            if (keysPressed['KeyD'] || keysPressed['ArrowRight']) strafe += 1;
+            if (keysPressed['KeyA'] || keysPressed['ArrowLeft']) strafe -= 1;
+
+            const len = Math.hypot(forward, strafe);
+            if (len > 1) {
+                forward /= len;
+                strafe /= len;
+            }
+
+            if (len > 0.01) {
+                const speed = 2.6 * dt;
+                const sinY = Math.sin(yaw);
+                const cosY = Math.cos(yaw);
+
+                const moveX = (-sinY * forward + cosY * strafe) * speed;
+                const moveZ = (-cosY * forward - sinY * strafe) * speed;
+
+                let nextX = camera.position.x + moveX;
+                let nextZ = camera.position.z + moveZ;
+
+                // Ward walls bounds (-3.1 to +3.1)
+                nextX = Math.max(-3.05, Math.min(3.05, nextX));
+                nextZ = Math.max(-3.05, Math.min(3.05, nextZ));
+
+                // Bed collision AABB (x: [-0.78, 0.78], z: [-1.45, 1.05])
+                const inBedX = nextX > -0.78 && nextX < 0.78;
+                const inBedZ = nextZ > -1.45 && nextZ < 1.05;
+                if (!inBedX || !inBedZ) {
+                    camera.position.x = nextX;
+                    camera.position.z = nextZ;
+                } else {
+                    // Slide along bed edges
+                    if (!(camera.position.x > -0.78 && camera.position.x < 0.78)) {
+                        camera.position.z = nextZ;
+                    } else if (!(camera.position.z > -1.45 && camera.position.z < 1.05)) {
+                        camera.position.x = nextX;
+                    }
+                }
+            }
+
+            const euler = new THREE.Euler(pitch, yaw, 0, 'YXZ');
+            camera.quaternion.setFromEuler(euler);
+        }
+
+        // ==========================================
+        // 7. RAYCASTING & EXAMINATION LOGIC
+        // ==========================================
+        const raycaster = new THREE.Raycaster();
+        const centerNDC = new THREE.Vector2(0, 0);
+        const crosshairEl = document.getElementById('crosshair');
+        const targetBadgeEl = document.getElementById('target-badge');
+        const examineBtnEl = document.getElementById('btn-examine-action');
+        const examineBtnTextEl = document.getElementById('examine-btn-text');
+
+        function updateRaycaster() {
+            raycaster.setFromCamera(centerNDC, camera);
+            const hits = raycaster.intersectObjects(hitboxMeshes, false);
+
+            let hitZone = null;
+            if (hits.length > 0 && hits[0].distance < 3.4) {
+                hitZone = hits[0].object.userData.zoneKey;
+            }
+
+            hitboxMeshes.forEach(box => {
+                const isHovered = box.userData.zoneKey === hitZone;
+                box.material.opacity = isHovered ? 0.24 : 0.0;
+            });
+
+            if (hitZone !== targetedZone) {
+                targetedZone = hitZone;
+                if (targetedZone) {
+                    crosshairEl.classList.add('targeted');
+                    targetBadgeEl.textContent = ZONES[targetedZone];
+                    targetBadgeEl.classList.remove('opacity-0');
+                    examineBtnEl.classList.remove('hidden');
+                    examineBtnTextEl.textContent = `${METHODS[activeTool]}: ${ZONES[targetedZone]}`;
+                } else {
+                    crosshairEl.classList.remove('targeted');
+                    targetBadgeEl.classList.add('opacity-0');
+                    examineBtnEl.classList.add('hidden');
+                }
+            }
+        }
+
+        function selectTool(toolKey) {
+            activeTool = toolKey;
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                if (btn.dataset.tool === toolKey) {
+                    btn.classList.add('bg-sky-500', 'text-slate-950');
+                    btn.classList.remove('text-slate-300', 'hover:bg-slate-800');
+                } else {
+                    btn.classList.remove('bg-sky-500', 'text-slate-950');
+                    btn.classList.add('text-slate-300', 'hover:bg-slate-800');
+                }
+            });
+            if (targetedZone) {
+                examineBtnTextEl.textContent = `${METHODS[activeTool]}: ${ZONES[targetedZone]}`;
+            }
+        }
+
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', () => selectTool(btn.dataset.tool));
+        });
+
+        examineBtnEl.addEventListener('click', () => {
+            if (targetedZone) performExamination(targetedZone, activeTool);
+        });
+
+        // Finding Card UI Elements
+        const findingCardEl = document.getElementById('finding-card');
+        const findingMethodTagEl = document.getElementById('finding-method-tag');
+        const findingZoneTitleEl = document.getElementById('finding-zone-title');
+        const findingTextEl = document.getElementById('finding-text');
+        const findingSoundIndicatorEl = document.getElementById('finding-sound-indicator');
+        const btnReplaySound = document.getElementById('btn-replay-sound');
+        const btnRecordFinding = document.getElementById('btn-record-finding');
+        const recordBtnLabel = document.getElementById('record-btn-label');
+
+        function performExamination(zoneKey, methodKey) {
+            if (!currentDisease) return;
+
+            const rawFinding = currentDisease.findings[zoneKey][methodKey];
+            const text = typeof rawFinding === 'string' ? rawFinding : rawFinding.text;
+            const sound = typeof rawFinding === 'object' ? rawFinding.sound : null;
+
+            const signId = `${zoneKey}_${methodKey}`;
+            currentFinding = {
+                id: signId,
+                zoneKey,
+                zoneName: ZONES[zoneKey],
+                methodKey,
+                methodName: METHODS[methodKey],
+                text,
+                sound
+            };
+
+            findingMethodTagEl.textContent = METHODS[methodKey];
+            findingZoneTitleEl.textContent = ZONES[zoneKey];
+            findingTextEl.textContent = text;
+
+            if (sound) {
+                audio.play(sound);
+                findingSoundIndicatorEl.classList.remove('hidden');
+                btnReplaySound.classList.remove('hidden');
+            } else {
+                findingSoundIndicatorEl.classList.add('hidden');
+                btnReplaySound.classList.add('hidden');
+            }
+
+            updateRecordButtonState();
+            findingCardEl.classList.remove('translate-x-[120%]');
+        }
+
+        function updateRecordButtonState() {
+            if (!currentFinding) return;
+            const exists = recordedSigns.some(s => s.id === currentFinding.id);
+            if (exists) {
+                btnRecordFinding.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
+                btnRecordFinding.classList.add('bg-slate-700', 'text-emerald-300');
+                recordBtnLabel.textContent = 'Признак уже в карте ✓';
+            } else {
+                btnRecordFinding.classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+                btnRecordFinding.classList.remove('bg-slate-700', 'text-emerald-300');
+                recordBtnLabel.textContent = 'Зафиксировать в карту';
+            }
+        }
+
+        btnReplaySound.addEventListener('click', () => {
+            if (currentFinding && currentFinding.sound) {
+                audio.play(currentFinding.sound);
+            }
+        });
+
+        btnRecordFinding.addEventListener('click', () => {
+            if (!currentFinding) return;
+            if (!recordedSigns.some(s => s.id === currentFinding.id)) {
+                recordedSigns.push({ ...currentFinding });
+                updateRecordedCounters();
+                updateRecordButtonState();
+            }
+        });
+
+        document.getElementById('btn-close-finding').addEventListener('click', () => {
+            findingCardEl.classList.add('translate-x-[120%]');
+        });
+
+        function updateRecordedCounters() {
+            document.getElementById('recorded-count').textContent = recordedSigns.length;
+            document.getElementById('book-badge').textContent = recordedSigns.length;
+        }
+
+        // ==========================================
+        // 8. MEDICAL REFERENCE BOOK & DIAGNOSIS
+        // ==========================================
+        const bookModal = document.getElementById('medical-book-modal');
+        const diseaseListEl = document.getElementById('disease-list');
+        const diseaseDetailEl = document.getElementById('disease-detail-view');
+        const selectedDiagNameEl = document.getElementById('selected-diagnosis-name');
+        const diseaseSearchInput = document.getElementById('disease-search');
+
+        function toggleMedicalBook(forceState) {
+            const isHidden = bookModal.classList.contains('hidden');
+            const shouldOpen = forceState !== undefined ? forceState : isHidden;
+
+            if (shouldOpen) {
+                if (document.pointerLockElement) document.exitPointerLock();
+                renderPatientChart();
+                renderDiseaseList(diseaseSearchInput.value);
+                renderDiseaseDetail(selectedBookDiseaseId);
+                bookModal.classList.remove('hidden');
+            } else {
+                bookModal.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('btn-open-book').addEventListener('click', () => toggleMedicalBook(true));
+        document.getElementById('btn-close-book').addEventListener('click', () => toggleMedicalBook(false));
+
+        function renderPatientChart() {
+            const container = document.getElementById('recorded-list-container');
+            document.getElementById('chart-patient-meta').textContent = currentDisease ? currentDisease.patientInfo : '';
+
+            if (recordedSigns.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-slate-500 text-xs sm:text-sm leading-relaxed">
+                        Пока не зафиксировано ни одного признака.<br>
+                        Вернитесь в палату, наведите прицел на зону тела пациента и нажмите «Зафиксировать в карту».
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = recordedSigns.map(sign => `
+                <div class="bg-slate-900/90 border border-slate-700/70 rounded-xl p-3 space-y-1">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-sky-400">${sign.methodName}</span>
+                        <span class="text-[11px] text-slate-400">${sign.zoneName}</span>
+                    </div>
+                    <p class="text-xs text-slate-200 leading-relaxed">${sign.text}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderDiseaseList(filter = '') {
+            const q = filter.trim().toLowerCase();
+            const filtered = DISEASES.filter(d => {
+                if (!q) return true;
+                const blob = `${d.name} ${d.etiology} ${Object.values(d.summary).join(' ')}`.toLowerCase();
+                return blob.includes(q);
+            });
+
+            diseaseListEl.innerHTML = filtered.map((d, idx) => {
+                const isSelected = d.id === selectedBookDiseaseId;
+                return `
+                    <button data-did="${d.id}" class="disease-item w-full text-left px-3 py-2.5 rounded-xl text-xs transition cursor-pointer ${isSelected ? 'bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 font-semibold' : 'hover:bg-slate-800/80 text-slate-300 border border-transparent'}">
+                        <div class="truncate">${d.name}</div>
+                        <div class="text-[10px] text-slate-400 truncate mt-0.5">${d.etiology.split('/')[0]}</div>
+                    </button>
+                `;
+            }).join('');
+
+            diseaseListEl.querySelectorAll('.disease-item').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    selectedBookDiseaseId = btn.dataset.did;
+                    renderDiseaseList(diseaseSearchInput.value);
+                    renderDiseaseDetail(selectedBookDiseaseId);
+                });
+            });
+        }
+
+        diseaseSearchInput.addEventListener('input', (e) => {
+            renderDiseaseList(e.target.value);
+        });
+
+        function renderDiseaseDetail(diseaseId) {
+            const d = DISEASES.find(item => item.id === diseaseId) || DISEASES[0];
+            selectedBookDiseaseId = d.id;
+            selectedDiagNameEl.textContent = d.name;
+
+            diseaseDetailEl.innerHTML = `
+                <div class="border-b border-slate-800 pb-2.5">
+                    <h4 class="text-sm sm:text-base font-bold text-white">${d.name}</h4>
+                    <p class="text-[11px] text-amber-300/90 mt-0.5">${d.etiology}</p>
+                </div>
+                <div class="space-y-2.5">
+                    <div class="bg-slate-900/70 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-[11px] font-bold text-sky-400 uppercase mb-0.5">1. Опрос (жалобы и анамнез)</div>
+                        <p class="text-slate-200 leading-relaxed">${d.summary.anamnesis}</p>
+                    </div>
+                    <div class="bg-slate-900/70 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-[11px] font-bold text-sky-400 uppercase mb-0.5">2. Осмотр</div>
+                        <p class="text-slate-200 leading-relaxed">${d.summary.inspection}</p>
+                    </div>
+                    <div class="bg-slate-900/70 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-[11px] font-bold text-sky-400 uppercase mb-0.5">3. Пальпация</div>
+                        <p class="text-slate-200 leading-relaxed">${d.summary.palpation}</p>
+                    </div>
+                    <div class="bg-slate-900/70 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-[11px] font-bold text-sky-400 uppercase mb-0.5">4. Перкуссия</div>
+                        <p class="text-slate-200 leading-relaxed">${d.summary.percussion}</p>
+                    </div>
+                    <div class="bg-slate-900/70 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-[11px] font-bold text-sky-400 uppercase mb-0.5">5. Аускультация</div>
+                        <p class="text-slate-200 leading-relaxed">${d.summary.auscultation}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Submit Diagnosis & Evaluate
+        document.getElementById('btn-submit-diagnosis').addEventListener('click', () => {
+            if (!currentDisease) return;
+            const chosen = DISEASES.find(d => d.id === selectedBookDiseaseId);
+            const isCorrect = chosen.id === currentDisease.id;
+
+            const resultModal = document.getElementById('result-modal');
+            const resultIcon = document.getElementById('result-icon');
+            const resultTitle = document.getElementById('result-title');
+            const resultSubtitle = document.getElementById('result-subtitle');
+
+            if (isCorrect) {
+                resultIcon.textContent = '✓';
+                resultIcon.className = 'w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-400/40';
+                resultTitle.textContent = 'Диагноз поставлен верно!';
+                resultSubtitle.textContent = 'Отличная клиническая диагностика';
+            } else {
+                resultIcon.textContent = '✕';
+                resultIcon.className = 'w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold bg-rose-500/20 text-rose-400 border border-rose-400/40';
+                resultTitle.textContent = 'Диагноз расходится с клинической картиной';
+                resultSubtitle.textContent = 'Разбор ключевых симптомов пациента';
+            }
+
+            document.getElementById('result-user-diag').textContent = chosen.name;
+            document.getElementById('result-true-diag').textContent = currentDisease.name;
+            document.getElementById('result-completeness').textContent = `${recordedSigns.length} из 35 возможных обследований`;
+
+            const keySignsEl = document.getElementById('result-key-signs');
+            keySignsEl.innerHTML = Object.entries(currentDisease.summary).map(([mKey, val]) => `
+                <li class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800">
+                    <span class="font-bold text-sky-400">${METHODS[mKey]}:</span> ${val}
+                </li>
+            `).join('');
+
+            toggleMedicalBook(false);
+            resultModal.classList.remove('hidden');
+        });
+
+        // ==========================================
+        // 9. CASE INITIALIZATION & LOOP
+        // ==========================================
+        function startNewCase() {
+            if (usedDiseaseIds.length >= DISEASES.length) {
+                usedDiseaseIds = [];
+            }
+            const available = DISEASES.filter(d => !usedDiseaseIds.includes(d.id));
+            currentDisease = available[Math.floor(Math.random() * available.length)];
+            usedDiseaseIds.push(currentDisease.id);
+
+            recordedSigns = [];
+            currentFinding = null;
+            updateRecordedCounters();
+            findingCardEl.classList.add('translate-x-[120%]');
+
+            document.getElementById('case-number').textContent = caseCounter++;
+            document.getElementById('patient-header-info').textContent = currentDisease.patientInfo;
+
+            applyPatientVisualCues(currentDisease);
+
+            // Reset player position near bed
+            camera.position.set(1.55, 1.65, 1.85);
+            yaw = 0.65;
+            pitch = -0.24;
+        }
+
+        document.getElementById('btn-start-sim').addEventListener('click', () => {
+            audio.init();
+            document.getElementById('start-overlay').classList.add('hidden');
+            startNewCase();
+        });
+
+        document.getElementById('btn-next-patient').addEventListener('click', () => {
+            document.getElementById('result-modal').classList.add('hidden');
+            startNewCase();
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        let lastTime = performance.now();
+        let ecgTimer = 0;
+
+        function animate(now) {
+            requestAnimationFrame(animate);
+            const dt = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+
+            // Subtle patient breathing animation
+            const breath = Math.sin(now * 0.0032);
+            chestMesh.scale.z = 0.72 + breath * 0.035;
+            abdomenMesh.scale.z = 0.72 + breath * 0.025;
+
+            // Update ECG monitor at ~30fps
+            ecgTimer += dt;
+            if (ecgTimer > 0.033) {
+                ecgTimer = 0;
+                ecgPhase = (ecgPhase + 2.5) % 85;
+                updateECGTexture();
+            }
+
+            updatePlayerMovement(dt);
+            updateRaycaster();
+            renderer.render(scene, camera);
+        }
+
+        window.onload = () => {
+            startNewCase();
+            animate(performance.now());
+        };
+    </script>
+</body>
+</html>

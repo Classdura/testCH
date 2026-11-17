@@ -1,0 +1,2153 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Симулятор медицинской сестры: 10 манипуляций (3D)</title>
+  <style>
+    :root {
+      --bg-dark: #0b1320;
+      --panel-bg: rgba(15, 23, 42, 0.88);
+      --panel-border: rgba(56, 189, 248, 0.28);
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background: var(--bg-dark);
+      color: var(--text-main);
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      user-select: none;
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    /* HUD */
+    .hud-top {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .card {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 14px 18px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      pointer-events: auto;
+    }
+
+    .task-card {
+      max-width: 540px;
+      flex: 1;
+    }
+
+    .task-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.16);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .badge.dept {
+      background: rgba(16, 185, 129, 0.16);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+
+    .task-title {
+      font-size: 19px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #ffffff;
+    }
+
+    .task-desc {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.45;
+      margin-bottom: 10px;
+    }
+
+    .progress-bar-wrap {
+      width: 100%;
+      height: 7px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #0ea5e9, #10b981);
+      transition: width 0.35s ease;
+    }
+
+    .step-hint {
+      font-size: 13px;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    /* Status Card (Top Right) */
+    .status-card {
+      min-width: 290px;
+    }
+
+    .status-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    .asepsis-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .asepsis-pill {
+      font-size: 12px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+      transition: all 0.25s;
+    }
+
+    .asepsis-pill.active {
+      background: rgba(16, 185, 129, 0.16);
+      border-color: rgba(16, 185, 129, 0.45);
+      color: #6ee7b7;
+      font-weight: 600;
+    }
+
+    .asepsis-pill.warn {
+      background: rgba(245, 158, 11, 0.16);
+      border-color: rgba(245, 158, 11, 0.45);
+      color: #fcd34d;
+    }
+
+    .score-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Bottom Controls & Camera Views */
+    .hud-bottom {
+      position: fixed;
+      bottom: 14px;
+      left: 14px;
+      right: 14px;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 12px;
+      pointer-events: none;
+    }
+
+    .camera-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      pointer-events: auto;
+    }
+
+    .btn {
+      background: var(--panel-bg);
+      color: var(--text-main);
+      border: 1px solid var(--panel-border);
+      padding: 8px 13px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      backdrop-filter: blur(10px);
+    }
+
+    .btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .btn.primary {
+      background: var(--accent-hover);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn.primary:hover {
+      background: #0369a1;
+    }
+
+    .btn.small {
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+
+    .action-panel {
+      max-width: 560px;
+      pointer-events: auto;
+    }
+
+    .action-panel-title {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .action-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    /* Hover Tooltip in 3D */
+    #tooltip-3d {
+      position: fixed;
+      z-index: 20;
+      pointer-events: none;
+      background: rgba(15, 23, 42, 0.94);
+      border: 1px solid var(--accent);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+      display: none;
+      transform: translate(14px, 14px);
+    }
+
+    #tooltip-3d span {
+      display: block;
+      font-size: 11px;
+      font-weight: 400;
+      color: #7dd3fc;
+      margin-top: 2px;
+    }
+
+    /* Toast Feedback */
+    #feedback-toast {
+      position: fixed;
+      top: 155px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-10px);
+      z-index: 30;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      max-width: 560px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.28s ease;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+    }
+
+    #feedback-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    #feedback-toast.ok {
+      background: rgba(6, 78, 59, 0.95);
+      border: 1px solid #10b981;
+      color: #ecfdf5;
+    }
+
+    #feedback-toast.err {
+      background: rgba(127, 29, 29, 0.96);
+      border: 1px solid #ef4444;
+      color: #fef2f2;
+    }
+
+    /* Modal (Angle selector / Completion / Rules) */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.78);
+      backdrop-filter: blur(6px);
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-box {
+      background: #0f172a;
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    }
+
+    .modal-box h2 {
+      font-size: 20px;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+
+    .modal-box p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    .choice-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .choice-btn {
+      text-align: left;
+      padding: 11px 14px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #f8fafc;
+      font-size: 13.5px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .choice-btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent);
+    }
+
+    .log-drawer {
+      margin-top: 8px;
+      max-height: 92px;
+      overflow-y: auto;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 6px;
+    }
+
+    .log-entry {
+      margin-bottom: 3px;
+    }
+    .log-entry.good { color: #34d399; }
+    .log-entry.bad { color: #f87171; }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  <div id="tooltip-3d">Инструмент<span>Нажмите, чтобы использовать</span></div>
+  <div id="feedback-toast"></div>
+
+  <!-- TOP HUD -->
+  <div class="hud-top">
+    <div class="card task-card">
+      <div class="task-header">
+        <div>
+          <span class="badge" id="proc-counter">Манипуляция 1 / 10</span>
+          <span class="badge dept" id="proc-dept">Процедурный кабинет</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn small" id="btn-hint" title="Показать подсказку текущего шага">Подсказка</button>
+          <button class="btn small" id="btn-shuffle" title="Перемешать 10 манипуляций заново">Перемешать</button>
+        </div>
+      </div>
+      <div class="task-title" id="proc-title">Загрузка...</div>
+      <div class="task-desc" id="proc-desc">Подготовка кабинета...</div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" id="proc-progress"></div>
+      </div>
+      <div class="step-hint">
+        <span id="step-status">Шаг 1: Выполните первое действие по алгоритму</span>
+        <span id="step-fraction" style="color:var(--accent); font-weight:700;">0/0</span>
+      </div>
+      <div class="log-drawer" id="action-log"></div>
+    </div>
+
+    <div class="card status-card">
+      <div class="status-title">Контроль санэпидрежима</div>
+      <div class="asepsis-grid">
+        <div class="asepsis-pill" id="pill-hands">🧼 Руки: не мыты</div>
+        <div class="asepsis-pill" id="pill-gloves">🧤 Перчатки: нет</div>
+        <div class="asepsis-pill" id="pill-needle">💉 Игла: на шприце</div>
+        <div class="asepsis-pill" id="pill-tourniquet">🎗️ Жгут: снят</div>
+      </div>
+      <div class="score-row">
+        <span>Ошибки асептики: <strong id="err-count" style="color:#f87171;">0</strong></span>
+        <span>Пройдено: <strong id="done-count" style="color:#34d399;">0 / 10</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM HUD -->
+  <div class="hud-bottom">
+    <div class="camera-bar">
+      <button class="btn" data-cam="overview">🏥 Общий вид</button>
+      <button class="btn" data-cam="sink">🚰 Мойка и антисептик</button>
+      <button class="btn" data-cam="table">🧰 Манипуляционный стол</button>
+      <button class="btn" data-cam="patient">🛏️ Кушетка пациента</button>
+      <button class="btn" data-cam="sterile">✨ Стерильный стол</button>
+    </div>
+
+    <div class="card action-panel">
+      <div class="action-panel-title">
+        <span>Кликайте по 3D-объектам в кабинете или выберите действие ниже:</span>
+        <span style="color:#7dd3fc;">ЛКМ — вращение · Колесо — зум</span>
+      </div>
+      <div class="action-buttons" id="quick-actions"></div>
+    </div>
+  </div>
+
+  <!-- MODAL FOR CLINICAL DECISIONS / COMPLETION -->
+  <div class="modal-backdrop" id="modal-backdrop">
+    <div class="modal-box">
+      <h2 id="modal-title">Выбор техники выполнения</h2>
+      <p id="modal-text">Уточните параметр выполнения манипуляции согласно стандарту:</p>
+      <div class="choice-list" id="modal-choices"></div>
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button class="btn" id="modal-close" style="display:none;">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- THREE.JS IMPORT MAP -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.160.0",
+        "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // =========================================================================
+    // 1. БАЗА ДАННЫХ 10 МАНИПУЛЯЦИЙ МЕДСЕСТРЫ РАЗЛИЧНЫХ ОТДЕЛЕНИЙ
+    // =========================================================================
+    const PROCEDURES_DB = [
+      {
+        id: 'hand_hygiene',
+        title: '1. Гигиеническая обработка (мытье) и антисептика рук',
+        dept: 'Все отделения стационара',
+        desc: 'Перед проведением инвазивных процедур и после контакта с пациентом выполните двукратное мытье рук с мылом и гигиеническую антисептику.',
+        camera: 'sink',
+        steps: [
+          {
+            action: 'sink_soap',
+            label: 'Вымыть руки с жидким бактерицидным мылом (6 движений)',
+            hint: 'Нажмите на раковину с мылом (зона мойки слева).',
+            feedback: 'Руки тщательно намылены по схеме (ладони, тыл кистей, межпальцевые промежутки, ногтевые валики) и ополоснуты.'
+          },
+          {
+            action: 'paper_towel',
+            label: 'Осушить руки одноразовым бумажным полотенцем',
+            hint: 'Кликните по диспенсеру бумажных полотенец рядом с раковиной.',
+            feedback: 'Руки осушены одноразовой салфеткой; кран закрыт локтем/салфеткой.'
+          },
+          {
+            action: 'antiseptic_hands',
+            label: 'Обработать кожу рук кожным антисептиком (30 сек)',
+            hint: 'Нажмите на дозатор с кожным антисептиком у раковины.',
+            feedback: 'Гигиеническая антисептика завершена, антисептик втерт до полного высыхания.'
+          },
+          {
+            action: 'gloves_box',
+            label: 'Надеть стерильные одноразовые перчатки',
+            hint: 'Возьмите стерильные перчатки из коробки на краю стола.',
+            feedback: 'Стерильные перчатки надеты. Вы готовы к работе!'
+          }
+        ]
+      },
+      {
+        id: 'bp_measure',
+        title: '2. Измерение артериального давления (метод Короткова)',
+        dept: 'Терапевтическое / кардиологическое отделение',
+        desc: 'Измерьте АД пациенту в положении лежа/сидя с соблюдением правил наложения манжеты и выслушивания тонов Короткова.',
+        camera: 'patient',
+        steps: [
+          {
+            action: 'antiseptic_hands',
+            label: 'Обработать руки кожным антисептиком',
+            hint: 'Перед контактом с пациентом обработайте руки антисептиком.',
+            feedback: 'Руки обработаны антисептиком.'
+          },
+          {
+            action: 'tourniquet_or_cuff',
+            targetAction: 'bp_cuff',
+            label: 'Наложить манжету тонометра на плечо (на 2–2,5 см выше локтевого сгиба)',
+            hint: 'Кликните по манжете тонометра на манипуляционном столе.',
+            feedback: 'Манжета наложена на уровне сердца, нижний край на 2 см выше локтевой ямки, проходит 1 палец.'
+          },
+          {
+            action: 'stethoscope',
+            label: 'Установить фонендоскоп в локтевую ямку над плечевой артерией',
+            hint: 'Возьмите фонендоскоп со стола.',
+            feedback: 'Мембрана фонендоскопа плотно приложена без сильного давления в проекции плечевой артерии.'
+          },
+          {
+            action: 'bp_bulb',
+            label: 'Накачать воздух грушей и стравливать со скоростью 2 мм рт. ст./сек',
+            hint: 'Нажмите на грушу тонометра с манометром.',
+            modal: {
+              title: 'Оценка тонов Короткова',
+              text: 'Вы накачали манжету на +30 мм рт. ст. выше исчезновения пульса и медленно выпускаете воздух. Какие фазы соответствуют систолическому и диастолическому АД?',
+              options: [
+                { text: 'I фаза (появление первых тонов) — САД; V фаза (полное исчезновение тонов) — ДАД', correct: true },
+                { text: 'II фаза (слабые шумы) — САД; III фаза (громкие шумы) — ДАД', correct: false, reason: 'Неверно! Систолическое АД фиксируется по I фазе (появление 1-го тона), а диастолическое — по V фазе (исчезновение тонов).' },
+                { text: 'Максимальное колебание стрелки манометра без фонендоскопа', correct: false, reason: 'При аускультативном методе Короткова ориентируются исключительно на звуковые тоны.' }
+              ]
+            },
+            feedback: 'АД измерено верно: 125/80 мм рт. ст. (вариант нормы). Данные занесены в температурный лист.'
+          }
+        ]
+      },
+      {
+        id: 'antibiotic_dilute',
+        title: '3. Разведение антибиотика во флаконе (ex tempore)',
+        dept: 'Процедурный кабинет',
+        desc: 'Подготовьте раствор антибиотика (Цефтриаксон 1,0 г) во флаконе со строгим соблюдением асептики и правилом смены иглы.',
+        camera: 'table',
+        steps: [
+          {
+            action: 'sink_soap',
+            label: 'Вымыть руки и обработать антисептиком',
+            hint: 'Начните с обработки рук (раковина или антисептик).',
+            allowAlt: ['antiseptic_hands'],
+            feedback: 'Руки подготовлены по стандарту.'
+          },
+          {
+            action: 'gloves_box',
+            label: 'Надеть стерильные перчатки',
+            hint: 'Наденьте перчатки перед вскрытием флакона и шприца.',
+            feedback: 'Стерильные перчатки надеты.'
+          },
+          {
+            action: 'alcohol_balls',
+            label: 'Обработать резиновую пробку флакона шариком с 70% спиртом',
+            hint: 'Кликните по баночке со спиртовыми шариками, чтобы продезинфицировать пробку флакона.',
+            feedback: 'Алюминиевый колпачок вскрыт, резиновая пробка обработана 70% спиртом.'
+          },
+          {
+            action: 'syringe_5ml',
+            label: 'Набрать растворитель (NaCl 0,9%) и ввести во флакон с порошком',
+            hint: 'Выберите шприц 5 мл на столе для набора растворителя и разведения порошка.',
+            feedback: 'Растворитель введен во флакон, порошок полностью растворен легким покачиванием, раствор набран в шприц.'
+          },
+          {
+            action: 'spare_needle',
+            label: 'Заменить иглу на новую стерильную (после прокола пробки флакона)',
+            hint: 'Обязательно возьмите запасную стерильную иглу на столе!',
+            feedback: 'Игла заменена на стерильную инъекционную, воздух из шприца вытеснен. Шприц готов к инъекции!'
+          }
+        ]
+      },
+      {
+        id: 'im_injection',
+        title: '4. Внутримышечная инъекция в верхненаружный квадрант ягодицы',
+        dept: 'Терапевтическое / неврологическое отделение',
+        desc: 'Выполните внутримышечную инъекцию пациенту, выбрав безопасную анатомическую зону и правильный угол введения иглы.',
+        camera: 'patient',
+        steps: [
+          {
+            action: 'antiseptic_hands',
+            label: 'Обработать руки и надеть стерильные перчатки',
+            hint: 'Сначала обработайте руки антисептиком.',
+            feedback: 'Руки обработаны антисептиком.'
+          },
+          {
+            action: 'gloves_box',
+            label: 'Надеть стерильные перчатки',
+            hint: 'Наденьте стерильные перчатки.',
+            feedback: 'Перчатки надеты.'
+          },
+          {
+            action: 'alcohol_balls',
+            label: 'Двукратно обработать кожу верхненаружного квадранта спиртом',
+            hint: 'Кликните по спиртовым шарикам для обработки инъекционного поля (сначала широко, затем место вкола).',
+            feedback: 'Инъекционное поле двукратно обработано 70% спиртом в одном направлении.'
+          },
+          {
+            action: 'patient_glute',
+            label: 'Выполнить вкол иглы в верхненаружный квадрант и ввести препарат',
+            hint: 'Кликните по зоне ягодицы пациента на кушетке.',
+            modal: {
+              title: 'Техника внутримышечной инъекции',
+              text: 'Выберите правильный угол введения иглы и глубину погружения при внутримышечной инъекции в ягодичную область:',
+              options: [
+                { text: 'Под углом 90° (перпендикулярно коже) на 2/3 длины иглы с аспирационной пробой', correct: true },
+                { text: 'Под углом 15° (почти параллельно коже) только на длину среза иглы', correct: false, reason: 'Угол 15° используется для внутрикожной инъекции (проба Манту), а не внутримышечной!' },
+                { text: 'Под углом 45° на 15 мм в кожную складку', correct: false, reason: 'Угол 45° на глубину 15 мм — это техника подкожной инъекции.' }
+              ]
+            },
+            feedback: 'Игла введена под углом 90°, крови при аспирации нет, препарат введен медленно.'
+          },
+          {
+            action: 'sharps_container',
+            label: 'Сбросить использованный шприц в непрокалываемый контейнер класса Б',
+            hint: 'Утилизируйте шприц в желтый контейнер для медицинских отходов класса Б.',
+            feedback: 'Шприц утилизирован в контейнер класса Б без надевания колпачка на использованную иглу!'
+          }
+        ]
+      },
+      {
+        id: 'iv_injection',
+        title: '5. Внутривенная струйная инъекция',
+        dept: 'Процедурный кабинет',
+        desc: 'Выполните венепункцию локтевой вены, не забыв вовремя снять жгут перед введением лекарственного средства.',
+        camera: 'patient',
+        steps: [
+          {
+            action: 'antiseptic_hands',
+            label: 'Обработать руки антисептиком',
+            hint: 'Обработайте руки кожным антисептиком.',
+            feedback: 'Руки обработаны.'
+          },
+          {
+            action: 'gloves_box',
+            label: 'Надеть стерильные перчатки',
+            hint: 'Наденьте перчатки перед работой с веной.',
+            feedback: 'Перчатки надеты.'
+          },
+          {
+            action: 'tourniquet',
+            label: 'Наложить венозный жгут на среднюю треть плеча (на салфетку/одежду)',
+            hint: 'Возьмите резиновый жгут со стола.',
+            feedback: 'Жгут наложен, пульс на лучевой артерии сохранен, пациент поработал кулаком.'
+          },
+          {
+            action: 'alcohol_balls',
+            label: 'Двукратно обработать кожу локтевого сгиба 70% спиртом',
+            hint: 'Используйте спиртовые шарики для обработки области венепункции.',
+            feedback: 'Кожа обработана дважды (4×8 см и непосредственно место пункции).'
+          },
+          {
+            action: 'patient_arm',
+            label: 'Выполнить венепункцию, снять жгут и ввести препарат',
+            hint: 'Кликните по локтевому сгибу руки пациента.',
+            modal: {
+              title: 'Критическое правило внутривенной инъекции',
+              text: 'Вы прокололи вену, потянули поршень на себя — в шприце появилась темная венозная кровь. Что необходимо сделать ДО нажатия на поршень для введения лекарства?',
+              options: [
+                { text: 'Развязать (снять) жгут и попросить пациента разжать кулак, затем медленно ввести препарат', correct: true },
+                { text: 'Ввести весь препарат при затянутом жгуте, а затем снять жгут', correct: false, reason: 'Опасно! Введение препарата при затянутом жгуте создает высокое давление в вене и приводит к ее разрыву и гематоме.' },
+                { text: 'Вытащить иглу на половину длины, не снимая жгута', correct: false, reason: 'Игла выйдет из просвета вены, препарат попадет под кожу.' }
+              ]
+            },
+            feedback: 'Жгут снят до введения раствора, лекарство введено медленно без осложнений.'
+          },
+          {
+            action: 'sharps_container',
+            label: 'Утилизировать шприц в контейнер для отходов класса Б',
+            hint: 'Нажмите на желтый контейнер утилизации.',
+            feedback: 'Использованный шприц безопасно утилизирован в контейнер класса Б.'
+          }
+        ]
+      },
+      {
+        id: 'iv_drip',
+        title: '6. Заполнение системы и постановка внутривенной капельницы',
+        dept: 'Реанимация / терапевтическое отделение',
+        desc: 'Соберите и заполните инфузионную систему, полностью вытеснив пузырьки воздуха, и подключите капельницу пациенту.',
+        camera: 'table',
+        steps: [
+          {
+            action: 'antiseptic_hands',
+            label: 'Обработать руки и надеть стерильные перчатки',
+            hint: 'Сначала обработайте руки антисептиком.',
+            feedback: 'Руки обработаны.'
+          },
+          {
+            action: 'gloves_box',
+            label: 'Надеть стерильные перчатки',
+            hint: 'Наденьте стерильные перчатки.',
+            feedback: 'Перчатки надеты.'
+          },
+          {
+            action: 'iv_system',
+            label: 'Вскрыть систему, заполнить капельницу до половины и вытеснить воздух',
+            hint: 'Кликните по упаковке одноразовой инфузионной системы на столе.',
+            modal: {
+              title: 'Профилактика воздушной эмболии',
+              text: 'Как правильно заполнить систему для внутривенного капельного вливания перед подключением к пациенту?',
+              options: [
+                { text: 'Заполнить резервуар капельницы до половины, затем медленно заполнить трубку до полного вытеснения воздуха и появления капель из иглы', correct: true },
+                { text: 'Подключить пустую трубку к вене пациента, чтобы воздух вышел сам при открытии зажима', correct: false, reason: 'Категорически запрещено! Попадание воздуха в вену вызывает смертельно опасную воздушную эмболию.' },
+                { text: 'Заполнить капельницу до самого верха, чтобы не было видно падения капель', correct: false, reason: 'Если капельница заполнена доверху, невозможно контролировать скорость капель!' }
+              ]
+            },
+            feedback: 'Система заполнена раствором (NaCl 0,9% 200 мл), пузырьки воздуха полностью удалены, штатив подготовлен.'
+          },
+          {
+            action: 'tourniquet',
+            label: 'Наложить жгут на плечо пациента и обработать локтевой сгиб',
+            hint: 'Возьмите венозный жгут со стола.',
+            feedback: 'Жгут наложен, кожа локтевого сгиба двукратно обработана спиртом.'
+          },
+          {
+            action: 'patient_arm',
+            label: 'Пунктировать вену, снять жгут, зафиксировать иглу и отрегулировать капли',
+            hint: 'Кликните по руке пациента для подключения инфузионной системы.',
+            feedback: 'Капельница подключена и зафиксирована пластырем, скорость настроена (40–60 капель/мин).'
+          }
+        ]
+      },
+      {
+        id: 'blood_draw',
+        title: '7. Взятие венозной крови на биохимическое исследование',
+        dept: 'Процедурный кабинет',
+        desc: 'Произведите забор венозной крови из локтевой вены в пробирку с соблюдением правил безопасности при работе с кровью.',
+        camera: 'patient',
+        steps: [
+          {
+            action: 'antiseptic_hands',
+            label: 'Обработать руки и надеть перчатки',
+            hint: 'Обработайте руки антисептиком.',
+            feedback: 'Руки обработаны.'
+          },
+          {
+            action: 'gloves_box',
+            label: 'Надеть перчатки (защита от гемоконтактных инфекций)',
+            hint: 'Наденьте перчатки перед забором крови.',
+            feedback: 'Перчатки надеты.'
+          },
+          {
+            action: 'tourniquet',
+            label: 'Наложить жгут на плечо (не более чем на 1 минуту)',
+            hint: 'Возьмите жгут со стола.',
+            feedback: 'Жгут наложен, вена контурируется.'
+          },
+          {
+            action: 'alcohol_balls',
+            label: 'Двукратно обработать кожу спиртом и дождаться высыхания',
+            hint: 'Используйте ватные шарики с 70% спиртом.',
+            feedback: 'Кожа обработана и высохла (чтобы избежать гемолиза эритроцитов от спирта).'
+          },
+          {
+            action: 'patient_arm',
+            label: 'Выполнить венепункцию, набрать кровь, снять жгут ДО извлечения иглы',
+            hint: 'Кликните по руке пациента для забора крови.',
+            feedback: 'Кровь набрана, жгут развязан ДО извлечения иглы, место пункции прижато спиртовым шариком.'
+          },
+          {
+            action: 'sharps_container',
+            label: 'Сбросить иглу в контейнер класса Б и поместить пробирку в штатив',
+            hint: 'Утилизируйте иглу в желтый контейнер.',
+            feedback: 'Игла утилизирована, пробирка промаркирована для лаборатории.'
+          }
+        ]
+      },
+      {
+        id: 'sterile_table',
+        title: '8. Накрытие стерильного манипуляционного стола',
+        dept: 'Перевязочный / процедурный кабинет',
+        desc: 'Подготовьте стерильный стол для перевязок на 6 часов работы, используя стерильные простыни и стерильный пинцет.',
+        camera: 'sterile',
+        steps: [
+          {
+            action: 'sink_soap',
+            label: 'Провести гигиеническое мытье и антисептику рук',
+            hint: 'Начните с мытья рук у раковины.',
+            allowAlt: ['antiseptic_hands'],
+            feedback: 'Руки тщательно вымыты и обработаны антисептиком.'
+          },
+          {
+            action: 'gloves_box',
+            label: 'Надеть стерильные перчатки',
+            hint: 'Наденьте стерильные перчатки.',
+            feedback: 'Стерильные перчатки надеты.'
+          },
+          {
+            action: 'sterile_sheet',
+            label: 'Взять стерильную простыню из бикса/упаковки и застелить стол в 4 слоя',
+            hint: 'Кликните по упаковке стерильных простыней на столе.',
+            feedback: 'Стерильный стол выстлан стерильными простынями в 4 слоя с запасом краев.'
+          },
+          {
+            action: 'sterile_forceps',
+            label: 'Разложить стерильные инструменты стерильным пинцетом и прикрепить бирку',
+            hint: 'Кликните по стерильному столу справа для раскладки инструментов.',
+            feedback: 'Инструменты разложены стерильным пинцетом, накрыты верхней простыней, прикреплена бирка с датой и временем.'
+          }
+        ]
+      },
+      {
+        id: 'intradermal_mantu',
+        title: '9. Внутрикожная инъекция (диагностическая проба Манту)',
+        dept: 'Прививочный / процедурный кабинет',
+        desc: 'Выполните внутрикожное введение 0,1 мл туберкулина в среднюю треть внутренней поверхности предплечья.',
+        camera: 'patient',
+        steps: [
+          {
+            action: 'antiseptic_hands',
+            label: 'Обработать руки и надеть стерильные перчатки',
+            hint: 'Обработайте руки кожным антисептиком.',
+            feedback: 'Руки обработаны.'
+          },
+          {
+            action: 'gloves_box',
+            label: 'Надеть стерильные перчатки',
+            hint: 'Наденьте перчатки.',
+            feedback: 'Перчатки надеты.'
+          },
+          {
+            action: 'tuberculin_syringe',
+            label: 'Набрать 0,1 мл препарата в туберкулиновый шприц (1 мл)',
+            hint: 'Выберите тонкий туберкулиновый/инсулиновый шприц (1 мл) на столе.',
+            feedback: 'В шприц 1 мл с ценой деления 0,01 мл набрано 0,1 мл препарата.'
+          },
+          {
+            action: 'patient_arm',
+            label: 'Ввести иглу внутрикожно под углом 15° до образования «лимонной корочки»',
+            hint: 'Кликните по внутренней поверхности предплечья пациента.',
+            modal: {
+              title: 'Завершение внутрикожной пробы Манту',
+              text: 'На коже предплечья образовалась белесоватая папула («лимонная корочка») диаметром 7 мм. Как правильно извлечь иглу?',
+              options: [
+                { text: 'Извлечь иглу, НЕ прижимая место инъекции ватным шариком со спиртом', correct: true },
+                { text: 'Плотно прижать спиртовой шарик и помассировать папулу', correct: false, reason: 'Ошибка! Прижатие и массаж спиртом выдавливают препарат из кожи и искажают результат аллергической пробы.' },
+                { text: 'Заклеить папулу герметичным лейкопластырем на 72 часа', correct: false, reason: 'Заклеивать папулу пластырем нельзя — это вызывает мацерацию кожи и ложноположительную реакцию.' }
+              ]
+            },
+            feedback: 'Проба выполнена безупречно: папула «лимонная корочка» сформирована, спиртом не прижата.'
+          }
+        ]
+      },
+      {
+        id: 'sc_injection',
+        title: '10. Подкожная инъекция (введение инсулина / гепарина)',
+        dept: 'Эндокринологическое / хирургическое отделение',
+        desc: 'Выполните подкожную инъекцию в кожную складку под углом 45° после обработки инъекционного поля.',
+        camera: 'patient',
+        steps: [
+          {
+            action: 'antiseptic_hands',
+            label: 'Обработать руки антисептиком',
+            hint: 'Обработайте руки антисептиком.',
+            feedback: 'Руки обработаны.'
+          },
+          {
+            action: 'gloves_box',
+            label: 'Надеть стерильные перчатки',
+            hint: 'Наденьте перчатки.',
+            feedback: 'Перчатки надеты.'
+          },
+          {
+            action: 'alcohol_balls',
+            label: 'Двукратно обработать кожу плеча/живота 70% спиртом',
+            hint: 'Используйте ватные шарики со спиртом.',
+            feedback: 'Кожа обработана, спирт высох (важно при введении инсулина, так как спирт разрушает гормон).'
+          },
+          {
+            action: 'patient_arm',
+            label: 'Собрать кожу в треугольную складку и ввести иглу под углом 45°',
+            hint: 'Кликните по области плеча/предплечья пациента.',
+            feedback: 'Игла введена в основание кожной складки под углом 45° на глубину 15 мм, препарат введен.'
+          },
+          {
+            action: 'sharps_container',
+            label: 'Утилизировать использованный шприц в контейнер класса Б',
+            hint: 'Нажмите на желтый контейнер класса Б.',
+            feedback: 'Шприц утилизирован по правилам санэпидрежима.'
+          }
+        ]
+      }
+    ];
+
+    // =========================================================================
+    // 2. ИНИЦИАЛИЗАЦИЯ THREE.JS СЦЕНЫ И ОСВЕЩЕНИЯ
+    // =========================================================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0f172a);
+    scene.fog = new THREE.Fog(0x0f172a, 10, 24);
+
+    const camera = new THREE.PerspectiveCamera(46, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 3.6, 5.4);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.maxPolarAngle = Math.PI * 0.48;
+    controls.minDistance = 1.1;
+    controls.maxDistance = 10.5;
+    controls.target.set(0, 1.0, 0);
+
+    // Освещение медицинского кабинета
+    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x1e293b, 0.85);
+    scene.add(hemiLight);
+
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.15);
+    mainLight.position.set(3.5, 6.5, 4.0);
+    mainLight.castShadow = true;
+    mainLight.shadow.mapSize.width = 2048;
+    mainLight.shadow.mapSize.height = 2048;
+    mainLight.shadow.camera.near = 0.5;
+    mainLight.shadow.camera.far = 20;
+    const d = 5.5;
+    mainLight.shadow.camera.left = -d;
+    mainLight.shadow.camera.right = d;
+    mainLight.shadow.camera.top = d;
+    mainLight.shadow.camera.bottom = -d;
+    scene.add(mainLight);
+
+    const fillLight = new THREE.PointLight(0x38bdf8, 0.45, 12);
+    fillLight.position.set(-3.5, 2.8, -2.5);
+    scene.add(fillLight);
+
+    // =========================================================================
+    // 3. ПРОЦЕДУРНЫЕ ТЕКСТУРЫ И МАТЕРИАЛЫ
+    // =========================================================================
+    function makeLabelTexture(text, bg = '#ffffff', fg = '#0f172a', border = '#0284c7') {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, 256, 128);
+      ctx.strokeStyle = border;
+      ctx.lineWidth = 8;
+      ctx.strokeRect(4, 4, 248, 120);
+      ctx.fillStyle = fg;
+      ctx.font = 'bold 24px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const lines = text.split('\n');
+      lines.forEach((line, idx) => {
+        ctx.fillText(line, 128, 64 + (idx - (lines.length - 1) / 2) * 30);
+      });
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    const matSteel = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.78, roughness: 0.24 });
+    const matChrome = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.9, roughness: 0.14 });
+    const matWhitePlastic = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.35 });
+    const matBlueMedical = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.45 });
+    const matTealScrub = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.65 });
+    const matSkin = new THREE.MeshStandardMaterial({ color: 0xf1c29b, roughness: 0.55 });
+    const matGlass = new THREE.MeshPhysicalMaterial({
+      color: 0xe0f2fe,
+      transparent: true,
+      opacity: 0.48,
+      roughness: 0.1,
+      transmission: 0.4
+    });
+
+    // =========================================================================
+    // 4. ПОСТРОЕНИЕ 3D КАБИНЕТА И ИНТЕРАКТИВНЫХ ОБЪЕКТОВ
+    // =========================================================================
+    const interactiveObjects = [];
+    const highlightables = new Map(); // actionId -> mesh[]
+
+    function registerInteractive(mesh, actionId, title, subtitle) {
+      mesh.userData = { actionId, title, subtitle };
+      interactiveObjects.push(mesh);
+      if (!highlightables.has(actionId)) highlightables.set(actionId, []);
+      highlightables.get(actionId).push(mesh);
+    }
+
+    // Пол и стены процедурного кабинета
+    const floorGeo = new THREE.PlaneGeometry(14, 14);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const grid = new THREE.GridHelper(14, 28, 0x334155, 0x1e293b);
+    grid.position.y = 0.002;
+    scene.add(grid);
+
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xdbeafe, roughness: 0.9 });
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(14, 4.2, 0.2), wallMat);
+    backWall.position.set(0, 2.1, -3.5);
+    backWall.receiveShadow = true;
+    scene.add(backWall);
+
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4.2, 10), wallMat);
+    leftWall.position.set(-5.2, 2.1, 1.0);
+    leftWall.receiveShadow = true;
+    scene.add(leftWall);
+
+    // --- ЗОНА 1: МОЙКА И АНТИСЕПТИКА РУК (слева) ---
+    const sinkGroup = new THREE.Group();
+    sinkGroup.position.set(-3.4, 0, -1.8);
+    scene.add(sinkGroup);
+
+    const cabinet = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.85, 0.75), matWhitePlastic);
+    cabinet.position.y = 0.425;
+    cabinet.castShadow = true;
+    cabinet.receiveShadow = true;
+    sinkGroup.add(cabinet);
+
+    const basin = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.16, 0.58), matSteel);
+    basin.position.set(0, 0.9, 0);
+    basin.castShadow = true;
+    sinkGroup.add(basin);
+
+    const faucet = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.35, 16), matSteel);
+    faucet.position.set(0, 1.1, -0.22);
+    sinkGroup.add(faucet);
+
+    const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.22, 16), matSteel);
+    spout.rotation.x = Math.PI / 2;
+    spout.position.set(0, 1.25, -0.12);
+    sinkGroup.add(spout);
+
+    // Дозатор мыла
+    const soapBottle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.07, 0.07, 0.22, 16),
+      new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.3 })
+    );
+    soapBottle.position.set(-0.38, 1.05, -0.15);
+    soapBottle.castShadow = true;
+    sinkGroup.add(soapBottle);
+    registerInteractive(basin, 'sink_soap', 'Раковина и бактерицидное мыло', 'Гигиеническое мытье рук (6 движений)');
+    registerInteractive(soapBottle, 'sink_soap', 'Жидкое бактерицидное мыло', 'Нажмите, чтобы вымыть руки с мылом');
+
+    // Дозатор кожного антисептика
+    const antisepticBottle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.075, 0.075, 0.25, 16),
+      new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.3 })
+    );
+    antisepticBottle.position.set(0.38, 1.06, -0.15);
+    antisepticBottle.castShadow = true;
+    sinkGroup.add(antisepticBottle);
+    registerInteractive(antisepticBottle, 'antiseptic_hands', 'Кожный антисептик', 'Обработка рук антисептиком (30 секунд)');
+
+    // Диспенсер бумажных полотенец на стене
+    const towelBox = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.42, 0.16), matWhitePlastic);
+    towelBox.position.set(-0.55, 1.55, -0.32);
+    towelBox.castShadow = true;
+    sinkGroup.add(towelBox);
+    const paperSheet = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.12, 0.01), matWhitePlastic);
+    paperSheet.position.set(-0.55, 1.31, -0.28);
+    sinkGroup.add(paperSheet);
+    registerInteractive(towelBox, 'paper_towel', 'Бумажные полотенца', 'Осушить руки одноразовой салфеткой');
+
+    // --- ЗОНА 2: МАНИПУЛЯЦИОННЫЙ СТОЛ (в центре) ---
+    const tableGroup = new THREE.Group();
+    tableGroup.position.set(-0.5, 0, -0.4);
+    scene.add(tableGroup);
+
+    const tableTop = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.06, 1.05), matSteel);
+    tableTop.position.y = 0.88;
+    tableTop.castShadow = true;
+    tableTop.receiveShadow = true;
+    tableGroup.add(tableTop);
+
+    [[-0.95, -0.45], [0.95, -0.45], [-0.95, 0.45], [0.95, 0.45]].forEach(([lx, lz]) => {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.88, 12), matSteel);
+      leg.position.set(lx, 0.44, lz);
+      leg.castShadow = true;
+      tableGroup.add(leg);
+    });
+
+    // Лоток со шприцами
+    const tray = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.03, 0.36), matSteel);
+    tray.position.set(-0.68, 0.925, 0.12);
+    tableGroup.add(tray);
+
+    function createSyringeMesh(x, z, scale = 1, tint = 0xffffff) {
+      const g = new THREE.Group();
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.022 * scale, 0.022 * scale, 0.18 * scale, 16), matGlass);
+      barrel.rotation.z = Math.PI / 2;
+      g.add(barrel);
+      const plunger = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.016 * scale, 0.016 * scale, 0.16 * scale, 12),
+        new THREE.MeshStandardMaterial({ color: tint })
+      );
+      plunger.rotation.z = Math.PI / 2;
+      plunger.position.x = -0.06 * scale;
+      g.add(plunger);
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.009 * scale, 0.012 * scale, 0.025 * scale, 12), matBlueMedical);
+      hub.rotation.z = Math.PI / 2;
+      hub.position.x = 0.1 * scale;
+      g.add(hub);
+      const needle = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.002, 0.09 * scale, 8), matSteel);
+      needle.rotation.z = Math.PI / 2;
+      needle.position.x = 0.15 * scale;
+      g.add(needle);
+      g.position.set(x, 0.955, z);
+      return g;
+    }
+
+    const syr5 = createSyringeMesh(-0.72, 0.06, 1.15);
+    tableGroup.add(syr5);
+    registerInteractive(syr5.children[0], 'syringe_5ml', 'Шприц одноразовый (5 мл)', 'Для набора растворителя и инъекций');
+
+    const syr10 = createSyringeMesh(-0.72, 0.16, 1.3);
+    tableGroup.add(syr10);
+    registerInteractive(syr10.children[0], 'syringe_5ml', 'Шприц одноразовый (10 мл)', 'Для внутривенного введения');
+
+    const syrTub = createSyringeMesh(-0.72, 0.24, 0.85, 0xfef08a);
+    tableGroup.add(syrTub);
+    registerInteractive(syrTub.children[0], 'tuberculin_syringe', 'Туберкулиновый шприц (1 мл)', 'Для внутрикожной пробы Манту (0,1 мл)');
+
+    // Запасные стерильные иглы
+    const spareNeedleBox = new THREE.Mesh(
+      new THREE.BoxGeometry(0.22, 0.03, 0.14),
+      new THREE.MeshStandardMaterial({ map: makeLabelTexture('ИГЛЫ 0.8×40\nСтерильные', '#ffffff', '#059669', '#10b981') })
+    );
+    spareNeedleBox.position.set(-0.32, 0.925, 0.16);
+    spareNeedleBox.castShadow = true;
+    tableGroup.add(spareNeedleBox);
+    registerInteractive(spareNeedleBox, 'spare_needle', 'Запасные стерильные иглы', 'Обязательная смена иглы после прокола пробки флакона');
+
+    // Баночка со спиртовыми шариками (70% спирт)
+    const ballsJar = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.12, 20), matSteel);
+    ballsJar.position.set(-0.22, 0.97, -0.18);
+    ballsJar.castShadow = true;
+    tableGroup.add(ballsJar);
+    for (let i = 0; i < 4; i++) {
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.026, 12, 12), matWhitePlastic);
+      ball.position.set(-0.22 + (i % 2 - 0.5) * 0.05, 1.03, -0.18 + (Math.floor(i / 2) - 0.5) * 0.05);
+      tableGroup.add(ball);
+    }
+    registerInteractive(ballsJar, 'alcohol_balls', 'Стерильные шарики с 70% спиртом', 'Двукратная обработка кожи и пробки флакона');
+
+    // Флакон с антибиотиком и ампула растворителя
+    const antibioticVial = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.045, 0.045, 0.13, 20),
+      new THREE.MeshStandardMaterial({ map: makeLabelTexture('ЦЕФТРИАКСОН\n1,0 г', '#ffffff', '#dc2626', '#ef4444') })
+    );
+    antibioticVial.position.set(0.05, 0.975, -0.22);
+    antibioticVial.castShadow = true;
+    tableGroup.add(antibioticVial);
+    const vialCap = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.02, 16), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+    vialCap.position.set(0.05, 1.045, -0.22);
+    tableGroup.add(vialCap);
+
+    const solventAmp = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.11, 16), matGlass);
+    solventAmp.position.set(0.16, 0.965, -0.22);
+    tableGroup.add(solventAmp);
+
+    // Коробка стерильных перчаток (на краю стола)
+    const glovesBox = new THREE.Mesh(
+      new THREE.BoxGeometry(0.28, 0.11, 0.16),
+      new THREE.MeshStandardMaterial({ map: makeLabelTexture('ПЕРЧАТКИ\nСтерильные', '#eff6ff', '#1d4ed8', '#3b82f6') })
+    );
+    glovesBox.position.set(0.75, 0.965, 0.34);
+    glovesBox.castShadow = true;
+    tableGroup.add(glovesBox);
+    registerInteractive(glovesBox, 'gloves_box', 'Стерильные перчатки', 'Надеть перед манипуляцией');
+
+    // Резиновый венозный жгут
+    const tourniquetMesh = new THREE.Mesh(
+      new THREE.TorusGeometry(0.11, 0.016, 12, 28),
+      new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.5 })
+    );
+    tourniquetMesh.rotation.x = Math.PI / 2;
+    tourniquetMesh.position.set(0.05, 0.925, 0.25);
+    tableGroup.add(tourniquetMesh);
+    registerInteractive(tourniquetMesh, 'tourniquet', 'Жгут венозный резиновый', 'Наложить на плечо перед венепункцией');
+
+    // Тонометр (манжета + манометр + груша)
+    const cuffMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.11, 0.11, 0.22, 20),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.75 })
+    );
+    cuffMesh.rotation.z = Math.PI / 2;
+    cuffMesh.position.set(0.38, 0.96, 0.02);
+    cuffMesh.castShadow = true;
+    tableGroup.add(cuffMesh);
+    registerInteractive(cuffMesh, 'bp_cuff', 'Манжета тонометра', 'Наложить на плечо на 2 см выше локтевого сгиба');
+
+    const manometer = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.065, 0.065, 0.025, 24),
+      new THREE.MeshStandardMaterial({ map: makeLabelTexture('120 / 80\nмм рт.ст.', '#ffffff', '#0f172a', '#64748b') })
+    );
+    manometer.rotation.x = Math.PI / 3;
+    manometer.position.set(0.56, 0.95, 0.14);
+    tableGroup.add(manometer);
+
+    const bulbMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.048, 16, 16),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 })
+    );
+    bulbMesh.scale.set(1.3, 0.9, 0.9);
+    bulbMesh.position.set(0.64, 0.95, 0.04);
+    tableGroup.add(bulbMesh);
+    registerInteractive(bulbMesh, 'bp_bulb', 'Груша и манометр тонометра', 'Накачать воздух и выслушать тоны Короткова');
+
+    // ДЕТАЛИЗИРОВАННЫЙ АКУСТИЧЕСКИЙ ФОНЕНДОСКОП (мембрана + колокол + Y-трубка + дужки + оливы)
+    function createDetailedStethoscope() {
+      const stethGroup = new THREE.Group();
+      const matTube = new THREE.MeshStandardMaterial({ color: 0x0369a1, roughness: 0.42, metalness: 0.05 });
+      const matBlackRubber = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.55 });
+      const matChillRing = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6 });
+
+      // 1. Двусторонняя акустическая головка (Chestpiece)
+      const chestGroup = new THREE.Group();
+      chestGroup.position.set(-0.11, 0.014, 0.07);
+
+      // Корпус большой мембраны
+      const diaphragmBody = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.028, 0.014, 32), matChrome);
+      chestGroup.add(diaphragmBody);
+
+      // Неохлаждающее кольцо мембраны
+      const chillRing = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.0032, 12, 32), matChillRing);
+      chillRing.rotation.x = Math.PI / 2;
+      chillRing.position.y = -0.005;
+      chestGroup.add(chillRing);
+
+      // Сама мембрана с концентрическими кольцами
+      const diaphragmDisc = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.03, 0.03, 0.002, 32),
+        new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.25 })
+      );
+      diaphragmDisc.position.y = -0.0065;
+      chestGroup.add(diaphragmDisc);
+
+      // Поворотный шток клапана
+      const valveStem = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.02, 16), matChrome);
+      valveStem.position.y = 0.013;
+      chestGroup.add(valveStem);
+
+      // Малый колокол сверху
+      const bellCone = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.011, 0.012, 24), matChrome);
+      bellCone.position.y = 0.024;
+      chestGroup.add(bellCone);
+      const bellRing = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.0025, 10, 24), matChillRing);
+      bellRing.rotation.x = Math.PI / 2;
+      bellRing.position.y = 0.03;
+      chestGroup.add(bellRing);
+
+      // Боковой штуцер для трубки
+      const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.0055, 0.024, 12), matChrome);
+      nozzle.rotation.z = -Math.PI / 2;
+      nozzle.rotation.y = 0.35;
+      nozzle.position.set(0.034, 0.008, -0.012);
+      chestGroup.add(nozzle);
+
+      stethGroup.add(chestGroup);
+
+      // 2. Основная гибкая звукопроводящая трубка до Y-разветвителя
+      const mainCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-0.072, 0.022, 0.056),
+        new THREE.Vector3(-0.01, 0.016, 0.085),
+        new THREE.Vector3(0.065, 0.012, 0.06),
+        new THREE.Vector3(0.085, 0.012, -0.015),
+        new THREE.Vector3(0.04, 0.012, -0.075)
+      ]);
+      const mainTube = new THREE.Mesh(new THREE.TubeGeometry(mainCurve, 36, 0.0052, 12, false), matTube);
+      mainTube.castShadow = true;
+      stethGroup.add(mainTube);
+
+      // 3. Y-образный разветвитель (Y-junction)
+      const yJoint = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.0065, 0.022, 14), matTube);
+      yJoint.rotation.z = Math.PI / 2;
+      yJoint.rotation.y = 0.45;
+      yJoint.position.set(0.032, 0.012, -0.08);
+      stethGroup.add(yJoint);
+
+      // 4. Бинауральные трубки (левая и правая) + металлические дужки + ушные оливы
+      [-1, 1].forEach((side) => {
+        const branchCurve = new THREE.CatmullRomCurve3([
+          new THREE.Vector3(0.025, 0.012, -0.084),
+          new THREE.Vector3(-0.015, 0.012, -0.095 + side * 0.035),
+          new THREE.Vector3(-0.055, 0.012, -0.095 + side * 0.062)
+        ]);
+        const branchTube = new THREE.Mesh(new THREE.TubeGeometry(branchCurve, 18, 0.0044, 10, false), matTube);
+        stethGroup.add(branchTube);
+
+        // Металлическая хромированная дужка оголовья
+        const metalCurve = new THREE.CatmullRomCurve3([
+          new THREE.Vector3(-0.055, 0.012, -0.095 + side * 0.062),
+          new THREE.Vector3(-0.115, 0.012, -0.095 + side * 0.078),
+          new THREE.Vector3(-0.175, 0.012, -0.095 + side * 0.062),
+          new THREE.Vector3(-0.205, 0.012, -0.095 + side * 0.032)
+        ]);
+        const metalArm = new THREE.Mesh(new THREE.TubeGeometry(metalCurve, 22, 0.0032, 10, false), matChrome);
+        metalArm.castShadow = true;
+        stethGroup.add(metalArm);
+
+        // Мягкая ушная олива (Ear tip)
+        const earTip = new THREE.Mesh(new THREE.SphereGeometry(0.0075, 14, 14), matBlackRubber);
+        earTip.scale.set(1.25, 0.9, 0.9);
+        earTip.rotation.y = -side * 0.55;
+        earTip.position.set(-0.211, 0.012, -0.095 + side * 0.026);
+        stethGroup.add(earTip);
+      });
+
+      // 5. Пружинная пластина оголовья между дужками
+      const springCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-0.062, 0.013, -0.033),
+        new THREE.Vector3(-0.042, 0.014, -0.095),
+        new THREE.Vector3(-0.062, 0.013, -0.157)
+      ]);
+      const springLeaf = new THREE.Mesh(new THREE.TubeGeometry(springCurve, 16, 0.0022, 8, false), matChrome);
+      stethGroup.add(springLeaf);
+
+      stethGroup.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          registerInteractive(
+            child,
+            'stethoscope',
+            'Фонендоскоп акустический (мембрана и колокол)',
+            'Выслушивание тонов Короткова над плечевой артерией'
+          );
+        }
+      });
+
+      return stethGroup;
+    }
+
+    const stethMesh = createDetailedStethoscope();
+    stethMesh.position.set(0.45, 0.912, -0.15);
+    tableGroup.add(stethMesh);
+
+    // Упаковка системы для капельницы и стерильной простыни
+    const ivBox = new THREE.Mesh(
+      new THREE.BoxGeometry(0.32, 0.04, 0.22),
+      new THREE.MeshStandardMaterial({ map: makeLabelTexture('СИСТЕМА ПК\nДля инфузий', '#ffffff', '#0284c7', '#38bdf8') })
+    );
+    ivBox.position.set(0.55, 0.93, -0.35);
+    ivBox.castShadow = true;
+    tableGroup.add(ivBox);
+    registerInteractive(ivBox, 'iv_system', 'Инфузионная система (капельница)', 'Заполнить раствором и вытеснить воздух');
+
+    const sheetPack = new THREE.Mesh(
+      new THREE.BoxGeometry(0.34, 0.07, 0.24),
+      new THREE.MeshStandardMaterial({ map: makeLabelTexture('ПРОСТЫНЬ\nСтерильная', '#f0fdf4', '#15803d', '#22c55e') })
+    );
+    sheetPack.position.set(0.82, 0.945, -0.22);
+    sheetPack.castShadow = true;
+    tableGroup.add(sheetPack);
+    registerInteractive(sheetPack, 'sterile_sheet', 'Стерильная простыня (упаковка)', 'Для накрытия стерильного манипуляционного стола');
+
+    // Контейнер для отходов класса Б (желтый у стола)
+    const sharpsBin = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.16, 0.13, 0.42, 20),
+      new THREE.MeshStandardMaterial({
+        color: 0xfacc15,
+        map: makeLabelTexture('КЛАСС Б\nИглы / шприцы', '#facc15', '#713f12', '#ca8a04')
+      })
+    );
+    sharpsBin.position.set(0.75, 0.21, 0.35);
+    sharpsBin.castShadow = true;
+    scene.add(sharpsBin);
+    registerInteractive(sharpsBin, 'sharps_container', 'Контейнер утилизации (Класс Б)', 'Безопасный сброс использованных шприцев и игл');
+
+    // Инфузионная стойка (штатив для капельницы) у кушетки
+    const ivStandGroup = new THREE.Group();
+    ivStandGroup.position.set(1.25, 0, -0.55);
+    scene.add(ivStandGroup);
+
+    const standBase = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.28, 0.04, 20), matSteel);
+    standBase.position.y = 0.02;
+    ivStandGroup.add(standBase);
+    const standPole = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 2.05, 12), matSteel);
+    standPole.position.y = 1.02;
+    ivStandGroup.add(standPole);
+    const dripBottle = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.22, 16), matGlass);
+    dripBottle.position.set(0.08, 1.85, 0);
+    dripBottle.visible = false;
+    ivStandGroup.add(dripBottle);
+
+    // --- ЗОНА 3: КУШЕТКА И ПАЦИЕНТ (справа) ---
+    const bedGroup = new THREE.Group();
+    bedGroup.position.set(2.35, 0, -0.1);
+    scene.add(bedGroup);
+
+    const bedFrame = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.56, 2.25), matWhitePlastic);
+    bedFrame.position.y = 0.28;
+    bedFrame.castShadow = true;
+    bedFrame.receiveShadow = true;
+    bedGroup.add(bedFrame);
+
+    const mattress = new THREE.Mesh(
+      new THREE.BoxGeometry(1.06, 0.14, 2.15),
+      new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.7 })
+    );
+    mattress.position.y = 0.63;
+    mattress.castShadow = true;
+    mattress.receiveShadow = true;
+    bedGroup.add(mattress);
+
+    const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.11, 0.36), matWhitePlastic);
+    pillow.position.set(0, 0.74, -0.78);
+    pillow.castShadow = true;
+    bedGroup.add(pillow);
+
+    // СВЯЗНАЯ АНАТОМИЧЕСКАЯ МОДЕЛЬ ПАЦИЕНТА НА КУШЕТКЕ (без разрывов конечностей)
+    const matTrousers = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.75 });
+    const matShoes = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.6 });
+    const matHair = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.85 });
+
+    // Помощник для создания непрерывного сегмента конечности между двумя точками
+    function createConnectedLimb(pStart, pEnd, rStart, rEnd, material, parent) {
+      const dir = new THREE.Vector3().subVectors(pEnd, pStart);
+      const len = dir.length();
+      const mid = new THREE.Vector3().addVectors(pStart, pEnd).multiplyScalar(0.5);
+      const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rEnd, rStart, len, 18), material);
+      mesh.position.copy(mid);
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      parent.add(mesh);
+
+      const jointStart = new THREE.Mesh(new THREE.SphereGeometry(rStart, 16, 16), material);
+      jointStart.position.copy(pStart);
+      jointStart.castShadow = true;
+      parent.add(jointStart);
+
+      const jointEnd = new THREE.Mesh(new THREE.SphereGeometry(rEnd, 16, 16), material);
+      jointEnd.position.copy(pEnd);
+      jointEnd.castShadow = true;
+      parent.add(jointEnd);
+
+      return mesh;
+    }
+
+    const patientGroup = new THREE.Group();
+    patientGroup.position.set(0, 0.70, 0);
+    bedGroup.add(patientGroup);
+
+    // 1. Голова, прическа, уши, нос и шея
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.145, 24, 24), matSkin);
+    head.scale.set(0.92, 1.05, 1.08);
+    head.position.set(0, 0.24, -0.78);
+    head.castShadow = true;
+    patientGroup.add(head);
+
+    const hairCap = new THREE.Mesh(
+      new THREE.SphereGeometry(0.148, 24, 18, 0, Math.PI * 2, 0, Math.PI * 0.56),
+      matHair
+    );
+    hairCap.scale.set(0.93, 1.05, 1.09);
+    hairCap.rotation.x = -0.35;
+    hairCap.position.set(0, 0.245, -0.785);
+    patientGroup.add(hairCap);
+
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.045, 12), matSkin);
+    nose.position.set(0, 0.375, -0.77);
+    patientGroup.add(nose);
+
+    [-1, 1].forEach((s) => {
+      const ear = new THREE.Mesh(new THREE.SphereGeometry(0.026, 12, 12), matSkin);
+      ear.scale.set(0.5, 1.1, 0.85);
+      ear.position.set(s * 0.132, 0.23, -0.78);
+      patientGroup.add(ear);
+    });
+
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.072, 0.14, 18), matSkin);
+    neck.rotation.x = Math.PI / 2 - 0.18;
+    neck.position.set(0, 0.16, -0.63);
+    neck.castShadow = true;
+    patientGroup.add(neck);
+
+    // 2. Плечевой пояс и грудная клетка / туловище
+    const shouldersBar = new THREE.Mesh(new THREE.CapsuleGeometry(0.095, 0.26, 12, 20), matTealScrub);
+    shouldersBar.rotation.z = Math.PI / 2;
+    shouldersBar.position.set(0, 0.115, -0.52);
+    shouldersBar.castShadow = true;
+    patientGroup.add(shouldersBar);
+
+    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.165, 0.44, 16, 24), matTealScrub);
+    torso.rotation.x = Math.PI / 2;
+    torso.scale.set(1.18, 1.0, 0.72);
+    torso.position.set(0, 0.11, -0.30);
+    torso.castShadow = true;
+    patientGroup.add(torso);
+
+    // 3. Таз и ягодичная область (интерактивная зона в/м инъекций)
+    const pelvis = new THREE.Mesh(new THREE.CapsuleGeometry(0.155, 0.18, 14, 24), matTrousers);
+    pelvis.rotation.z = Math.PI / 2;
+    pelvis.scale.set(0.75, 1.0, 1.05);
+    pelvis.position.set(0, 0.105, 0.01);
+    pelvis.castShadow = true;
+    patientGroup.add(pelvis);
+
+    const gluteHighlight = new THREE.Mesh(
+      new THREE.SphereGeometry(0.075, 16, 16),
+      new THREE.MeshStandardMaterial({ color: 0xfdba74, roughness: 0.5 })
+    );
+    gluteHighlight.scale.set(1.1, 0.65, 1.1);
+    gluteHighlight.position.set(-0.13, 0.165, 0.02);
+    patientGroup.add(gluteHighlight);
+    registerInteractive(gluteHighlight, 'patient_glute', 'Ягодичная область (верхненаружный квадрант)', 'Зона для внутримышечной инъекции (угол 90°)');
+    registerInteractive(pelvis, 'patient_glute', 'Ягодичная область пациента', 'Кликните для внутримышечной инъекции');
+
+    // 4. Непрерывные верхние конечности (плечо -> локоть -> предплечье -> кисть)
+    // Левая рука пациента (со стороны процедурного стола — основная рабочая зона в/в, АД, в/к, п/к)
+    const lShoulder = new THREE.Vector3(-0.21, 0.115, -0.52);
+    const lElbow = new THREE.Vector3(-0.29, 0.065, -0.27);
+    const lWrist = new THREE.Vector3(-0.32, 0.055, 0.01);
+    const lHandEnd = new THREE.Vector3(-0.325, 0.048, 0.11);
+
+    const leftUpperArm = createConnectedLimb(lShoulder, lElbow, 0.058, 0.048, matSkin, patientGroup);
+    const leftForearm = createConnectedLimb(lElbow, lWrist, 0.046, 0.036, matSkin, patientGroup);
+
+    // Короткий рукав медицинской рубашки на плече
+    const lSleeve = createConnectedLimb(
+      lShoulder,
+      new THREE.Vector3().lerpVectors(lShoulder, lElbow, 0.42),
+      0.066,
+      0.062,
+      matTealScrub,
+      patientGroup
+    );
+
+    // Кисть левой руки с пальцами
+    const lPalm = new THREE.Mesh(new THREE.BoxGeometry(0.068, 0.026, 0.085), matSkin);
+    lPalm.position.set(-0.322, 0.05, 0.055);
+    lPalm.castShadow = true;
+    patientGroup.add(lPalm);
+    for (let f = 0; f < 4; f++) {
+      const finger = new THREE.Mesh(new THREE.CapsuleGeometry(0.007, 0.042, 6, 10), matSkin);
+      finger.rotation.x = Math.PI / 2;
+      finger.position.set(-0.345 + f * 0.016, 0.046, 0.112);
+      patientGroup.add(finger);
+    }
+
+    // Подушечка-валик под локтевым сгибом пациента
+    const armPad = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.16, 16), matWhitePlastic);
+    armPad.rotation.z = Math.PI / 2;
+    armPad.position.set(-0.29, 0.02, -0.27);
+    patientGroup.add(armPad);
+
+    // Правая рука пациента (симметрично соединена с правым плечом)
+    const rShoulder = new THREE.Vector3(0.21, 0.115, -0.52);
+    const rElbow = new THREE.Vector3(0.28, 0.065, -0.27);
+    const rWrist = new THREE.Vector3(0.30, 0.055, 0.01);
+    createConnectedLimb(rShoulder, rElbow, 0.058, 0.048, matSkin, patientGroup);
+    createConnectedLimb(rElbow, rWrist, 0.046, 0.036, matSkin, patientGroup);
+    createConnectedLimb(
+      rShoulder,
+      new THREE.Vector3().lerpVectors(rShoulder, rElbow, 0.42),
+      0.066,
+      0.062,
+      matTealScrub,
+      patientGroup
+    );
+    const rPalm = new THREE.Mesh(new THREE.BoxGeometry(0.068, 0.026, 0.085), matSkin);
+    rPalm.position.set(0.302, 0.05, 0.055);
+    rPalm.castShadow = true;
+    patientGroup.add(rPalm);
+
+    registerInteractive(leftUpperArm, 'patient_arm', 'Плечо пациента', 'Зона наложения манжеты АД, жгута и п/к инъекций');
+    registerInteractive(leftForearm, 'patient_arm', 'Локтевой сгиб и предплечье пациента', 'Венепункция, капельница, забор крови и проба Манту');
+
+    // Визуальные индикаторы на руке пациента (жгут, манжета, папула)
+    const armTourniquet = new THREE.Mesh(
+      new THREE.TorusGeometry(0.058, 0.011, 10, 24),
+      new THREE.MeshStandardMaterial({ color: 0x0284c7 })
+    );
+    armTourniquet.rotation.x = Math.PI / 2 - 0.18;
+    armTourniquet.position.set(-0.255, 0.088, -0.38);
+    armTourniquet.visible = false;
+    patientGroup.add(armTourniquet);
+
+    const armCuff = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.064, 0.058, 0.14, 20),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b })
+    );
+    armCuff.rotation.x = Math.PI / 2 - 0.18;
+    armCuff.rotation.z = 0.28;
+    armCuff.position.set(-0.25, 0.09, -0.39);
+    armCuff.visible = false;
+    patientGroup.add(armCuff);
+
+    // 5. Непрерывные нижние конечности (бедро -> колено -> голень -> стопа)
+    [-1, 1].forEach((side) => {
+      const hip = new THREE.Vector3(side * 0.115, 0.095, 0.08);
+      const knee = new THREE.Vector3(side * 0.125, 0.08, 0.48);
+      const ankle = new THREE.Vector3(side * 0.13, 0.065, 0.86);
+
+      createConnectedLimb(hip, knee, 0.082, 0.065, matTrousers, patientGroup);
+      createConnectedLimb(knee, ankle, 0.063, 0.048, matTrousers, patientGroup);
+
+      // Стопа
+      const foot = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.11, 8, 16), matShoes);
+      foot.rotation.x = 0.22;
+      foot.position.set(side * 0.13, 0.095, 0.90);
+      foot.castShadow = true;
+      patientGroup.add(foot);
+    });
+
+    // --- ЗОНА 4: СТЕРИЛЬНЫЙ СТОЛ (справа сзади) ---
+    const sterileGroup = new THREE.Group();
+    sterileGroup.position.set(2.3, 0, -2.35);
+    scene.add(sterileGroup);
+
+    const sTable = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.05, 0.8), matSteel);
+    sTable.position.y = 0.88;
+    sTable.castShadow = true;
+    sterileGroup.add(sTable);
+
+    [[-0.62, -0.32], [0.62, -0.32], [-0.62, 0.32], [0.62, 0.32]].forEach(([lx, lz]) => {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.88, 12), matSteel);
+      leg.position.set(lx, 0.44, lz);
+      sterileGroup.add(leg);
+    });
+
+    const sterileCloth = new THREE.Mesh(
+      new THREE.BoxGeometry(1.46, 0.08, 0.86),
+      new THREE.MeshStandardMaterial({ color: 0xecfdf5, roughness: 0.8 })
+    );
+    sterileCloth.position.y = 0.91;
+    sterileCloth.visible = false;
+    sterileGroup.add(sterileCloth);
+
+    const sterileForceps = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.015, 0.04), matSteel);
+    sterileForceps.position.set(-0.2, 0.96, 0.1);
+    sterileForceps.visible = false;
+    sterileGroup.add(sterileForceps);
+
+    registerInteractive(sTable, 'sterile_forceps', 'Стерильный манипуляционный стол', 'Раскладка стерильных инструментов пинцетом');
+    registerInteractive(sterileCloth, 'sterile_forceps', 'Стерильный стол (накрытый)', 'Раскладка инструментов стерильным пинцетом');
+
+    // =========================================================================
+    // 5. ИГРОВОЕ СОСТОЯНИЕ, ПРОВЕРКА ПРАВИЛ АСЕПТИКИ И UI ЛОГИКА
+    // =========================================================================
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    const state = {
+      queue: shuffleArray(PROCEDURES_DB),
+      currentIdx: 0,
+      stepIdx: 0,
+      completedCount: 0,
+      errorCount: 0,
+      asepsis: {
+        handsClean: false,
+        glovesOn: false,
+        needleReplaced: false,
+        tourniquetOn: false
+      }
+    };
+
+    // Плавный перелет камеры
+    const cameraPresets = {
+      overview: { pos: new THREE.Vector3(0.1, 3.3, 4.9), target: new THREE.Vector3(0.2, 0.9, -0.4) },
+      sink: { pos: new THREE.Vector3(-2.6, 2.0, 0.4), target: new THREE.Vector3(-3.4, 1.05, -1.8) },
+      table: { pos: new THREE.Vector3(-0.5, 2.05, 1.25), target: new THREE.Vector3(-0.5, 0.92, -0.35) },
+      patient: { pos: new THREE.Vector3(1.15, 1.95, 1.35), target: new THREE.Vector3(2.2, 0.85, -0.2) },
+      sterile: { pos: new THREE.Vector3(2.3, 1.95, -0.6), target: new THREE.Vector3(2.3, 0.92, -2.35) }
+    };
+
+    let camAnim = null;
+    function moveCameraTo(presetKey) {
+      const preset = cameraPresets[presetKey];
+      if (!preset) return;
+      camAnim = {
+        startPos: camera.position.clone(),
+        endPos: preset.pos.clone(),
+        startTarget: controls.target.clone(),
+        endTarget: preset.target.clone(),
+        t: 0
+      };
+    }
+
+    document.querySelectorAll('[data-cam]').forEach((btn) => {
+      btn.addEventListener('click', () => moveCameraTo(btn.dataset.cam));
+    });
+
+    // Сброс визуального состояния перед новой манипуляцией
+    function resetProcedureVisuals() {
+      state.asepsis = {
+        handsClean: false,
+        glovesOn: false,
+        needleReplaced: false,
+        tourniquetOn: false
+      };
+      armTourniquet.visible = false;
+      armCuff.visible = false;
+      dripBottle.visible = false;
+      sterileCloth.visible = false;
+      sterileForceps.visible = false;
+      stethMesh.position.set(0.45, 0.912, -0.15);
+      updateAsepsisHUD();
+    }
+
+    function updateAsepsisHUD() {
+      const pHands = document.getElementById('pill-hands');
+      const pGloves = document.getElementById('pill-gloves');
+      const pNeedle = document.getElementById('pill-needle');
+      const pTourn = document.getElementById('pill-tourniquet');
+
+      pHands.textContent = state.asepsis.handsClean ? '🧼 Руки: обработаны' : '🧼 Руки: не мыты';
+      pHands.className = 'asepsis-pill' + (state.asepsis.handsClean ? ' active' : '');
+
+      pGloves.textContent = state.asepsis.glovesOn ? '🧤 Перчатки: надеты' : '🧤 Перчатки: нет';
+      pGloves.className = 'asepsis-pill' + (state.asepsis.glovesOn ? ' active' : '');
+
+      pNeedle.textContent = state.asepsis.needleReplaced ? '💉 Игла: заменена' : '💉 Игла: стандарт';
+      pNeedle.className = 'asepsis-pill' + (state.asepsis.needleReplaced ? ' active' : '');
+
+      pTourn.textContent = state.asepsis.tourniquetOn ? '🎗️ Жгут: НАЛОЖЕН' : '🎗️ Жгут: снят';
+      pTourn.className = 'asepsis-pill' + (state.asepsis.tourniquetOn ? ' warn' : '');
+
+      document.getElementById('err-count').textContent = state.errorCount;
+      document.getElementById('done-count').textContent = `${state.completedCount} / 10`;
+    }
+
+    let toastTimer = null;
+    function showFeedback(message, isOk = true) {
+      const toast = document.getElementById('feedback-toast');
+      toast.textContent = message;
+      toast.className = 'show ' + (isOk ? 'ok' : 'err');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 4200);
+
+      const log = document.getElementById('action-log');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry ' + (isOk ? 'good' : 'bad');
+      entry.textContent = (isOk ? '✓ ' : '✗ ') + message;
+      log.prepend(entry);
+    }
+
+    function renderCurrentProcedure() {
+      const proc = state.queue[state.currentIdx];
+      document.getElementById('proc-counter').textContent = `Манипуляция ${state.currentIdx + 1} / 10`;
+      document.getElementById('proc-dept').textContent = proc.dept;
+      document.getElementById('proc-title').textContent = proc.title;
+      document.getElementById('proc-desc').textContent = proc.desc;
+      document.getElementById('action-log').innerHTML = '';
+
+      updateStepUI();
+      if (proc.camera) moveCameraTo(proc.camera);
+    }
+
+    function updateStepUI() {
+      const proc = state.queue[state.currentIdx];
+      const total = proc.steps.length;
+      const pct = Math.round((state.stepIdx / total) * 100);
+      document.getElementById('proc-progress').style.width = `${pct}%`;
+      document.getElementById('step-fraction').textContent = `${state.stepIdx}/${total}`;
+
+      const currentStep = proc.steps[state.stepIdx];
+      if (currentStep) {
+        document.getElementById('step-status').textContent = `Следующий этап (${state.stepIdx + 1}/${total}): ${currentStep.label}`;
+      } else {
+        document.getElementById('step-status').textContent = 'Манипуляция успешно завершена!';
+      }
+
+      renderQuickButtons();
+    }
+
+    // Кнопки быстрого доступа (перемешанные варианты действий для текущей манипуляции + базовые)
+    function renderQuickButtons() {
+      const containerBtns = document.getElementById('quick-actions');
+      containerBtns.innerHTML = '';
+      const proc = state.queue[state.currentIdx];
+
+      const baseActions = [
+        { id: 'sink_soap', label: '🧼 Вымыть руки' },
+        { id: 'paper_towel', label: '🧻 Полотенце' },
+        { id: 'antiseptic_hands', label: '🧴 Антисептик' },
+        { id: 'gloves_box', label: '🧤 Перчатки' },
+        { id: 'alcohol_balls', label: '⚪ Спирт 70%' },
+        { id: 'tourniquet', label: '🎗️ Жгут' },
+        { id: 'sharps_container', label: '🗑️ Контейнер Б' }
+      ];
+
+      // Добавляем специфичные кнопки текущей манипуляции
+      const specificMap = {
+        bp_cuff: '🩺 Манжета АД',
+        stethoscope: '🎧 Фонендоскоп',
+        bp_bulb: '🎈 Груша АД',
+        syringe_5ml: '💉 Шприц 5/10 мл',
+        spare_needle: '📌 Запасная игла',
+        patient_glute: '🧍 Ягодица (в/м)',
+        patient_arm: '💪 Рука/вена пациента',
+        iv_system: '💧 Система капельницы',
+        sterile_sheet: '📄 Стерильная простыня',
+        sterile_forceps: '✂️ Стерильный стол',
+        tuberculin_syringe: '💉 Шприц 1 мл (Манту)'
+      };
+
+      const actionList = [...baseActions];
+      proc.steps.forEach((st) => {
+        const key = st.targetAction || st.action;
+        if (specificMap[key] && !actionList.some((a) => a.id === key)) {
+          actionList.push({ id: key, label: specificMap[key] });
+        }
+      });
+
+      actionList.forEach((act) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn small';
+        btn.textContent = act.label;
+        btn.addEventListener('click', () => handleAction(act.id));
+        containerBtns.appendChild(btn);
+      });
+    }
+
+    // Проверка клинических правил и переход между шагами
+    function handleAction(actionId) {
+      const proc = state.queue[state.currentIdx];
+      const expectedStep = proc.steps[state.stepIdx];
+      if (!expectedStep) return;
+
+      // Проверка глобальных нарушений санэпидрежима
+      if (
+        ['alcohol_balls', 'syringe_5ml', 'spare_needle', 'patient_glute', 'patient_arm', 'iv_system', 'sterile_sheet', 'tuberculin_syringe'].includes(actionId) &&
+        !state.asepsis.handsClean &&
+        expectedStep.action !== 'sink_soap' &&
+        expectedStep.action !== 'antiseptic_hands'
+      ) {
+        state.errorCount++;
+        updateAsepsisHUD();
+        showFeedback('Нарушение асептики! Сначала необходимо вымыть руки или обработать их кожным антисептиком.', false);
+        return;
+      }
+
+      if (
+        ['syringe_5ml', 'spare_needle', 'patient_glute', 'patient_arm', 'iv_system', 'sterile_sheet', 'tuberculin_syringe'].includes(actionId) &&
+        !state.asepsis.glovesOn &&
+        expectedStep.action !== 'gloves_box'
+      ) {
+        state.errorCount++;
+        updateAsepsisHUD();
+        showFeedback('Нарушение санэпидрежима! Наденьте стерильные перчатки перед работой с инструментами и пациентом.', false);
+        return;
+      }
+
+      const expectedId = expectedStep.targetAction || expectedStep.action;
+      const isMatch = actionId === expectedId || (expectedStep.allowAlt && expectedStep.allowAlt.includes(actionId));
+
+      if (!isMatch) {
+        state.errorCount++;
+        updateAsepsisHUD();
+        showFeedback(`Нарушена последовательность алгоритма! Сейчас требуется: «${expectedStep.label}».`, false);
+        return;
+      }
+
+      // Если у шага есть модальный клинический вопрос (например, угол иглы, тоны Короткова, снятие жгута)
+      if (expectedStep.modal) {
+        openDecisionModal(expectedStep.modal, () => commitStepSuccess(actionId, expectedStep));
+      } else {
+        commitStepSuccess(actionId, expectedStep);
+      }
+    }
+
+    function commitStepSuccess(actionId, step) {
+      // Обновляем 3D-визуализацию и статусы
+      if (actionId === 'sink_soap' || actionId === 'antiseptic_hands') {
+        state.asepsis.handsClean = true;
+      }
+      if (actionId === 'gloves_box') {
+        state.asepsis.glovesOn = true;
+      }
+      if (actionId === 'spare_needle') {
+        state.asepsis.needleReplaced = true;
+      }
+      if (actionId === 'tourniquet') {
+        state.asepsis.tourniquetOn = true;
+        armTourniquet.visible = true;
+      }
+      if (actionId === 'bp_cuff') {
+        armCuff.visible = true;
+      }
+      if (actionId === 'stethoscope') {
+        // Перемещаем головку фонендоскопа в локтевую ямку пациента
+        stethMesh.position.set(2.58, 0.785, -0.36);
+      }
+      if (actionId === 'iv_system') {
+        dripBottle.visible = true;
+      }
+      if (actionId === 'sterile_sheet') {
+        sterileCloth.visible = true;
+      }
+      if (actionId === 'sterile_forceps') {
+        sterileForceps.visible = true;
+      }
+      if (actionId === 'patient_arm' && state.asepsis.tourniquetOn) {
+        // По алгоритму жгут снимается во время выполнения венепункции / введения
+        state.asepsis.tourniquetOn = false;
+        armTourniquet.visible = false;
+      }
+
+      updateAsepsisHUD();
+      showFeedback(step.feedback, true);
+
+      state.stepIdx++;
+      const proc = state.queue[state.currentIdx];
+
+      if (state.stepIdx >= proc.steps.length) {
+        state.completedCount++;
+        updateAsepsisHUD();
+        updateStepUI();
+
+        setTimeout(() => {
+          if (state.currentIdx + 1 < state.queue.length) {
+            state.currentIdx++;
+            state.stepIdx = 0;
+            resetProcedureVisuals();
+            renderCurrentProcedure();
+          } else {
+            showCompletionModal();
+          }
+        }, 1400);
+      } else {
+        updateStepUI();
+      }
+    }
+
+    // =========================================================================
+    // 6. МОДАЛЬНЫЕ ОКНА (ПРОВЕРКА ТЕХНИКИ И ИТОГ СМЕНЫ)
+    // =========================================================================
+    const modalBackdrop = document.getElementById('modal-backdrop');
+    const modalTitle = document.getElementById('modal-title');
+    const modalText = document.getElementById('modal-text');
+    const modalChoices = document.getElementById('modal-choices');
+    const modalClose = document.getElementById('modal-close');
+
+    function openDecisionModal(modalData, onCorrect) {
+      modalTitle.textContent = modalData.title;
+      modalText.textContent = modalData.text;
+      modalChoices.innerHTML = '';
+      modalClose.style.display = 'none';
+
+      shuffleArray(modalData.options).forEach((opt) => {
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.textContent = opt.text;
+        btn.addEventListener('click', () => {
+          if (opt.correct) {
+            modalBackdrop.classList.remove('open');
+            onCorrect();
+          } else {
+            state.errorCount++;
+            updateAsepsisHUD();
+            showFeedback(opt.reason || 'Неверная техника выполнения! Попробуйте еще раз.', false);
+          }
+        });
+        modalChoices.appendChild(btn);
+      });
+
+      modalBackdrop.classList.add('open');
+    }
+
+    function showCompletionModal() {
+      modalTitle.textContent = '🎉 Смена завершена! Все 10 манипуляций выполнены';
+      modalText.textContent = `Вы успешно отработали все 10 сестринских манипуляций в случайном порядке. Допущено нарушений санэпидрежима: ${state.errorCount}.`;
+      modalChoices.innerHTML = '';
+      const restartBtn = document.createElement('button');
+      restartBtn.className = 'btn primary';
+      restartBtn.textContent = 'Начать новую смену (перемешать 10 манипуляций)';
+      restartBtn.addEventListener('click', () => {
+        modalBackdrop.classList.remove('open');
+        restartAll();
+      });
+      modalChoices.appendChild(restartBtn);
+      modalBackdrop.classList.add('open');
+    }
+
+    function restartAll() {
+      state.queue = shuffleArray(PROCEDURES_DB);
+      state.currentIdx = 0;
+      state.stepIdx = 0;
+      state.completedCount = 0;
+      state.errorCount = 0;
+      resetProcedureVisuals();
+      renderCurrentProcedure();
+      showFeedback('Порядок 10 манипуляций перемешан случайным образом!', true);
+    }
+
+    document.getElementById('btn-shuffle').addEventListener('click', restartAll);
+
+    document.getElementById('btn-hint').addEventListener('click', () => {
+      const proc = state.queue[state.currentIdx];
+      const st = proc.steps[state.stepIdx];
+      if (st) {
+        showFeedback(`Подсказка: ${st.hint}`, true);
+      }
+    });
+
+    // =========================================================================
+    // 7. RAYCASTING (НАВЕДЕНИЕ И КЛИКИ ПО 3D-ОБЪЕКТАМ)
+    // =========================================================================
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const tooltip = document.getElementById('tooltip-3d');
+    let hoveredMesh = null;
+    let pointerDownPos = { x: 0, y: 0 };
+
+    renderer.domElement.addEventListener('pointermove', (e) => {
+      pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(interactiveObjects, false);
+
+      if (hits.length > 0) {
+        const hitObj = hits[0].object;
+        hoveredMesh = hitObj;
+        document.body.style.cursor = 'pointer';
+        tooltip.style.display = 'block';
+        tooltip.style.left = `${e.clientX}px`;
+        tooltip.style.top = `${e.clientY}px`;
+        tooltip.innerHTML = `${hitObj.userData.title}<span>${hitObj.userData.subtitle}</span>`;
+      } else {
+        hoveredMesh = null;
+        document.body.style.cursor = 'default';
+        tooltip.style.display = 'none';
+      }
+    });
+
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      pointerDownPos = { x: e.clientX, y: e.clientY };
+    });
+
+    renderer.domElement.addEventListener('pointerup', (e) => {
+      const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+      if (dist < 6 && hoveredMesh && hoveredMesh.userData.actionId) {
+        handleAction(hoveredMesh.userData.actionId);
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // =========================================================================
+    // 8. ГЛАВНЫЙ ЦИКЛ РЕНДЕРИНГА И ПУЛЬСАЦИЯ АКТИВНОГО ИНСТРУМЕНТА
+    // =========================================================================
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+      const elapsed = clock.getElapsedTime();
+
+      // Плавный переход камеры
+      if (camAnim) {
+        camAnim.t = Math.min(1, camAnim.t + dt * 2.2);
+        const ease = 1 - Math.pow(1 - camAnim.t, 3);
+        camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, ease);
+        controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, ease);
+        if (camAnim.t >= 1) camAnim = null;
+      }
+
+      // Мягкая подсветка объекта, нужного на текущем шаге
+      const proc = state.queue[state.currentIdx];
+      const currentStep = proc && proc.steps[state.stepIdx];
+      const activeId = currentStep ? (currentStep.targetAction || currentStep.action) : null;
+
+      highlightables.forEach((meshes, actionId) => {
+        const isTarget = actionId === activeId;
+        meshes.forEach((m) => {
+          if (m.material && m.material.emissive) {
+            if (isTarget) {
+              const pulse = 0.22 + Math.sin(elapsed * 4.5) * 0.16;
+              m.material.emissive.setHex(0x0284c7);
+              m.material.emissiveIntensity = pulse;
+            } else {
+              m.material.emissiveIntensity = 0;
+            }
+          }
+        });
+      });
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // Старт симуляции
+    resetProcedureVisuals();
+    renderCurrentProcedure();
+    animate();
+  </script>
+</body>
+</html>

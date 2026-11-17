@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ознакомление с медицинским университетом — КемГМУ</title>
+  <script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=o5iwuIVEbkenz45Ojw0SQG5kCgNR8nJ0itgyJpl3zfIbUSuJa2nsai-vH_B123n7oMHUAIXPJ78vKJcphwHUj0wR4yzbGGBJQGZjRvj8jCgxKDOPt2A1g_dH0Q_NRHTXbilHDqPZV4_M5yoq_H-kKWQ2CJ4nZmzvtyacVAKRDE8zBahSVpxvV-UZUVrVnH-cQGkIzM4jarEcdakNFS6SRD55_DFQVGcu8hsKGCHhOD9mijnlNW6XhnsIK22xif8VkOfbitOi5jcXRuTh82fv6hx2tpwOwGDhyrYzqt414l8iCzbdLFfp0423K3zuQyCL" charset="UTF-8"></script><style>
+    :root {
+      --color-gray: #c5c6c6;
+      --color-gray-light: #f4f5f5;
+      --color-gray-dark: #4a4d4e;
+      --color-text: #1f2224;
+      --color-red: #dc2126;
+      --color-red-hover: #b8191e;
+      --color-white: #ffffff;
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.09);
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      --transition: 0.2s ease;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--color-gray-light);
+      color: var(--color-text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+    }
+
+    /* Шапка сайта */
+    .header {
+      background-color: var(--color-white);
+      border-bottom: 3px solid var(--color-red);
+      box-shadow: var(--shadow-sm);
+      padding: 20px 24px;
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .logo-wrap {
+      flex-shrink: 0;
+      width: 76px;
+      height: 76px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--color-white);
+      border-radius: 50%;
+    }
+
+    .logo-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .header-text h1 {
+      font-size: clamp(1.35rem, 2.5vw, 1.95rem);
+      font-weight: 700;
+      color: var(--color-text);
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
+    }
+
+    .header-text h1 span {
+      color: var(--color-red);
+    }
+
+    .header-text p {
+      font-size: 0.98rem;
+      color: var(--color-gray-dark);
+      max-width: 780px;
+    }
+
+    /* Основной контейнер */
+    .main {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 28px 24px 40px;
+      flex: 1;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 28px;
+      align-items: start;
+    }
+
+    /* Левая колонка — список кнопок */
+    .nav-panel {
+      background: var(--color-white);
+      border: 1px solid var(--color-gray);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .nav-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-gray-dark);
+      padding: 0 8px 12px;
+      border-bottom: 1px solid var(--color-gray);
+      margin-bottom: 12px;
+    }
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      list-style: none;
+    }
+
+    .nav-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      text-align: left;
+      padding: 12px 14px;
+      background-color: var(--color-white);
+      border: 1.5px solid var(--color-gray);
+      border-radius: var(--radius-md);
+      font-family: inherit;
+      font-size: 0.96rem;
+      font-weight: 600;
+      color: var(--color-text);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .nav-btn:hover {
+      border-color: var(--color-red);
+      background-color: #fff8f8;
+      transform: translateX(2px);
+    }
+
+    .nav-btn:focus-visible {
+      outline: 2px solid var(--color-red);
+      outline-offset: 2px;
+    }
+
+    .nav-btn.active {
+      background-color: var(--color-red);
+      border-color: var(--color-red);
+      color: var(--color-white);
+      box-shadow: 0 4px 12px rgba(220, 33, 38, 0.25);
+    }
+
+    .nav-btn-index {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background-color: var(--color-gray-light);
+      color: var(--color-gray-dark);
+      flex-shrink: 0;
+      transition: all var(--transition);
+    }
+
+    .nav-btn.active .nav-btn-index {
+      background-color: rgba(255, 255, 255, 0.22);
+      color: var(--color-white);
+    }
+
+    .nav-btn-label {
+      flex: 1;
+    }
+
+    .nav-btn-arrow {
+      font-size: 1.1rem;
+      opacity: 0.5;
+      transition: transform var(--transition), opacity var(--transition);
+    }
+
+    .nav-btn:hover .nav-btn-arrow,
+    .nav-btn.active .nav-btn-arrow {
+      opacity: 1;
+      transform: translateX(3px);
+    }
+
+    /* Правая колонка — карточка предпросмотра интерактива */
+    .preview-card {
+      background: var(--color-white);
+      border: 1px solid var(--color-gray);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      box-shadow: var(--shadow-md);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      min-height: 500px;
+      justify-content: space-between;
+    }
+
+    .preview-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background-color: var(--color-gray-light);
+      border: 1px solid var(--color-gray);
+      color: var(--color-gray-dark);
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    /* Контейнер спрайта (вырезается на Canvas из 1811sprites.png) */
+    .sprite-stage {
+      width: 240px;
+      height: 240px;
+      margin: 4px auto 20px;
+      border-radius: 20px;
+      background: radial-gradient(circle at center, #ffffff 45%, #f0f1f1 100%);
+      border: 1.5px solid var(--color-gray);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #spriteCanvas {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      display: block;
+      transition: transform 0.25s ease, opacity 0.2s ease;
+    }
+
+    .preview-card.switching #spriteCanvas {
+      opacity: 0.35;
+      transform: scale(0.95);
+    }
+
+    .sprite-fallback {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-gray-dark);
+      font-size: 0.85rem;
+      padding: 12px;
+    }
+
+    .preview-title {
+      font-size: clamp(1.4rem, 2.2vw, 1.8rem);
+      font-weight: 700;
+      color: var(--color-text);
+      margin-bottom: 12px;
+    }
+
+    .preview-desc {
+      font-size: 1.02rem;
+      color: var(--color-gray-dark);
+      max-width: 600px;
+      margin: 0 auto 24px;
+      line-height: 1.6;
+    }
+
+    .preview-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 26px;
+    }
+
+    .meta-chip {
+      font-size: 0.85rem;
+      padding: 6px 12px;
+      border-radius: 8px;
+      background-color: var(--color-gray-light);
+      border: 1px solid var(--color-gray);
+      color: var(--color-text);
+    }
+
+    .meta-chip strong {
+      color: var(--color-red);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      width: 100%;
+      padding-top: 16px;
+      border-top: 1px solid var(--color-gray);
+    }
+
+    .btn-launch {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 14px 32px;
+      background-color: var(--color-red);
+      color: var(--color-white);
+      text-decoration: none;
+      font-size: 1.05rem;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      border: 2px solid var(--color-red);
+      transition: all var(--transition);
+      box-shadow: 0 4px 14px rgba(220, 33, 38, 0.28);
+    }
+
+    .btn-launch:hover {
+      background-color: var(--color-red-hover);
+      border-color: var(--color-red-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(220, 33, 38, 0.35);
+    }
+
+    .btn-launch:active {
+      transform: translateY(0);
+    }
+
+    .footer {
+      background-color: var(--color-white);
+      border-top: 1px solid var(--color-gray);
+      padding: 16px 24px;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--color-gray-dark);
+    }
+
+    /* Адаптивность */
+    @media (max-width: 860px) {
+      .main {
+        grid-template-columns: 1fr;
+      }
+
+      .nav-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      }
+
+      .preview-card {
+        min-height: auto;
+        padding: 24px 18px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .header-inner {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .nav-list {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo-wrap">
+        <img src="logo_70.svg" alt="Герб КемГМУ" onerror="this.style.display='none'" />
+      </div>
+      <div class="header-text">
+        <h1>Ознакомление с <span>медицинским университетом</span></h1>
+        <p>Стартовая страница с выбором профориентационных интерактивов. Выберите интересующую специальность из списка, изучите её описание и запустите симулятор.</p>
+		<p>V 1.0 pre relaese</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- Навигация по интерактивам -->
+    <aside class="nav-panel" aria-label="Выбор направления">
+      <div class="nav-title">Направления подготовки (9)</div>
+      <ul class="nav-list" id="navList"></ul>
+    </aside>
+
+    <!-- Карточка выбранного интерактива: Картинка -> Название -> Описание -> Переход -->
+    <section class="preview-card" id="previewCard" aria-live="polite">
+      <div style="width: 100%;">
+        <span class="preview-badge" id="previewBadge">Специальность №1</span>
+
+        <!-- 1. Картинка (спрайт) -->
+        <div class="sprite-stage">
+          <canvas id="spriteCanvas" width="380" height="340" aria-label="Иконка специальности"></canvas>
+          <div class="sprite-fallback" id="spriteFallback">
+            Файл <strong>1811sprites.png</strong> не найден рядом с index.html
+          </div>
+        </div>
+
+        <!-- 2. Название интерактива -->
+        <h2 class="preview-title" id="previewTitle">Терапевт</h2>
+
+        <!-- 3. Описание интерактива -->
+        <p class="preview-desc" id="previewDesc"></p>
+
+        <div class="preview-meta" id="previewMeta"></div>
+      </div>
+
+      <div class="actions">
+        <a href="terapevt.html" class="btn-launch" id="launchBtn">
+          <span>Открыть интерактив</span>
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Интерактивный профориентационный комплекс · КемГМУ Минздрава России · Автор: Пирогов Денис Викторович, студент КемГМУ
+  </footer>
+
+  <script>
+    /**
+     * Координаты спрайтов в файле 1811sprites.png (размер изображения 1536x1024).
+     * Исключены:
+     *  - машина скорой помощи (ряд 1, колонка 3: x:764, y:18, w:370, h:322)
+     *  - микроскоп (ряд 3, колонка 1: x:62, y:674, w:399, h:329)
+     */
+    const INTERACTIVES = [
+      {
+        id: "terapevt",
+        title: "Терапевт",
+        file: "terapevt.html",
+        faculty: "Лечебное дело",
+        task: "Физикальный обход в 3D-палате и постановка диагноза",
+        description: "Проведите 3D-обход в больничной палате от первого лица: исследуйте пациента пятью методами пропедевтики (опрос, осмотр, пальпация, перкуссия и аускультация с реальными звуками), фиксируйте симптомы в медкарту и ставьте точный диагноз по справочнику из 15 заболеваний.",
+        sprite: { x: 30, y: 14, w: 342, h: 330 } // Сосуд Гигиеи / кадуцей
+      },
+      {
+        id: "surgeon",
+        title: "Хирургия",
+        file: "surgeon.html",
+        faculty: "Лечебное дело · Хирургический профиль",
+        task: "Хирургический практикум (15 этапов и операций)",
+        description: "Пройдите 15 клинических практикумов в операционной: от асептики и надевания стерильных перчаток до послойного рассечения тканей, остановки артериального кровотечения, наложения узловых, косметических и кисетных швов, ПХО раны и лапароскопии.",
+        sprite: { x: 400, y: 14, w: 340, h: 330 } // Рука в перчатке со скальпелем
+      },
+      {
+        id: "raydiagnost",
+        title: "Рентгенолог",
+        file: "raydiagnost.html",
+        faculty: "Лечебное дело",
+        task: "Рентгенография и УЗИ с допплером в 3D-кабинете",
+        description: "Проведите лучевую диагностику 15 пациентов в 3D-кабинете: выбирайте между рентген-экраном и УЗИ-датчиком в реальном времени, используйте контрастирование, цветовой допплер (ЦДК) и изменение положения тела (лёжа/стоя), чтобы отличить схожие патологии.",
+        sprite: { x: 1152, y: 14, w: 364, h: 330 } // Рентгеновский снимок
+      },
+      {
+        id: "pediatria",
+        title: "Педиатр",
+        file: "pediatria.html",
+        faculty: "Педиатрия",
+        task: "Осмотр юных пациентов 3D-приборами и выбор тактики",
+        description: "Примите 8 юных пациентов от родильного зала до подросткового возраста: перетаскивайте 3D-термометр, фонендоскоп и отоскоп на ребёнка для снятия показателей и выбирайте верную клиническую тактику на основе педиатрических нормативов.",
+        sprite: { x: 20, y: 345, w: 388, h: 322 } // Врач с ребёнком
+      },
+      {
+        id: "stomatologer",
+        title: "Стоматология",
+        file: "stomatologer.html",
+        faculty: "Стоматология",
+        task: "Приём пациентов на 3D-модели челюсти (DentaSim 3D)",
+        description: "Отработайте приём в стоматологической клинике на 3D-модели челюсти: подбирайте инструменты со стерильного лотка, проводите герметизацию фиссур, препарирование, эндодонтию корневых каналов, спасение выбитого зуба и стерилизацию по СанПиН.",
+        sprite: { x: 420, y: 345, w: 325, h: 322 } // Зуб и стоматологические инструменты
+      },
+      {
+        id: "pharmacer",
+        title: "Фармацевт",
+        file: "pharmacer.html",
+        faculty: "Фармация",
+        task: "3D-кампус PharmaLab: 5 кафедр и 15 практикумов",
+        description: "Исследуйте 3D-кампус фармацевтического факультета: заготавливайте лекарственное сырьё и изучайте его под микроскопом, проводите титрование, прессуйте таблетки и мази, проверяйте рецепты со Списками А/Б и рассчитывайте терапевтическое окно (ADME).",
+        sprite: { x: 756, y: 345, w: 394, h: 322 } // Гербарий / книга с травами и лекарства
+      },
+      {
+        id: "klipsych",
+        title: "Клинический психолог",
+        file: "klipsych.html",
+        faculty: "Клиническая психология",
+        task: "Психо-детектив: клиническая беседа и снятие «Психе-замков»",
+        description: "Проведите диагностическую беседу по 15 клиническим случаям: задавайте точные вопросы в рамках шкалы энергии, собирайте светящиеся эссенции фактов, связывайте их в логические тезисы и разрушайте «Психе-замки», чтобы поставить верное заключение.",
+        sprite: { x: 1160, y: 345, w: 358, h: 322 } // Профессор и символ Ψ
+      },
+      {
+        id: "nursery",
+        title: "Сестринское дело",
+        file: "nursery.html",
+        faculty: "Сестринское дело",
+        task: "3D-симулятор процедурного кабинета (10 манипуляций)",
+        description: "Отработайте 10 сестринских манипуляций в 3D-процедурном кабинете со строгим контролем санэпидрежима: гигиеническая обработка рук, измерение АД по Короткову, разведение антибиотиков, внутримышечные, внутривенные, подкожные инъекции, капельницы и накрытие стерильного стола.",
+        sprite: { x: 510, y: 670, w: 495, h: 336 } // Медицинский чепчик, фонендоскоп, шприц, карта
+      },
+      {
+        id: "sanguard",
+        title: "Медико-профилактическое дело",
+        file: "sanguard.html",
+        faculty: "Медико-профилактическое дело",
+        task: "Санитарный патруль SanGuard: 8 направлений и 20 испытаний",
+        description: "Станьте специалистом санитарного патруля SanGuard: расследуйте вспышки инфекций, проверяйте пищеблоки по системе ХАССП, анализируйте пробы воды и почвы, рассчитывайте радиационную защиту, сортируйте медотходы и формируйте свой карьерный профиль.",
+        sprite: { x: 1030, y: 670, w: 462, h: 336 } // Санитарный надзор (всевидящее око в мундире)
+      }
+    ];
+
+    const navList = document.getElementById("navList");
+    const previewCard = document.getElementById("previewCard");
+    const previewBadge = document.getElementById("previewBadge");
+    const previewTitle = document.getElementById("previewTitle");
+    const previewDesc = document.getElementById("previewDesc");
+    const previewMeta = document.getElementById("previewMeta");
+    const launchBtn = document.getElementById("launchBtn");
+    const spriteCanvas = document.getElementById("spriteCanvas");
+    const spriteFallback = document.getElementById("spriteFallback");
+    const ctx = spriteCanvas.getContext("2d");
+
+    let currentIndex = 0;
+    const spriteSheet = new Image();
+    let spriteLoaded = false;
+
+    spriteSheet.onload = () => {
+      spriteLoaded = true;
+      spriteCanvas.style.display = "block";
+      spriteFallback.style.display = "none";
+      renderSprite(INTERACTIVES[currentIndex].sprite);
+    };
+
+    spriteSheet.onerror = () => {
+      spriteLoaded = false;
+      spriteCanvas.style.display = "none";
+      spriteFallback.style.display = "flex";
+    };
+
+    spriteSheet.src = "1811sprites.png";
+
+    /**
+     * Отрисовка выбранного фрагмента из 1811sprites.png.
+     * Дополнительно очищает светло-серый/белый фон шахматной сетки вокруг иконки,
+     * если спрайт сохранён без альфа-канала.
+     */
+    function renderSprite(rect) {
+      if (!spriteLoaded) return;
+
+      const maxW = 380;
+      const maxH = 340;
+      const scale = Math.min(maxW / rect.w, maxH / rect.h);
+      const drawW = Math.round(rect.w * scale);
+      const drawH = Math.round(rect.h * scale);
+
+      spriteCanvas.width = drawW;
+      spriteCanvas.height = drawH;
+      ctx.clearRect(0, 0, drawW, drawH);
+
+      ctx.drawImage(
+        spriteSheet,
+        rect.x, rect.y, rect.w, rect.h,
+        0, 0, drawW, drawH
+      );
+
+      // Аккуратно убираем «шахматку» фона (низкая насыщенность + высокая яркость),
+      // чтобы иконка органично смотрелась на белой/светло-серой карточке
+      try {
+        const imgData = ctx.getImageData(0, 0, drawW, drawH);
+        const data = imgData.data;
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const max = Math.max(r, g, b);
+          const min = Math.min(r, g, b);
+          const sat = max - min;
+          // Пиксели серо-белой шахматной подложки имеют sat <= 8 и min >= 198
+          if (sat <= 8 && min >= 198) {
+            data[i + 3] = 0;
+          }
+        }
+        ctx.putImageData(imgData, 0, 0);
+      } catch (e) {
+        // Если локальный браузер ограничивает getImageData при file://,
+        // оставляем обычную отрисовку drawImage без ошибки
+      }
+    }
+
+    function selectInteractive(index) {
+      currentIndex = index;
+      const item = INTERACTIVES[index];
+
+      // Обновляем активную кнопку
+      document.querySelectorAll(".nav-btn").forEach((btn, idx) => {
+        btn.classList.toggle("active", idx === index);
+        btn.setAttribute("aria-pressed", idx === index ? "true" : "false");
+      });
+
+      // Лёгкая анимация смены карточки
+      previewCard.classList.add("switching");
+      setTimeout(() => {
+        previewBadge.textContent = `Направление ${index + 1} из ${INTERACTIVES.length}`;
+        previewTitle.textContent = item.title;
+        previewDesc.textContent = item.description;
+        previewMeta.innerHTML = `
+          <span class="meta-chip"><strong>Факультет:</strong> ${item.faculty}</span>
+          <span class="meta-chip"><strong>Задача:</strong> ${item.task}</span>
+        `;
+        launchBtn.href = item.file;
+        launchBtn.querySelector("span").textContent = `Перейти: ${item.title}`;
+
+        renderSprite(item.sprite);
+        previewCard.classList.remove("switching");
+      }, 110);
+    }
+
+    // Создаём кнопки навигации
+    INTERACTIVES.forEach((item, index) => {
+      const li = document.createElement("li");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "nav-btn" + (index === 0 ? " active" : "");
+      btn.setAttribute("aria-pressed", index === 0 ? "true" : "false");
+      btn.innerHTML = `
+        <span class="nav-btn-index">${index + 1}</span>
+        <span class="nav-btn-label">${item.title}</span>
+        <span class="nav-btn-arrow" aria-hidden="true">›</span>
+      `;
+      btn.addEventListener("click", () => selectInteractive(index));
+      li.appendChild(btn);
+      navList.appendChild(li);
+    });
+
+    // Инициализация первой карточки
+    selectInteractive(0);
+  </script>
+</body>
+</html>

@@ -1,0 +1,2051 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ПСИХО-ДЕТЕКТИВ: ПСИХЕ-ЗАМКИ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #070b14;
+      color: #e2e8f0;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    /* Анимации в стиле Ace Attorney */
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 12px rgba(56, 189, 248, 0.35), inset 0 0 8px rgba(56, 189, 248, 0.2); }
+      50% { box-shadow: 0 0 24px rgba(56, 189, 248, 0.7), inset 0 0 14px rgba(56, 189, 248, 0.4); }
+    }
+    @keyframes hintHighlight {
+      0%, 100% { border-color: #f59e0b; box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); }
+      50% { border-color: #fde047; box-shadow: 0 0 22px rgba(253, 224, 71, 0.85); }
+    }
+    @keyframes slamBanner {
+      0% { transform: scale(2.4) rotate(-4deg); opacity: 0; }
+      60% { transform: scale(0.95) rotate(1deg); opacity: 1; }
+      80% { transform: scale(1.03) rotate(0deg); }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    @keyframes shakeScreen {
+      0%, 100% { transform: translate(0, 0); }
+      20% { transform: translate(-8px, 5px); }
+      40% { transform: translate(8px, -5px); }
+      60% { transform: translate(-6px, -4px); }
+      80% { transform: translate(6px, 4px); }
+    }
+    .animate-slam { animation: slamBanner 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+    .animate-shake { animation: shakeScreen 0.35s ease-in-out; }
+    .hint-glow { animation: hintHighlight 1.4s infinite; }
+
+    /* Кастомный скроллбар */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.35); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.65); }
+
+    .aa-panel {
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(9, 13, 24, 0.96) 100%);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+    .aa-diagonal-badge {
+      clip-path: polygon(0 0, 94% 0, 100% 100%, 0% 100%);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- ==================== ЭКРАН ВЫБОРА КЕЙСА (CASE HUB) ==================== -->
+  <div id="hubScreen" class="min-h-screen flex flex-col p-4 md:p-8 max-w-7xl mx-auto w-full">
+    <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800/90">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-400/30 text-cyan-300 text-xs font-bold tracking-wider uppercase mb-2">
+          <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+          Интерактивный практикум • 8–11 классы
+        </div>
+        <h1 class="text-2xl sm:text-4xl font-black tracking-tight text-white">
+          ПСИХО-ДЕТЕКТИВ: <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-rose-400">ПСИХЕ-ЗАМКИ</span>
+        </h1>
+        <p class="text-slate-400 text-sm sm:text-base mt-1 max-w-2xl">
+          Проводи клиническую беседу, собирай светящиеся эссенции фактов, связывай их в тезисы и снимай душевные замки, чтобы поставить точный диагноз.
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="px-4 py-2 rounded-xl bg-slate-900/90 border border-slate-700/80 text-sm">
+          <span class="text-slate-400">Раскрыто дел:</span>
+          <span id="solvedCountBadge" class="font-extrabold text-cyan-400 ml-1">0 / 15</span>
+        </div>
+        <button id="openRulesBtn" class="px-4 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/40 text-amber-300 font-semibold text-sm transition cursor-pointer">
+          📖 Инструктаж стажёра
+        </button>
+        <button id="muteBtnHub" class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-sm transition cursor-pointer" title="Звук">
+          🔊
+        </button>
+      </div>
+    </header>
+
+    <!-- Сетка 15 кейсов -->
+    <div id="casesGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6 pb-10"></div>
+  </div>
+
+  <!-- ==================== ИГРОВОЙ ЭКРАН (2.5D СЦЕНА + HUD) ==================== -->
+  <div id="gameScreen" class="hidden fixed inset-0 flex flex-col bg-[#060911] overflow-hidden">
+    
+    <!-- Верхняя панель HUD -->
+    <div class="relative z-20 flex flex-wrap items-center justify-between gap-2 px-3 sm:px-6 py-2.5 bg-slate-950/90 border-b border-cyan-500/25 backdrop-blur-md">
+      <div class="flex items-center gap-3">
+        <button id="backToHubBtn" class="px-3 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 border border-slate-600/60 text-xs sm:text-sm font-semibold text-slate-200 transition cursor-pointer">
+          ← Все дела
+        </button>
+        <div>
+          <div class="text-[11px] uppercase tracking-wider text-cyan-400 font-bold" id="hudCaseNumber">ДЕЛО №1</div>
+          <div class="text-sm sm:text-base font-extrabold text-white leading-tight" id="hudCaseTitle">Название дела</div>
+        </div>
+      </div>
+
+      <!-- Шкала 10 очков энергии (вопросов) -->
+      <div class="flex items-center gap-2 bg-slate-900/95 px-3 py-1.5 rounded-xl border border-slate-700/80">
+        <span class="text-xs font-bold text-slate-300 hidden sm:inline">ЭНЕРГИЯ ВОПРОСОВ:</span>
+        <div id="energyCrystals" class="flex items-center gap-1"></div>
+        <span id="energyText" class="text-xs font-black text-cyan-300 ml-1">10/10</span>
+      </div>
+
+      <!-- Замки и кнопки действий -->
+      <div class="flex items-center gap-2">
+        <div class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-950/40 border border-rose-500/30 text-xs font-bold text-rose-300">
+          <span>🔒 Замки:</span>
+          <span id="locksCounterText">3</span>
+        </div>
+        <button id="openHintBtn" class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-amber-300 text-xs sm:text-sm font-bold transition cursor-pointer flex items-center gap-1">
+          💡 Подсказка
+        </button>
+        <button id="restartCaseBtn" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/60 text-slate-300 text-xs font-semibold transition cursor-pointer" title="Начать дело заново">
+          ↻
+        </button>
+        <button id="muteBtnGame" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/60 text-slate-300 text-xs font-semibold transition cursor-pointer">
+          🔊
+        </button>
+      </div>
+    </div>
+
+    <!-- Основная 2.5D сцена (Canvas) -->
+    <div id="canvasWrapper" class="relative flex-1 w-full overflow-hidden">
+      <canvas id="sceneCanvas" class="block w-full h-full"></canvas>
+
+      <!-- Всплывающая подсказка по сбору эссенций -->
+      <div id="collectPrompt" class="hidden absolute top-3 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 rounded-full bg-cyan-500/20 border border-cyan-300/60 text-cyan-200 text-xs sm:text-sm font-bold backdrop-blur-md animate-bounce pointer-events-none">
+        ✨ Кликни на светящуюся эссенцию вокруг пациента, чтобы собрать факт!
+      </div>
+
+      <!-- Баннер в стиле Ace Attorney (ЕСТЬ КОНТАКТ / ОШИБКА) -->
+      <div id="shoutBanner" class="hidden absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
+        <div id="shoutBox" class="px-8 py-4 rounded-2xl border-4 font-black text-2xl sm:text-5xl tracking-wider uppercase shadow-2xl animate-slam">
+          ЕСТЬ КОНТАКТ!
+        </div>
+      </div>
+
+      <!-- Диалоговое окно в стиле Ace Attorney поверх нижней части Canvas -->
+      <div class="absolute bottom-2 left-2 right-2 md:left-6 md:right-6 z-20 flex flex-col lg:flex-row gap-3 items-stretch pointer-events-none">
+        
+        <!-- Левая часть: Реплика пациента и выбор вопросов -->
+        <div class="flex-1 aa-panel rounded-2xl p-3 sm:p-4 pointer-events-auto flex flex-col justify-between max-h-[46vh] lg:max-h-[38vh]">
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <div id="speakerBadge" class="aa-diagonal-badge bg-gradient-to-r from-cyan-600 to-blue-700 text-white text-xs sm:text-sm font-extrabold px-4 py-1 tracking-wide">
+                Пациент
+              </div>
+              <span id="emotionBadge" class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                Состояние: насторожен
+              </span>
+            </div>
+            <p id="dialogueText" class="text-sm sm:text-base text-slate-100 leading-relaxed min-h-[3.2rem] font-medium">
+              ...
+            </p>
+          </div>
+
+          <!-- Панель кнопок: Переключение между "Задать вопрос" и "Связать факты (Логика)" -->
+          <div class="mt-3 pt-2.5 border-t border-slate-800 flex flex-col gap-2">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex gap-1.5">
+                <button id="tabQuestionsBtn" class="px-3 py-1 rounded-lg text-xs font-bold bg-cyan-500 text-slate-950 transition cursor-pointer">
+                  💬 Вопросы (10)
+                </button>
+                <button id="tabLogicBtn" class="px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition cursor-pointer flex items-center gap-1">
+                  🔗 Логика / Снять замок
+                </button>
+              </div>
+              <button id="finalDiagnosisBtn" class="hidden px-3.5 py-1 rounded-lg text-xs font-black bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/30 animate-pulse cursor-pointer">
+                🩺 ПОСТАВИТЬ ДИАГНОЗ!
+              </button>
+            </div>
+
+            <!-- Список вопросов -->
+            <div id="questionsPanel" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 overflow-y-auto max-h-36 pr-1"></div>
+
+            <!-- Панель Логики (связывание 2 эссенций) -->
+            <div id="logicPanel" class="hidden flex flex-col gap-2 bg-slate-900/90 p-2.5 rounded-xl border border-rose-500/30">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-xs text-slate-300 font-semibold">
+                  Выбери <span class="text-cyan-300 font-bold">2 эссенции фактов</span> в банке справа, чтобы образовать клинический тезис:
+                </span>
+                <button id="combineBtn" class="px-4 py-1.5 rounded-lg bg-gradient-to-r from-rose-600 to-amber-500 hover:from-rose-500 hover:to-amber-400 text-white text-xs font-extrabold tracking-wide shadow-md transition cursor-pointer disabled:opacity-40" disabled>
+                  ⚡ СВЯЗАТЬ ФАКТЫ
+                </button>
+              </div>
+              <div class="flex items-center gap-2 text-xs">
+                <div id="slot1Box" class="flex-1 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-dashed border-slate-600 text-slate-400 truncate">
+                  [Факт 1 не выбран]
+                </div>
+                <span class="text-amber-400 font-black">+</span>
+                <div id="slot2Box" class="flex-1 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-dashed border-slate-600 text-slate-400 truncate">
+                  [Факт 2 не выбран]
+                </div>
+              </div>
+              <div id="logicFeedback" class="text-xs text-amber-300 hidden"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Правая часть: Банк собранных эссенций и раскрытых тезисов -->
+        <div class="w-full lg:w-80 xl:w-96 aa-panel rounded-2xl p-3 sm:p-4 pointer-events-auto flex flex-col justify-between max-h-[34vh] lg:max-h-[38vh]">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-extrabold uppercase tracking-wider text-cyan-300">
+              ✨ Банк эссенций (<span id="essenceCount">0</span>)
+            </span>
+            <span class="text-[11px] text-slate-400" id="thesisCountBadge">Тезисов: 0</span>
+          </div>
+          <div id="essenceBankList" class="flex-1 overflow-y-auto space-y-1.5 pr-1">
+            <div class="text-xs text-slate-500 italic py-4 text-center">
+              Задавай вопросы пациенту и собирай светящиеся сферы фактов с экрана.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: ИНСТРУКТАЖ СТАЖЁРА ==================== -->
+  <div id="rulesModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div class="aa-panel rounded-2xl max-w-xl w-full p-6 border border-cyan-400/40 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h2 class="text-xl font-black text-white">🕵️ ИНСТРУКТАЖ КЛИНИЧЕСКОГО СТАЖЁРА</h2>
+        <button id="closeRulesBtn" class="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">✕</button>
+      </div>
+      <div class="space-y-3.5 mt-4 text-sm text-slate-300 leading-relaxed">
+        <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-700/70">
+          <div class="font-bold text-cyan-300 mb-1">1. Шкала 10 очков энергии (вопросов)</div>
+          У тебя есть ровно <b class="text-white">10 вопросов</b>. Пациенты отвечают жизненно и без медицинских терминов — внимательно читай между строк, чтобы не тратить энергию на пустые вопросы.
+        </div>
+        <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-700/70">
+          <div class="font-bold text-sky-300 mb-1">2. Сбор светящихся эссенций фактов</div>
+          Когда ответ пациента раскрывает важную деталь, в воздухе вокруг него появляется <b class="text-cyan-200">светящаяся сфера</b>. Кликни по ней, чтобы добавить факт в свой Банк эссенций.
+        </div>
+        <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-700/70">
+          <div class="font-bold text-rose-400 mb-1">3. Связывание тезисов и снятие Психе-Замков</div>
+          Перейди во вкладку <b class="text-white">«🔗 Логика / Снять замок»</b>, выбери <b class="text-amber-300">2 связанные эссенции</b> и нажми «Связать факты». Верный клинический тезис разобьёт один из замков!
+        </div>
+        <div class="p-3 rounded-xl bg-slate-900/90 border border-slate-700/70">
+          <div class="font-bold text-amber-300 mb-1">4. Подсказки для 8–11 классов</div>
+          Затрудняешься? Нажми кнопку <b class="text-amber-300">«💡 Подсказка»</b> — доступны 3 уровня помощи: направление расспроса, подсветка нужного вопроса и подсказка по связке фактов.
+        </div>
+      </div>
+      <button id="startTrainingBtn" class="mt-5 w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-sm uppercase tracking-wider transition cursor-pointer">
+        Приступить к практике
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: ПОДСКАЗКИ ==================== -->
+  <div id="hintModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div class="aa-panel rounded-2xl max-w-lg w-full p-6 border border-amber-400/40 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-lg font-black text-amber-300">💡 НАСТАВНИК-СУПЕРВИЗОР</h3>
+        <button id="closeHintBtn" class="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">✕</button>
+      </div>
+      <p class="text-xs text-slate-400 mt-2">Выбери уровень подсказки, если зашёл в тупик при разборе случая:</p>
+      <div class="space-y-3 mt-4">
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-700">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-amber-200">Уровень 1: Направление клинического поиска</span>
+            <button id="revealHint1Btn" class="px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 text-xs font-bold hover:bg-amber-500/30 cursor-pointer">Открыть</button>
+          </div>
+          <p id="hint1Text" class="hidden text-xs text-slate-200 mt-2 leading-relaxed"></p>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-700">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-amber-200">Уровень 2: Подсветить важный вопрос в списке</span>
+            <button id="revealHint2Btn" class="px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 text-xs font-bold hover:bg-amber-500/30 cursor-pointer">Подсветить</button>
+          </div>
+          <p id="hint2Text" class="hidden text-xs text-emerald-300 mt-2"></p>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-900 border border-slate-700">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-amber-200">Уровень 3: Подсказка по связке фактов для замка</span>
+            <button id="revealHint3Btn" class="px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 text-xs font-bold hover:bg-amber-500/30 cursor-pointer">Открыть</button>
+          </div>
+          <p id="hint3Text" class="hidden text-xs text-slate-200 mt-2 leading-relaxed"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== МОДАЛЬНОЕ ОКНО: ФИНАЛЬНЫЙ ДИАГНОЗ И РАЗБОР ==================== -->
+  <div id="diagnosisModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+    <div class="aa-panel rounded-2xl max-w-2xl w-full p-6 border border-emerald-400/40 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Все Психе-Замки разрушены!</span>
+          <h3 class="text-xl font-black text-white">КЛИНИЧЕСКОЕ ЗАКЛЮЧЕНИЕ</h3>
+        </div>
+        <button id="closeDiagBtn" class="text-slate-400 hover:text-white text-xl font-bold cursor-pointer">✕</button>
+      </div>
+
+      <div id="diagSelectPhase" class="mt-4">
+        <p class="text-sm text-slate-300 mb-3">
+          На основе собранных эссенций и сформированных тезисов выбери наиболее точный клинико-психологический вывод:
+        </p>
+        <div id="diagOptionsList" class="space-y-2.5"></div>
+        <div id="diagErrorMsg" class="hidden mt-3 p-3 rounded-xl bg-rose-950/60 border border-rose-500/50 text-rose-200 text-xs"></div>
+      </div>
+
+      <div id="diagSuccessPhase" class="hidden mt-4 space-y-4">
+        <div class="p-4 rounded-xl bg-emerald-950/50 border border-emerald-500/40">
+          <div class="text-xs font-bold uppercase text-emerald-400 mb-1">Дело успешно закрыто!</div>
+          <div id="finalDiagTitle" class="text-lg font-black text-white"></div>
+        </div>
+        <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-700 text-sm text-slate-200 leading-relaxed space-y-2">
+          <div class="font-bold text-cyan-300">Разбор клинического психолога:</div>
+          <p id="finalDiagExplanation"></p>
+        </div>
+        <div class="flex flex-wrap gap-3 pt-2">
+          <button id="nextCaseBtn" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-sm uppercase tracking-wider cursor-pointer">
+            Следующее дело →
+          </button>
+          <button id="backHubFromWinBtn" class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm cursor-pointer">
+            В меню дел
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. ПРОЦЕДУРНЫЙ ЗВУКОВОЙ ДВИЖОК (WEB AUDIO API) В СТИЛЕ ACE ATTORNEY
+    // =========================================================================
+    class SoundFX {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playTone(freq, type, duration, vol = 0.08, slideTo = null) {
+        if (this.muted) return;
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        if (slideTo) {
+          osc.frequency.exponentialRampToValueAtTime(slideTo, this.ctx.currentTime + duration);
+        }
+        gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+      }
+      blip() { this.playTone(540, 'square', 0.04, 0.025); }
+      click() { this.playTone(720, 'sine', 0.07, 0.06, 900); }
+      collect() {
+        this.playTone(587.33, 'sine', 0.14, 0.09);
+        setTimeout(() => this.playTone(880, 'triangle', 0.22, 0.1), 70);
+      }
+      error() {
+        this.playTone(160, 'sawtooth', 0.25, 0.11, 110);
+      }
+      shatter() {
+        this.playTone(220, 'sawtooth', 0.35, 0.14, 55);
+        setTimeout(() => this.playTone(980, 'square', 0.28, 0.09, 320), 60);
+      }
+      win() {
+        [523.25, 659.25, 783.99, 1046.5].forEach((f, idx) => {
+          setTimeout(() => this.playTone(f, 'triangle', 0.25, 0.09), idx * 100);
+        });
+      }
+    }
+    const sfx = new SoundFX();
+
+    // =========================================================================
+    // 2. БАЗА ДАННЫХ: 15 ПРОРАБОТАННЫХ КЛИНИЧЕСКИХ КЕЙСОВ
+    // =========================================================================
+    const CASES_DATA = [
+      {
+        id: 1,
+        title: "Туман перед сессией",
+        patientName: "Артём, 20 лет (студент 2 курса)",
+        referral: "Жалобы на «туман в голове», снижение успеваемости и внутреннее напряжение.",
+        difficulty: 2,
+        appearance: { hair: "#1e293b", shirt: "#334155", accent: "#38bdf8", gender: "m", glasses: true },
+        initialSpeech: "Здравствуйте. Мама настояла, чтобы я пришёл. Говорит, я стал каким-то закрытым и завалил два зачёта. Но я просто устал от информационного шума.",
+        hints: [
+          "Обрати внимание не только на усталость, но и на то, КАК пациент рассуждает о простых вещах, и менялся ли он постепенно в течение последнего года.",
+          "Задай вопрос про сравнение предметов («Что общего между ботинком и карандашом?») или про ощущение постороннего влияния на мысли.",
+          "Свяжи [Искажение уровня обобщения (опора на случайные признаки)] + [Эмоциональное уплощение и сужение круга общения] для первого замка."
+        ],
+        questions: [
+          { id: "q1", text: "Как давно вы заметили, что стало трудно готовиться к занятиям?", reply: "Месяцев восемь назад, наверное. Сначала просто перестал ходить на пары, где слишком много людей. Потом заметил, что читаю абзац — а смысл рассыпается на отдельные буквы.", emotion: "насторожен", essenceId: "e1" },
+          { id: "q2", text: "Чем вы занимаетесь в свободное время дома?", reply: "Лежу, смотрю в потолок или записываю в тетрадь схемы устройства общества. Друзья зовут гулять, но мне с ними не о чем говорить — их темы кажутся плоскими.", emotion: "отстранён", essenceId: "e2" },
+          { id: "q3", text: "Ради эксперимента: что общего между ботинком и карандашом?", reply: "Хм... Оба оставляют след. Ботинок — на мокром асфальте истории, карандаш — на бумаге. И оба состоят из атомов углерода, если подумать.", emotion: "задумчив", essenceId: "e3" },
+          { id: "q4", text: "Бывает ли ощущение, что ваши мысли звучат громко или известны другим?", reply: "Не то чтобы прямо слышу... Но в метро иногда кажется, что люди оборачиваются именно в ту секунду, когда я подумал о чём-то личном. Будто экран телефона не выключен.", emotion: "напряжён", essenceId: "e4" },
+          { id: "q5", text: "Как вы оцениваете своё настроение: есть ли сильная тоска или слёзы?", reply: "Да нет, мне не грустно. Скорее ровно. Даже когда отчислением пригрозили, я ничего особенного не почувствовал — просто констатировал факт.", emotion: "равнодушен", essenceId: "e5" },
+          { id: "q6", text: "Были ли у вас травмы головы или тяжёлые инфекции в детстве?", reply: "Нет, болел только обычной простудой, в больницах не лежал.", emotion: "спокоен", essenceId: "e6" },
+          { id: "q7", text: "Вы пьёте много кофе или энергетиков во время сессии?", reply: "Иногда банку энергетика выпиваю, но последний месяц вообще ничего такого не покупал.", emotion: "спокоен", essenceId: null },
+          { id: "q8", text: "Какой ваш любимый предмет в университете?", reply: "Раньше нравилась физика, сейчас без разницы.", emotion: "отстранён", essenceId: null },
+          { id: "q9", text: "Вы хорошо высыпаетесь по ночам?", reply: "Ложусь под утро, сплю часов по девять, но бодрости нет.", emotion: "устал", essenceId: null },
+          { id: "q10", text: "Есть ли у вас аллергия на лекарства?", reply: "Насколько знаю, нет.", emotion: "спокоен", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Постепенное падение продуктивности", desc: "Нарастание трудностей в течение 8 месяцев без острой психотравмы.", isDistractor: false },
+          { id: "e2", title: "Аутизация и резонерство", desc: "Утрата интереса к общению, склонность к бесплодному мудрствованию.", isDistractor: false },
+          { id: "e3", title: "Искажение уровня обобщения", desc: "Опора на латентные признаки («след в истории», «атомы») вместо функции.", isDistractor: false },
+          { id: "e4", title: "Симптом «открытости мыслей»", desc: "Ощущение, что окружающие в метро улавливают его мысли.", isDistractor: false },
+          { id: "e5", title: "Эмоциональное уплощение", desc: "Отсутствие живого отклика даже на угрозу отчисления (нет тоски, есть холодность).", isDistractor: false },
+          { id: "e6", title: "Отсутствие органики в анамнезе", desc: "ЧМТ и нейроинфекций не переносил.", isDistractor: true }
+        ],
+        combos: [
+          { pair: ["e2", "e3"], thesis: "Нарушение мышления по эндогенному типу (резонерство + опора на латентные признаки)." },
+          { pair: ["e1", "e5"], thesis: "Нарастающий эмоционально-волевой дефицит (уплощение аффекта и социальное снижение)." },
+          { pair: ["e4", "e2"], thesis: "Начальные проявления психического отчуждения и идей отношения." }
+        ],
+        diagnoses: [
+          { text: "Шизотипическое расстройство / продромальный этап эндогенного процесса", correct: true },
+          { text: "Неврастения (синдром эмоционального выгорания перед экзаменами)", correct: false },
+          { text: "Классическая эндогенная депрессия с витальной тоской", correct: false },
+          { text: "Последствия черепно-мозговой травмы", correct: false }
+        ],
+        explanation: "При обычном переутомлении (неврастении) сохраняются живые эмоции, переживания за учёбу и нормальная логика обобщения. У Артёма выявлены специфические нарушения мышления (резонерство и латентные признаки в пробе на сравнение), эмоциональное уплощение, аутизация и начальные феномены открытости мыслей, что характерно для шизотипического спектра."
+      },
+      {
+        id: 2,
+        title: "Хронометр в кармане",
+        patientName: "Виктор Сергеевич, 38 лет (мастер цеха)",
+        referral: "Направлен неврологом: вспышки гнева по мелочам, головные боли и конфликты в семье.",
+        difficulty: 1,
+        appearance: { hair: "#475569", shirt: "#1e3a8a", accent: "#f59e0b", gender: "m", glasses: false },
+        initialSpeech: "Доктор, я человек справедливый. Люблю, когда каждая отвёртка на своём гвозде висит. А дома жена кружку не на ту полку поставит — и у меня прямо в висках стучит, сдержаться не могу.",
+        hints: [
+          "Обрати внимание на темп речи пациента, застревание на мелких деталях и расспроси о травмах или приступах в прошлом.",
+          "Спроси: «Как вы самочувствие описываете с самого утра?» или «Бывали ли в прошлом травмы головы или потери сознания?»",
+          "Свяжи [Вязкость мышления и застревание на деталях] + [ЧМТ и эпизоды отключения сознания в анамнезе]."
+        ],
+        questions: [
+          { id: "q1", text: "Как начался ваш сегодняшний день? Опишите коротко.", reply: "Встал в 6:14. Поставил чайник — он у нас синий, на два литра, купил в прошлом октябре по акции. Вода закипела в 6:19. Почистил зубы щёткой средней жёсткости, потом надел левый носок, затем правый...", emotion: "напряжён", essenceId: "e1" },
+          { id: "q2", text: "Бывали ли у вас в жизни травмы головы или эпизоды потери сознания?", reply: "В 24 года на стройке балка задела — три дня в больнице лежал с сотрясением. А год назад жена говорила, что я за столом на 10 секунд замер с ложкой, не откликался, но я этого не помню.", emotion: "насторожен", essenceId: "e2" },
+          { id: "q3", text: "Что происходит после вашей вспышки гнева?", reply: "Сначала кричу, могу кулаком по столу ударить. А через полчаса сам переживаю, извиняюсь, прошу прощения, но внутри ещё долго всё кипит — не могу быстро остыть.", emotion: "раздражён", essenceId: "e3" },
+          { id: "q4", text: "Что лишнее: стул, стол, шкаф, яблоко?", reply: "Яблоко, конечно, его едят, а остальное — мебель. Только вот яблоко на столе лежать может, если тарелку поставить...", emotion: "спокоен", essenceId: "e4" },
+          { id: "q5", text: "Бывает ли, что вы плохо переносите духоту или поездки в транспорте?", reply: "О, в душном автобусе сразу голова раскалывается, темнеет в глазах и злость накатывает.", emotion: "напряжён", essenceId: "e5" },
+          { id: "q6", text: "Слышите ли вы какие-нибудь голоса, когда злитесь?", reply: "Нет, какие голоса? Просто кровь в ушах шумит.", emotion: "спокоен", essenceId: null },
+          { id: "q7", text: "Вы любите свою работу на заводе?", reply: "Работу люблю, там дисциплина.", emotion: "спокоен", essenceId: null },
+          { id: "q8", text: "Как вы относитесь к современным фильмам?", reply: "Не смотрю, там сплошная суета.", emotion: "спокоен", essenceId: null },
+          { id: "q9", text: "Употребляете ли вы алкоголь по выходным?", reply: "Нет, мне от него сразу плохо становится, давление скачет.", emotion: "спокоен", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Обстоятельность и вязкость мышления", desc: "Неспособность отделить главное от второстепенного, застревание на мелких деталях.", isDistractor: false },
+          { id: "e2", title: "ЧМТ и пароксизмы (абсансы) в анамнезе", desc: "Сотрясение мозга и эпизоды кратковременного отключения сознания.", isDistractor: false },
+          { id: "e3", title: "Эксплозивность и тугоподвижность аффекта", desc: "Вспышки гнева из-за мелочей с долгим «остыванием» эмоции.", isDistractor: false },
+          { id: "e4", title: "Склонность к конкретно-ситуационным связям", desc: "Даже решив задачу, привязывает предметы к бытовой ситуации.", isDistractor: false },
+          { id: "e5", title: "Метео- и гипоксическая чувствительность", desc: "Резкое ухудшение состояния в духоте (признак органической почвы).", isDistractor: true }
+        ],
+        combos: [
+          { pair: ["e1", "e4"], thesis: "Инертность (вязкость) когнитивных процессов, типичная для органической/эпилептоидной почвы." },
+          { pair: ["e2", "e3"], thesis: "Эксплозивные аффективные разряды на фоне перенесённой ЧМТ и пароксизмальной активности." },
+          { pair: ["e1", "e2"], thesis: "Органический психосиндром с нарушением динамики мышления." }
+        ],
+        diagnoses: [
+          { text: "Органическое расстройство личности (эпилептоидный вариант после ЧМТ)", correct: true },
+          { text: "Паническое расстройство с агорафобией", correct: false },
+          { text: "Биполярное аффективное расстройство (маниакальная фаза)", correct: false },
+          { text: "Симуляция ради смены должности", correct: false }
+        ],
+        explanation: "Для органических поражений головного мозга и эпилептического спектра характерны «вязкость» (тугоподвижность) мышления — пациент тонет в мелких деталях («синий чайник, 6:14, левый носок»), педантизм, взрывчатость (эксплозивность) и непереносимость духоты после перенесённой ЧМТ."
+      },
+      {
+        id: 3,
+        title: "Сердце не на месте",
+        patientName: "Елена, 44 года (бухгалтер)",
+        referral: "Направлена терапевтом: два года лечит «боли в сердце и желудке» без эффекта.",
+        difficulty: 2,
+        appearance: { hair: "#7c2d12", shirt: "#4c1d95", accent: "#f43f5e", gender: "f", glasses: false },
+        initialSpeech: "Я уже устала ходить по поликлиникам. За грудиной давит, во рту сухо, кишечник встал. Врачи смотрят анализы и разводят руками: «Вы здоровы». А мне жить не хочется от этой тяжести.",
+        hints: [
+          "Когда физические симптомы не подтверждаются анализами, проверь суточные колебания самочувствия и соматические признаки скрытой тоски.",
+          "Спроси: «В какое время суток вам хуже всего — утром или ближе к вечеру?»",
+          "Свяжи [Ухудшение строго по утрам и облегчение к вечеру] + [Нормальные обследования при вегетативной триаде]."
+        ],
+        questions: [
+          { id: "q1", text: "В какое время суток давящая тяжесть беспокоит вас сильнее всего?", reply: "Самый кошмар — когда просыпаюсь в 6 утра. Камень на груди, встать с кровати невозможно, кажется, день не переживу. А к 7–8 вечера немного отпускает, даже ужин могу приготовить.", emotion: "подавлена", essenceId: "e1" },
+          { id: "q2", text: "Какие обследования сердца и желудка вы уже проходили?", reply: "Делала ЭКГ, УЗИ сердца, гастроскопию, сдавала гормоны — всё в пределах нормы. Кардиолог сказал, что сердце как у космонавта, но мне-то плохо!", emotion: "напряжена", essenceId: "e2" },
+          { id: "q3", text: "Как изменились ваш сон и вес за последние полгода?", reply: "Просыпаюсь за два часа до будильника и больше не могу уснуть. Еда стала как вата, похудела на 5 килограммов без диет.", emotion: "устала", essenceId: "e3" },
+          { id: "q4", text: "Бывали ли похожие периоды у вас или у ваших близких родственников?", reply: "Пять лет назад осенью тоже пару месяцев так маялась, потом само прошло. И у мамы в моём возрасте были периоды, когда она месяцами из дома не выходила.", emotion: "грустна", essenceId: "e4" },
+          { id: "q5", text: "Как вы сами описываете своё душевное состояние?", reply: "Да нет у меня никакой депрессии, я не плачу! Просто физически сил нет, всё внутри сжато и пусто.", emotion: "защищается", essenceId: "e5" },
+          { id: "q6", text: "Помогают ли вам сердечные капли или обезболивающие?", reply: "Нисколько, только сонливость дают.", emotion: "устала", essenceId: null },
+          { id: "q7", text: "Есть ли у вас конфликты на работе?", reply: "Коллектив хороший, меня ценят, просто я сама еле тяну отчёты.", emotion: "спокойна", essenceId: null },
+          { id: "q8", text: "Любите ли вы гулять в парке?", reply: "Раньше любила, сейчас ноги не идут.", emotion: "подавлена", essenceId: null },
+          { id: "q9", text: "Боитесь ли вы ездить в лифте или метро?", reply: "Нет, приступов паники у меня не бывает.", emotion: "спокойна", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Классический суточный ритм", desc: "Максимальная тяжесть в ранние утренние часы и заметное облегчение к вечеру.", isDistractor: false },
+          { id: "e2", title: "Отсутствие соматической патологии", desc: "ЭКГ, УЗИ и анализы в норме при стойких телесных жалобах.", isDistractor: false },
+          { id: "e3", title: "Витально-вегетативные сдвиги", desc: "Ранние пробуждения, потеря аппетита, похудение, сухость во рту и запоры.", isDistractor: false },
+          { id: "e4", title: "Фазность и наследственность", desc: "Повторяемость эпизодов в прошлом и аффективные нарушения у матери.", isDistractor: false },
+          { id: "e5", title: "Отрицание тоски («депрессия без депрессии»)", desc: "Пациентка фиксирована на телесных ощущениях, не осознавая аффект.", isDistractor: true }
+        ],
+        combos: [
+          { pair: ["e1", "e2"], thesis: "Телесные боли без органики с чётким утренним пиком — маркер эндогенного аффекта." },
+          { pair: ["e3", "e4"], thesis: "Соматовегетативный синдром (триада Протопопова, ранние пробуждения) с фазным течением." },
+          { pair: ["e1", "e3"], thesis: "Витальный характер расстройства сна, аппетита и суточной динамики." }
+        ],
+        diagnoses: [
+          { text: "Маскированная (соматизированная) депрессия", correct: true },
+          { text: "Стенокардия напряжения (ишемическая болезнь сердца)", correct: false },
+          { text: "Паническое расстройство", correct: false },
+          { text: "Истерическое расстройство личности", correct: false }
+        ],
+        explanation: "Маскированная (ларвированная) депрессия «прячется» за маской сердечных или желудочно-кишечных болей. Ключевые подсказки: нормальные результаты обследований, утреннее ухудшение с облегчением к вечеру, ранние пробуждения, потеря веса и сухость слизистых."
+      },
+      {
+        id: 4,
+        title: "Пять стартапов за ночь",
+        patientName: "Денис, 31 год (дизайнер)",
+        referral: "Приведён супругой: за неделю набрал кредитов, почти не спит, говорит без остановки.",
+        difficulty: 1,
+        appearance: { hair: "#b45309", shirt: "#0284c7", accent: "#fde047", gender: "m", glasses: false },
+        initialSpeech: "О, приветствую! Слушайте, у меня сейчас гениальный период — мозг работает на 300 процентов! Я за ночь придумал пять IT-стартапов, написал бизнес-план и уже заказал логотипы. Не понимаю, зачем жена меня сюда притащила!",
+        hints: [
+          "Оцени темп речи, потребность во сне, отношение к деньгам и узнай, не бывало ли противоположных периодов в прошлом.",
+          "Спроси: «Сколько часов вы спите?» и «Бывали ли периоды полного упадка сил?»",
+          "Свяжи [Сон 2–3 часа без усталости и скачка идей] + [Отсутствие критики к импульсивным тратам]."
+        ],
+        questions: [
+          { id: "q1", text: "Сколько часов в сутки вы спите последнюю неделю?", reply: "Два-три часа максимум! Ложусь в четыре, в шесть уже на ногах, полон энергии. Сон — это вообще для тех, у кого нет великих целей, ха-ха! Кстати, у вас отличный галстук, я бы такой бренд запустил...", emotion: "возбуждён", essenceId: "e1" },
+          { id: "q2", text: "Правда ли, что вы оформили несколько кредитов за последние дни?", reply: "Ну да, на миллион двести. Это же инвестиции в будущее! Через месяц всё окупится в десять раз. Жена просто мыслит мелко, не видит масштаба.", emotion: "эйфоричен", essenceId: "e2" },
+          { id: "q3", text: "Бывали ли у вас в жизни периоды, когда, наоборот, ничего не хотелось делать?", reply: "Было прошлой зимой... Три месяца вообще из квартиры не выходил, казался себе полным ничтожеством, даже зубы почистить было подвигом. Но сейчас я полностью переродился!", emotion: "оживлён", essenceId: "e3" },
+          { id: "q4", text: "Считаете ли вы, что сейчас нуждаетесь в помощи врача?", reply: "Да вы что! Это мне впору вам помочь — я могу оптимизировать работу вашей клиники за два дня!", emotion: "эйфоричен", essenceId: "e4" },
+          { id: "q5", text: "Употребляли ли вы какие-либо стимуляторы на этой неделе?", reply: "Никакой химии, я за чистый разум! Меня прёт от собственных идей.", emotion: "возбуждён", essenceId: "e5" },
+          { id: "q6", text: "Какой у вас любимый цвет?", reply: "Золотой и ярко-оранжевый — цвета победы!", emotion: "эйфоричен", essenceId: null },
+          { id: "q7", text: "Вы давно работаете дизайнером?", reply: "Восемь лет, но теперь я вырос из простого дизайнера в визионера.", emotion: "возбуждён", essenceId: null },
+          { id: "q8", text: "Есть ли у вас домашние животные?", reply: "Кот Барсик, он тоже чувствует мою энергию.", emotion: "оживлён", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Снижение потребности во сне и тахипсихия", desc: "Спит 2–3 часа без утомления, ускоренный темп речи и скачка идей.", isDistractor: false },
+          { id: "e2", title: "Переоценка личности и расточительство", desc: "Необдуманные крупные кредиты под влиянием идей величия.", isDistractor: false },
+          { id: "e3", title: "Депрессивный эпизод в прошлом", desc: "Прошлой зимой 3 месяца находился в тяжёлой апатии и самообвинении.", isDistractor: false },
+          { id: "e4", title: "Полное отсутствие критики", desc: "Не осознаёт болезненность подъёма, считает себя сверхпродуктивным.", isDistractor: false },
+          { id: "e5", title: "Исключение интоксикации стимуляторами", desc: "ПАВ не употреблял, состояние развилось эндогенно.", isDistractor: true }
+        ],
+        combos: [
+          { pair: ["e1", "e2"], thesis: "Маниакальная триада: повышенное настроение, ускорение мышления и двигательное возбуждение." },
+          { pair: ["e2", "e4"], thesis: "Утрата критики с рискованным финансовым поведением (психотический/маниакальный уровень)." },
+          { pair: ["e1", "e3"], thesis: "Чередование противоположных аффективных полюсов (мания после депрессивной фазы)." }
+        ],
+        diagnoses: [
+          { text: "Маниакальный эпизод в рамках биполярного аффективного расстройства (БАР)", correct: true },
+          { text: "СДВГ (синдром дефицита внимания и гиперактивности)", correct: false },
+          { text: "Острое интоксикационное состояние (отравление стимуляторами)", correct: false },
+          { text: "Тревожно-фобическое расстройство", correct: false }
+        ],
+        explanation: "Классическая картина мании при БАР: резкое снижение потребности во сне (2–3 часа без усталости), ускорение речи и мышления (тахипсихия), переоценка возможностей, отсутствие критики и наличие депрессивного эпизода в анамнезе."
+      },
+      {
+        id: 5,
+        title: "Остановка «Метро»",
+        patientName: "Алина, 29 лет (менеджер)",
+        referral: "Обратилась сама: боится выходить из дома одна из-за приступов удушья.",
+        difficulty: 1,
+        appearance: { hair: "#0f172a", shirt: "#0d9488", accent: "#38bdf8", gender: "f", glasses: true },
+        initialSpeech: "Я знаю, что со стороны это выглядит глупо, но я третью неделю езжу на работу только на такси и только если меня провожает сестра. В метро мне кажется, что я сейчас задохнусь или умру от инфаркта.",
+        hints: [
+          "Обрати внимание, сохраняет ли пациентка критику к своим страхам и что предшествовало первому приступу.",
+          "Спроси: «Когда случился самый первый приступ и что происходило в вашей жизни?»",
+          "Свяжи [Внезапные вегетативные кризы со страхом смерти] + [Избегающее поведение при полной критике]."
+        ],
+        questions: [
+          { id: "q1", text: "Расскажите, как именно проходит этот приступ.", reply: "Всё начинается за секунды: сердце колотится как бешеное, не хватает воздуха, ладони мокрые, ноги ватные. Кажется, ещё минута — и я потеряю сознание прямо в вагоне. Через 15 минут отпускает, но потом весь день трясёт.", emotion: "взволнована", essenceId: "e1" },
+          { id: "q2", text: "Что происходило в вашей жизни перед самым первым приступом?", reply: "Я тогда два месяца работала без выходных над закрытием отдела, плюс рассталась с молодым человеком. В тот вечер ехала домой уставшая, в вагоне было душно — и накрыло.", emotion: "грустна", essenceId: "e2" },
+          { id: "q3", text: "Как вы сами относитесь к этому страху? Считаете ли его обоснованным?", reply: "Головой я прекрасно понимаю, что в метро безопасно и сердце у меня здоровое — я проверялась. Но когда подхожу к эскалатору, тело будто само включает сирену.", emotion: "напряжена", essenceId: "e3" },
+          { id: "q4", text: "Изменилось ли ваше повседневное поведение из-за этих приступов?", reply: "Да, я перестала спускаться в метро, избегаю торговых центров и очередей — боюсь, что там не успеют оказать помощь.", emotion: "взволнована", essenceId: "e4" },
+          { id: "q5", text: "Нет ли ощущения, что кто-то специально вызывает у вас эти приступы?", reply: "Нет конечно! Это моя собственная нервная система сбоит.", emotion: "спокойна", essenceId: null },
+          { id: "q6", text: "Сколько времени вы добираетесь до работы на такси?", reply: "Около сорока минут, выходит дорого.", emotion: "спокойна", essenceId: null },
+          { id: "q7", text: "Бывают ли у вас провалы в памяти?", reply: "Нет, я всё помню до мельчайших подробностей.", emotion: "спокойна", essenceId: null },
+          { id: "q8", text: "Снятся ли вам кошмары?", reply: "Иногда снится, что опаздываю на поезд.", emotion: "устала", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Пароксизмальная вегетативная тревога", desc: "Внезапные приступы сердцебиения, удушья и витального страха длительностью 10–20 минут.", isDistractor: false },
+          { id: "e2", title: "Связь с истощением и психотравмой", desc: "Дебют после хронического стресса, переутомления и разрыва отношений.", isDistractor: false },
+          { id: "e3", title: "Полная сохранность критики", desc: "Осознаёт иррациональность страха и болезненность состояния (невротический уровень).", isDistractor: false },
+          { id: "e4", title: "Вторичное избегание (агорафобия)", desc: "Отказ от транспорта и людных мест из-за страха возникновения нового приступа.", isDistractor: false }
+        ],
+        combos: [
+          { pair: ["e1", "e2"], thesis: "Психогенно спровоцированные панические атаки на фоне нервного истощения." },
+          { pair: ["e1", "e4"], thesis: "Формирование агорафобического избегания в ответ на страх повторения паники." },
+          { pair: ["e3", "e4"], thesis: "Невротический уровень расстройства (критика сохранена, но страдает социальная адаптация)." }
+        ],
+        diagnoses: [
+          { text: "Паническое расстройство с агорафобией (невротический уровень)", correct: true },
+          { text: "Параноидная шизофрения (бред воздействия)", correct: false },
+          { text: "Бронхиальная астма", correct: false },
+          { text: "Диссоциальное расстройство личности", correct: false }
+        ],
+        explanation: "Паническое расстройство относится к невротическим (пограничным) состояниям: пациентка полностью сохраняет критику («головой понимаю, что безопасно»), приступы носят кратковременный вегетативный характер и привели к типичному избеганию мест, откуда трудно быстро выйти (агорафобия)."
+      },
+      {
+        id: 6,
+        title: "Слежка за окном",
+        patientName: "Олег Николаевич, 48 лет (инженер)",
+        referral: "Обратился за справкой «для суда», убеждён в заговоре жены и соседа.",
+        difficulty: 2,
+        appearance: { hair: "#334155", shirt: "#1e293b", accent: "#f43f5e", gender: "m", glasses: true },
+        initialSpeech: "Мне не таблетки нужны, а фиксация факта, что я в здравом уме. Жена уже полгода изменяет мне с соседом сверху. Я не истерик, у меня всё записано по минутам в блокноте.",
+        hints: [
+          "Проверь, поддаются ли его убеждения логическому разубеждению (корригируемость) и есть ли галлюцинации.",
+          "Задай вопрос: «А если полотенце упало случайно от сквозняка?» и «Слышите ли вы их голоса?»",
+          "Свяжи [Абсолютная недоступность логической коррекции] + [Систематизация случайных бытовых совпадений без галлюцинаций]."
+        ],
+        questions: [
+          { id: "q1", text: "Какие именно доказательства вы собрали в свой блокнот?", reply: "Смотрите: во вторник она вернулась с работы на 12 минут позже. В среду на балконе висело синее полотенце — это условный сигнал соседу, что я ушёл в гараж. А вчера в подъезде пахло его одеколоном!", emotion: "убеждён", essenceId: "e1" },
+          { id: "q2", text: "Допускаете ли вы, что задержка на 12 минут — это просто пробка, а полотенце повесили сушиться?", reply: "Доктор, вы рассуждаете как наивный человек! Одно совпадение — случайность, два — тенденция, а у меня их сорок семь! Они специально маскируются под бытовые мелочи, чтобы выставить меня дураком.", emotion: "раздражён", essenceId: "e2" },
+          { id: "q3", text: "Слышите ли вы их переговоры через стены или в голове?", reply: "Через бетон не слышно, я же не экстрасенс. И голосов в голове у меня нет. Я опираюсь только на строгие факты и логику.", emotion: "насторожен", essenceId: "e3" },
+          { id: "q4", text: "Как обстоят дела у вас на работе?", reply: "На заводе я ведущий инженер, претензий нет, чертежи сдаю в срок. Вся проблема только в предательстве дома.", emotion: "спокоен", essenceId: "e4" },
+          { id: "q5", text: "Считаете ли вы свои переживания болезненными?", reply: "Болезненно — это когда тебя обманывают за спиной! Я абсолютно здоров.", emotion: "убеждён", essenceId: "e5" },
+          { id: "q6", text: "Давно ли вы живёте в этом доме?", reply: "Пятнадцать лет, сосед въехал два года назад.", emotion: "спокоен", essenceId: null },
+          { id: "q7", text: "Бывали ли у вас проблемы с алкоголем?", reply: "Нет, я за рулём каждый день.", emotion: "спокоен", essenceId: null },
+          { id: "q8", text: "Как вы спите?", reply: "По четыре-пять часов, проверяю подъезд.", emotion: "напряжён", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Систематизированная интерпретация мелочей", desc: "Любые бытовые события (пробка, полотенце) встраиваются в единую систему «улик».", isDistractor: false },
+          { id: "e2", title: "Полная некорригируемость логикой", desc: "Рациональные контраргументы мгновенно отвергаются или включаются в систему доказательств.", isDistractor: false },
+          { id: "e3", title: "Отсутствие галлюцинаций и автоматизмов", desc: "Нет обманов восприятия — патология локализована в сфере суждений.", isDistractor: false },
+          { id: "e4", title: "Сохранность интеллекта и проф. навыков", desc: "Вне темы ревности пациент остаётся упорядоченным и работоспособным.", isDistractor: false },
+          { id: "e5", title: "Отсутствие критики (эгосинтонность)", desc: "Убеждён в своей правоте, обращается за юридическим подтверждением.", isDistractor: true }
+        ],
+        combos: [
+          { pair: ["e1", "e2"], thesis: "Критерии истинного паранойяльного бреда: ложное умозаключение + абсолютная некорригируемость." },
+          { pair: ["e3", "e4"], thesis: "Монотематический систематизированный бред без распада личности и галлюциноза." },
+          { pair: ["e2", "e5"], thesis: "Утрата критики в сфере бредовой фабулы (психотический регистр)." }
+        ],
+        diagnoses: [
+          { text: "Хроническое бредовое расстройство (паранойяльный бред ревности)", correct: true },
+          { text: "Сверхценная идея (заострение черт характера на почве реального конфликта)", correct: false },
+          { text: "Обсессивно-компульсивное расстройство (навязчивые сомнения)", correct: false },
+          { text: "Алкогольный делирий", correct: false }
+        ],
+        explanation: "В отличие от сверхценной идеи (которая строится на реальном факте и может со временем угаснуть) и навязчивостей (где человек сам мучается от мыслей), паранойяльный бред ревности не имеет реальной почвы, систематизирует любые случайные мелочи и абсолютно не поддаётся логическому разубеждению."
+      },
+      {
+        id: 7,
+        title: "Забытый чайник",
+        patientName: "Анна Петровна, 73 года (пенсионерка)",
+        referral: "Приведена дочерью: забывает выключить плиту, теряется в знакомом дворе.",
+        difficulty: 2,
+        appearance: { hair: "#cbd5e1", shirt: "#4f46e5", accent: "#38bdf8", gender: "f", glasses: true },
+        initialSpeech: "Ой, здравствуйте, молодой человек! Дочка меня всё по врачам водит, беспокоится. А у меня всё хорошо, только ноги немного гудят к вечеру. Чайку бы сейчас попить!",
+        hints: [
+          "Важно отличить истинное снижение памяти и интеллекта от депрессивной «псевдодеменции», при которой пожилые люди сами жалуются на память.",
+          "Проверь ориентировку во времени и месте: «Какой сейчас год и месяц? Где вы сейчас находитесь?»",
+          "Свяжи [Дезориентировка во времени при сохранности памяти на далёкое прошлое] + [Благодушие и отсутствие жалоб на память]."
+        ],
+        questions: [
+          { id: "q1", text: "Анна Петровна, подскажите, какой сейчас год, месяц и какое число?", reply: "Год... ну две тысячи... восемнадцатый, наверное. Или девятнадцатый. Осень сейчас, прохладно. А число я не смотрела, зачем мне календарь?", emotion: "благодушна", essenceId: "e1" },
+          { id: "q2", text: "А вы помните, как называется место, где мы сейчас беседуем?", reply: "Ну как же... поликлиника наша районная, на Садовой. Хотя ремонт тут сделали богатый, не узнать.", emotion: "спокойна", essenceId: "e2" },
+          { id: "q3", text: "Расскажите о вашей работе в молодости — кем вы трудились?", reply: "О, я тридцать пять лет в школе проработала учителем химии! Помню, как в 1978 году мы лабораторную с реактивами проводили, даже фамилии всех учеников того выпуска назову!", emotion: "оживлена", essenceId: "e3" },
+          { id: "q4", text: "Вы сами замечаете, что стали что-то забывать — например, про чайник?", reply: "Да ничего я не забываю! Это дочка выдумывает, чайник сам свистит, когда закипит. У меня память прекрасная.", emotion: "благодушна", essenceId: "e4" },
+          { id: "q5", text: "Чувствуете ли вы тоску, подавленность или слезливость в последние месяцы?", reply: "Что вы, милый, грех жаловаться! Настроение у меня ровное, спокойное.", emotion: "благодушна", essenceId: "e5" },
+          { id: "q6", text: "Любите ли вы смотреть телевизор по вечерам?", reply: "Смотрю сериалы, правда, к концу серии забываю, с чего всё началось, ха-ха.", emotion: "благодушна", essenceId: null },
+          { id: "q7", text: "Есть ли у вас внуки?", reply: "Двое внуков, хорошие ребята.", emotion: "спокойна", essenceId: null },
+          { id: "q8", text: "Хорошо ли вы видите в очках?", reply: "В очках газету читаю свободно.", emotion: "спокойна", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Нарушение аллопсихической ориентировки", desc: "Не может назвать текущий год и дату (дезориентировка во времени).", isDistractor: false },
+          { id: "e2", title: "Ложная ориентировка в месте", desc: "Принимает специализированный центр за старую районную поликлинику.", isDistractor: false },
+          { id: "e3", title: "Закон Рибо (прогрессирующая амнезия)", desc: "Утрата памяти на текущие события при яркой сохранности событий 40-летней давности.", isDistractor: false },
+          { id: "e4", title: "Снижение критики и благодушие", desc: "Не осознаёт свой мнестический дефект, отрицает забывчивость.", isDistractor: false },
+          { id: "e5", title: "Отсутствие депрессивного аффекта", desc: "Нет тоски и жалоб на «плохую память» (исключает псевдодеменцию).", isDistractor: true }
+        ],
+        combos: [
+          { pair: ["e1", "e3"], thesis: "Прогрессирующая амнезия по закону Рибо с нарушением ориентировки во времени." },
+          { pair: ["e4", "e5"], thesis: "Снижение критики на фоне благодушного фона (дифференциация от депрессивной псевдодеменции)." },
+          { pair: ["e1", "e2"], thesis: "Выраженное снижение когнитивных функций с дезориентировкой в месте и времени." }
+        ],
+        diagnoses: [
+          { text: "Деменция (вероятно, альцгеймеровского типа) с прогрессирующей амнезией", correct: true },
+          { text: "Депрессивная псевдодеменция", correct: false },
+          { text: "Острый алкогольный делирий", correct: false },
+          { text: "Неврастения пожилого возраста", correct: false }
+        ],
+        explanation: "При деменции память распадается по закону Рибо — от нового к старому (пациентка не помнит текущий год и события 5 минут назад, но отлично помнит 1978 год), а критика к своему состоянию утрачивается. При депрессивной псевдодеменции пациенты, наоборот, подавлены и постоянно жалуются на провалы в памяти."
+      },
+      {
+        id: 8,
+        title: "Бунт без причины",
+        patientName: "Максим, 17 лет (учащийся колледжа)",
+        referral: "Направлен комиссией после очередной драки и конфликта с мастером.",
+        difficulty: 2,
+        appearance: { hair: "#090d16", shirt: "#991b1b", accent: "#f59e0b", gender: "m", glasses: false },
+        initialSpeech: "Да что тут обсуждать? Мастер сам нарвался — начал при всех нотации читать, будто я пацан пятилетний. Я ему и ответил. Все вокруг строят из себя правильных, а сами стучат друг на друга.",
+        hints: [
+          "Чтобы отличить формирующееся расстройство личности (психопатию) от обычного подросткового кризиса, нужно проверить триаду Ганнушкина–Кербикова.",
+          "Уточни, проявлялись ли такие черты с раннего детства и во всех ли сферах жизни (дома, в школе, с друзьями) он конфликтует.",
+          "Свяжи [Тотальность и стабильность черт характера с раннего детства] + [Отсутствие чувства вины и стойкая социальная дезадаптация]."
+        ],
+        questions: [
+          { id: "q1", text: "Это первый такой конфликт в колледже или в школе было так же?", reply: "В школе меня три раза переводили из класса в класс. Учителя вечно придирались. Ещё с начальной школы, если кто-то лез не в своё дело, я сразу бил, не разговаривая.", emotion: "дерзкий", essenceId: "e1" },
+          { id: "q2", text: "А как складываются отношения дома с родителями и во дворе с ребятами?", reply: "Дома мать пытается контролировать — я сразу дверь с петель снимаю или ухожу на два дня. Во дворе меня уважают, но друзей особо нет — все слабаки, ни на кого нельзя положиться.", emotion: "раздражён", essenceId: "e2" },
+          { id: "q3", text: "Когда ты ударил одногруппника, было ли потом чувство, что перегнул палку?", reply: "А за что мне жалеть? Нечего было косо смотреть. Если не поставишь на место сразу — сядут на шею.", emotion: "холоден", essenceId: "e3" },
+          { id: "q4", text: "Бывают ли у тебя периоды, когда ты месяцами спокойный и мягкий?", reply: "Я всегда такой, какой есть. Меняться под кого-то не собираюсь.", emotion: "убеждён", essenceId: "e4" },
+          { id: "q5", text: "Не кажется ли тебе, что кто-то внушает тебе злость извне?", reply: "Никто мне ничего не внушает, я сам за себя решаю.", emotion: "насторожен", essenceId: null },
+          { id: "q6", text: "Какую музыку ты слушаешь?", reply: "Рэп и тяжёлый рок, какая разница?", emotion: "раздражён", essenceId: null },
+          { id: "q7", text: "Учишься ли ты на какую-то конкретную специальность?", reply: "На автомеханика, но теория там скучная.", emotion: "спокоен", essenceId: null },
+          { id: "q8", text: "Были ли у тебя тяжёлые травмы головы?", reply: "В детстве с велосипеда падал, без больницы.", emotion: "спокоен", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Стабильность черт с раннего детства", desc: "Импульсивность и агрессивные реакции наблюдаются ещё с начальной школы.", isDistractor: false },
+          { id: "e2", title: "Тотальность проявлений во всех сферах", desc: "Конфликтность проявляется везде: в семье, в школе, в колледже и со сверстниками.", isDistractor: false },
+          { id: "e3", title: "Дефицит эмпатии и раскаяния", desc: "Отсутствие чувства вины за причинение вреда, склонность обвинять окружающих.", isDistractor: false },
+          { id: "e4", title: "Стойкая социальная дезадаптация", desc: "Смена школ, угроза отчисления и постановка на учёт из-за особенностей характера.", isDistractor: false }
+        ],
+        combos: [
+          { pair: ["e1", "e2"], thesis: "Критерии стабильности и тотальности характерологических нарушений (триада Ганнушкина)." },
+          { pair: ["e3", "e4"], thesis: "Стойкая социальная дезадаптация с дефицитом эмпатии и контроля импульсов." },
+          { pair: ["e1", "e4"], thesis: "Длительная дисгармония личности, выходящая за рамки обычного пубертатного криза." }
+        ],
+        diagnoses: [
+          { text: "Формирующееся диссоциальное / эмоционально неустойчивое расстройство личности", correct: true },
+          { text: "Обычный подростковый кризис (вариант возрастной нормы)", correct: false },
+          { text: "Паническое расстройство", correct: false },
+          { text: "Параноидная шизофрения", correct: false }
+        ],
+        explanation: "Обычный подростковый кризис носит временный и ситуативный характер (например, конфликт только с одним учителем). При формирующемся расстройстве личности выполняется триада Ганнушкина–Кербикова: 1) стабильность во времени (с детства), 2) тотальность (проявляется во всех сферах жизни) и 3) социальная дезадаптация."
+      },
+      {
+        id: 9,
+        title: "Зачем лечиться?",
+        patientName: "Сергей, 40 лет (водитель-экспедитор)",
+        referral: "Направлен врачом-инфекционистом: выявлен хронический вирусный гепатит С, отказывается от терапии.",
+        difficulty: 2,
+        appearance: { hair: "#334155", shirt: "#065f46", accent: "#38bdf8", gender: "m", glasses: false },
+        initialSpeech: "А смысл мне эти дорогие таблетки пить и по врачам бегать? Гепатит — это всё равно приговор. Только время тратить и деньги из семьи тянуть. Сколько отведено, столько и проживу.",
+        hints: [
+          "Оцени внутреннюю картину болезни (ВКБ) пациента: как он воспринимает свой диагноз и почему отказывается от лечения.",
+          "Спроси: «Что вы знаете о современных методах лечения этого заболевания?» и «Как изменилось ваше настроение после постановки диагноза?»",
+          "Свяжи [Катастрофизация диагноза и отказ от терапии] + [Развитие апатии и раздражительности после известия о болезни]."
+        ],
+        questions: [
+          { id: "q1", text: "Что вы знаете о перспективах лечения вашего заболевания сегодня?", reply: "Да всё я слышал в девяностые: печень разваливается, работать нельзя, все от тебя шарахаются как от прокажённого. Врач что-то говорил про новые схемы, но я даже слушать не стал — всё равно бесполезно.", emotion: "подавлен", essenceId: "e1" },
+          { id: "q2", text: "Как изменилась ваша жизнь с тех пор, как вы узнали о диагнозе?", reply: "Три месяца назад сдал анализы для медкомиссии — и всё рухнуло. Стал плохо спать, на жену срываюсь, бросил рыбалку. Сижу вечерами и думаю, что зря вообще в больницу пошёл.", emotion: "раздражён", essenceId: "e2" },
+          { id: "q3", text: "Обсуждали ли вы свой диагноз с семьёй?", reply: "Жене сказал сухо, чтобы посуду отдельную выделила, и закрылся в комнате. Не хочу, чтобы меня жалели.", emotion: "замкнут", essenceId: "e3" },
+          { id: "q4", text: "Были ли у вас проблемы с настроением до того, как вы сдали эти анализы?", reply: "Да никогда! Работал в рейсах, строил дачу, всё было отлично.", emotion: "спокоен", essenceId: "e4" },
+          { id: "q5", text: "Беспокоят ли вас сейчас физические боли?", reply: "Иногда тяжесть в правом боку и слабость к вечеру, но врач говорит, что печень ещё сохранна.", emotion: "устал", essenceId: null },
+          { id: "q6", text: "Какой у вас водительский стаж?", reply: "Двадцать лет без единой аварии.", emotion: "спокоен", essenceId: null },
+          { id: "q7", text: "Употребляете ли вы сейчас алкоголь?", reply: "Нет, как узнал про анализы — вообще ни капли.", emotion: "спокоен", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Меланхолический/дисфорический тип отношения к болезни", desc: "Неверие в успех лечения, убеждённость в фатальности диагноза, отказ от терапии.", isDistractor: false },
+          { id: "e2", title: "Чёткая связь с психотравмой диагноза", desc: "Депрессивно-раздражительная реакция возникла сразу после получения результатов анализов.", isDistractor: false },
+          { id: "e3", title: "Страх стигматизации и самоизоляция", desc: "Опасение отвержения окружающими, разрыв привычных социальных контактов.", isDistractor: false },
+          { id: "e4", title: "Благополучный преморбид", desc: "До соматического заболевания был полностью адаптирован и активен.", isDistractor: true }
+        ],
+        combos: [
+          { pair: ["e1", "e2"], thesis: "Нозогенная реакция: дезадаптивное отношение к болезни блокирует комплаенс (приверженность лечению)." },
+          { pair: ["e1", "e3"], thesis: "Психологическая защита через уход и неверие в выздоровление на фоне страха стигмы." }
+        ],
+        diagnoses: [
+          { text: "Нозогенная реакция (расстройство адаптации) при хроническом соматическом заболевании", correct: true },
+          { text: "Эндогенная рекуррентная депрессия", correct: false },
+          { text: "Шизотипическое расстройство", correct: false },
+          { text: "Деменция", correct: false }
+        ],
+        explanation: "Хронические соматические заболевания (в том числе вирусные гепатиты) часто вызывают нозогенные реакции — психологическую дезадаптацию в ответ на сам факт диагноза. Формируется меланхолический или дисфорический тип отношения к болезни (ТОБОЛ), из-за чего пациент отказывается от эффективного лечения."
+      },
+      {
+        id: 10,
+        title: "Ночная смена в цеху",
+        patientName: "Геннадий, 45 лет (слесарь)",
+        referral: "Доставлен в приёмное отделение вечером: мечется, стряхивает что-то с рукавов.",
+        difficulty: 1,
+        appearance: { hair: "#475569", shirt: "#334155", accent: "#f43f5e", gender: "m", glasses: false },
+        initialSpeech: "Уберите отсюда эти провода, они же под током! И пауки по рукаву лезут... Начальник смены сказал до утра станок не бросать, а вы меня тут держите!",
+        hints: [
+          "Обрати внимание на ориентировку пациента в месте и времени, наличие зрительных/тактильных обманов и расспроси о последних днях.",
+          "Спроси: «Где вы сейчас находитесь?», «Как вас зовут?» и «Когда вы последний раз употребляли спиртное?»",
+          "Свяжи [Дезориентировка в месте при знании своего имени] + [Зрительные/тактильные галлюцинации и тремор после прекращения запоя]."
+        ],
+        questions: [
+          { id: "q1", text: "Геннадий, скажите, как вас зовут и где мы сейчас находимся?", reply: "Я Геннадий Иванович, 45 лет. А где... ну в ремонтном цеху мы, третья бригада! Вон же станки стоят, только лампы мигают.", emotion: "напряжён", essenceId: "e1" },
+          { id: "q2", text: "Что вы сейчас видите на своей одежде и на полу?", reply: "Да вон же мелкая проволока медная шевелится и жуки серые по штанине ползут! Стряхиваю, а они опять лезут, аж кожа горит!", emotion: "испуган", essenceId: "e2" },
+          { id: "q3", text: "Как прошли ваши последние несколько дней? Выпивали?", reply: "Две недели в отпуске пил каждый день, потом деньги кончились — три дня уже ни капли в рот не брал. Вчера ночью вообще не спал, сердце колотится, весь в поту...", emotion: "возбуждён", essenceId: "e3" },
+          { id: "q4", text: "Обратите внимание на руки — они давно так дрожат?", reply: "Второй день руки трясутся так, что кружку не удержать.", emotion: "напряжён", essenceId: "e4" },
+          { id: "q5", text: "Днём вам было лучше или так же?", reply: "Днём вроде отпустило немного, а как стемнело — сразу началось.", emotion: "испуган", essenceId: "e5" },
+          { id: "q6", text: "Вы давно работаете слесарем?", reply: "Двадцать лет на заводе.", emotion: "спокоен", essenceId: null },
+          { id: "q7", text: "Есть ли у вас аллергия на цитрусовые?", reply: "Не помню...", emotion: "растерян", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Аллопсихическая дезориентировка", desc: "Не понимает, что находится в больнице (видит «цех»), но помнит своё имя и возраст.", isDistractor: false },
+          { id: "e2", title: "Истинные зрительные и тактильные галлюцинации", desc: "Видит и ощущает на коже «насекомых и проволоку» (микрозоопсии).", isDistractor: false },
+          { id: "e3", title: "Резкая отмена алкоголя (3-и сутки)", desc: "Состояние развилось на 3-й день после прекращения двухнедельного запоя.", isDistractor: false },
+          { id: "e4", title: "Вегетативная буря и крупный тремор", desc: "Выраженная потливость, тахикардия, бессонница и тремор рук.", isDistractor: false },
+          { id: "e5", title: "Усиление симптоматики в вечернее время", desc: "Типичное для делирия нарастание помрачения сознания в сумерках.", isDistractor: true }
+        ],
+        combos: [
+          { pair: ["e1", "e2"], thesis: "Делириозное помрачение сознания: дезориентировка в месте + истинные галлюцинации." },
+          { pair: ["e3", "e4"], thesis: "Тяжёлый алкогольный абстинентный синдром после прекращения запоя." },
+          { pair: ["e2", "e5"], thesis: "Острый экзогенный психоз с вечерним ухудшением." }
+        ],
+        diagnoses: [
+          { text: "Состояние отмены алкоголя с делирием («белая горячка» / экзогенный психоз)", correct: true },
+          { text: "Деменция альцгеймеровского типа", correct: false },
+          { text: "Паническое расстройство с агорафобией", correct: false },
+          { text: "Шизотипическое расстройство", correct: false }
+        ],
+        explanation: "Алкогольный делирий возникает не в момент опьянения, а на 2–4 сутки после резкого прекращения запоя. Характерны: сохранность ориентировки в собственной личности при дезориентировке в месте и времени, истинные зрительные и тактильные галлюцинации (мелкие животные, нити), тремор и усиление симптомов к ночи."
+      },
+      {
+        id: 11,
+        title: "Пустой стул",
+        patientName: "Марина, 35 лет (архитектор)",
+        referral: "Обратилась через 2,5 месяца после гибели мужа в автокатастрофе.",
+        difficulty: 1,
+        appearance: { hair: "#1e293b", shirt: "#1e293b", accent: "#38bdf8", gender: "f", glasses: false },
+        initialSpeech: "Подруга заставила записаться. Я просто не понимаю, как жить дальше. Каждое утро смотрю на его пустой стул на кухне и прокручиваю в голове тот день.",
+        hints: [
+          "Важно отличить реактивную (психогенную) депрессию от эндогенной с помощью триады Ясперса.",
+          "Выясни: связаны ли все её мысли с утратой, меняется ли состояние при отвлечении на ребёнка и когда ей тяжелее — утром или вечером?",
+          "Свяжи [Чёткая связь с психотравмой и её звучание во всех мыслях] + [Облегчение при общении с близкими и ухудшение в одиночестве]."
+        ],
+        questions: [
+          { id: "q1", text: "О чём чаще всего ваши мысли в течение дня?", reply: "Всё крутится вокруг аварии. Я виню себя, что попросила его заехать в магазин по дороге — если бы не это, он бы выехал на десять минут раньше. Не могу убрать его вещи.", emotion: "грустна", essenceId: "e1" },
+          { id: "q2", text: "Меняется ли ваше состояние, когда рядом сын или подруга?", reply: "Когда забираю сына из школы или мы с ним уроки делаем, я немного переключаюсь, даже улыбнуться могу. А как только засыпает и я остаюсь одна в тишине — сразу слёзы градом.", emotion: "подавлена", essenceId: "e2" },
+          { id: "q3", text: "В какое время суток вам тяжелее всего?", reply: "Вечером и ночью, когда квартира пустеет. Утром встаю ради сына, собираю его в школу.", emotion: "грустна", essenceId: "e3" },
+          { id: "q4", text: "Бывали ли у вас раньше, до трагедии, длительные периоды тоски?", reply: "Никогда. Мы жили очень дружно, я любила свою работу, строила планы.", emotion: "спокойна", essenceId: "e4" },
+          { id: "q5", text: "Как обстоят дела со сном и аппетитом?", reply: "Засыпаю с трудом из-за мыслей, похудела на 5 килограммов, но заставляю себя есть.", emotion: "устала", essenceId: null },
+          { id: "q6", text: "Есть ли у вас помощь от родственников?", reply: "Мама приезжает по выходным помочь с сыном.", emotion: "спокойна", essenceId: null },
+          { id: "q7", text: "Не возникает ли ощущения, что окружающие враждебны к вам?", reply: "Нет, все, наоборот, стараются поддержать.", emotion: "спокойна", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Психотравма в центре всех переживаний", desc: "Все мысли, чувство вины и слёзы прямо связаны с утратой мужа (критерий Ясперса).", isDistractor: false },
+          { id: "e2", title: "Эмоциональная реактивность", desc: "Состояние заметно смягчается при отвлечении на сына и живом общении.", isDistractor: false },
+          { id: "e3", title: "Вечернее ухудшение в одиночестве", desc: "Тяжелее всего вечером при столкновении с пустотой (в отличие от утренней витальной тоски).", isDistractor: false },
+          { id: "e4", title: "Гармоничный преморбид", desc: "До психотравмы аффективных нарушений не было.", isDistractor: true }
+        ],
+        combos: [
+          { pair: ["e1", "e4"], thesis: "Психогенная природа расстройства: чёткая связь с утратой у ранее здоровой личности." },
+          { pair: ["e2", "e3"], thesis: "Реактивный характер депрессии (сохранность эмоционального отклика и вечернее ухудшение)." }
+        ],
+        diagnoses: [
+          { text: "Пролонгированная депрессивная реакция, обусловленная расстройством адаптации (реактивная депрессия)", correct: true },
+          { text: "Эндогенная депрессия (биполярное расстройство)", correct: false },
+          { text: "Маскированная депрессия", correct: false },
+          { text: "Апато-абулический синдром", correct: false }
+        ],
+        explanation: "Реактивная депрессия подчиняется триаде Ясперса: возникает вслед за тяжёлой психотравмой, психотравма звучит во всех переживаниях пациента, а состояние остаётся психологически понятным и меняется в зависимости от внешней поддержки (становится легче рядом с близкими)."
+      },
+      {
+        id: 12,
+        title: "Справка для военкомата",
+        patientName: "Кирилл, 20 лет (призывник)",
+        referral: "Направлен на экспертизу: заявляет о «полной потере памяти» и «галлюцинациях».",
+        difficulty: 2,
+        appearance: { hair: "#1e293b", shirt: "#374151", accent: "#f59e0b", gender: "m", glasses: false },
+        initialSpeech: "Доктор, я вообще ничего не помню... ни как сюда доехал, ни сколько мне лет. И в углу комнаты сейчас зелёные человечки стоят, руками машут. Напишите, что я совсем больной.",
+        hints: [
+          "При экспертизе важно сопоставить грубые «симптомы» в беседе с реальным поведением пациента и клиническими закономерностями.",
+          "Задай элементарный вопрос на счёт («Сколько будет 2 + 2?») и расспроси о деталях его «галлюцинаций» и быта.",
+          "Свяжи [Нарочито нелепые ответы («миморечь») и книжные «зелёные человечки»] + [Полная сохранность бытовых навыков и рентная установка]."
+        ],
+        questions: [
+          { id: "q1", text: "Кирилл, сколько будет два плюс два и сколько пальцев на руке?", reply: "Два плюс два... ну пять, наверное. А пальцев на руке шесть... Говорю же, голова совсем не варит.", emotion: "напряжён", essenceId: "e1" },
+          { id: "q2", text: "Опишите подробнее этих «зелёных человечков», которых вы видите.", reply: "Ну обычные такие, как в мультиках про инопланетян, с антеннами. Стоят в углу и улыбаются. Ничего не говорят.", emotion: "насторожен", essenceId: "e2" },
+          { id: "q3", text: "А как вы сегодня добрались до клиники и чем занимались в коридоре?", reply: "На метро с двумя пересадками, по навигатору в телефоне. В коридоре в игру на смартфоне играл, уровень прошёл... Ой, то есть я не помню, как играл!", emotion: "растерян", essenceId: "e3" },
+          { id: "q4", text: "Чего вы ожидаете от сегодняшнего обследования?", reply: "Мне комиссия сказала: если подтвердится диагноз, дадут категорию «Д» и сразу отпустят домой.", emotion: "заинтересован", essenceId: "e4" },
+          { id: "q5", text: "Как вы спали сегодня ночью?", reply: "Отлично спал, восемь часов.", emotion: "спокоен", essenceId: null },
+          { id: "q6", text: "Были ли у вас раньше обращения к врачам?", reply: "Нет, до повестки ни разу не обращался.", emotion: "спокоен", essenceId: "e5" },
+          { id: "q7", text: "Есть ли у вас жалобы на головную боль?", reply: "Да, болит везде и постоянно.", emotion: "напряжён", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Симптом «миморечи» (нарочитые ошибки)", desc: "Даёт нелепые ответы на простейшие вопросы («2+2=5»), сохраняя правильную категорию ответа.", isDistractor: false },
+          { id: "e2", title: "Нетипичные «кинематографические» образы", desc: "Описание «зелёных человечков с антеннами» не соответствует реальным клиническим галлюцинациям.", isDistractor: false },
+          { id: "e3", title: "Противоречие между пробами и поведением", desc: "При «полной амнезии» свободно пользуется навигатором, метро и проходит уровни в играх.", isDistractor: false },
+          { id: "e4", title: "Выраженная рентная установка", desc: "Прямая заинтересованность в освобождении от воинской обязанности.", isDistractor: false },
+          { id: "e5", title: "Отсутствие анамнеза заболевания", desc: "Симптомы внезапно появились только после получения повестки.", isDistractor: true }
+        ],
+        combos: [
+          { pair: ["e1", "e3"], thesis: "Грубое несоответствие между «дефектом» в беседе и сохранным сложным поведением в быту." },
+          { pair: ["e2", "e4"], thesis: "Демонстрация шаблонно-бытовых представлений о психозе при наличии рентной цели." },
+          { pair: ["e3", "e4"], thesis: "Установочное поведение (симуляция) в экспертной ситуации." }
+        ],
+        diagnoses: [
+          { text: "Установочное поведение (симуляция психического расстройства)", correct: true },
+          { text: "Алкогольный делирий", correct: false },
+          { text: "Деменция", correct: false },
+          { text: "Обсессивно-компульсивное расстройство", correct: false }
+        ],
+        explanation: "При истинных расстройствах памяти и психозах поведение человека дезорганизовано и вне кабинета врача. Симулянт ориентируется на бытовые штампы («зелёные человечки», «2+2=5»), но легко проговаривается о сохранных навыках (навигатор, игры) при наличии явной рентной цели."
+      },
+      {
+        id: 13,
+        title: "Трижды проверь замок",
+        patientName: "Илья, 27 лет (программист)",
+        referral: "Обратился сам: тратит по 2 часа утром на проверку кранов и мытьё рук.",
+        difficulty: 1,
+        appearance: { hair: "#334155", shirt: "#0f766e", accent: "#38bdf8", gender: "m", glasses: true },
+        initialSpeech: "Я уже на работу каждый день опаздываю. Выхожу из квартиры, дохожу до лифта — и накатывает мысль: «А вдруг кран не закрыл, залью соседей?» Возвращаюсь, проверяю трижды. И так по кругу.",
+        hints: [
+          "Важно отличить навязчивые мысли и ритуалы (ОКР) от бреда и психических автоматизмов.",
+          "Спроси: «Чьи это мысли — ваши собственные или вложенные извне?» и «Понимаете ли вы бессмысленность этих проверок?»",
+          "Свяжи [Критика и борьба мотивов (эгодистонность)] + [Защитные ритуалы для временного снижения тревоги]."
+        ],
+        questions: [
+          { id: "q1", text: "Как вы сами воспринимаете эти мысли о кранах и микробах?", reply: "Я прекрасно понимаю, что они абсурдны! Я же сам две минуты назад видел, что кран сухой. Меня эти мысли бесят, я пытаюсь с ними бороться, но тревога становится невыносимой.", emotion: "напряжён", essenceId: "e1" },
+          { id: "q2", text: "Не возникает ли ощущения, что эти мысли вам кто-то посылает или вкладывает?", reply: "Нет, это сто процентов мои собственные мысли, просто как заевшая пластинка в голове.", emotion: "устал", essenceId: "e2" },
+          { id: "q3", text: "Что происходит после того, как вы трижды потрогаете ручку двери и помоете руки?", reply: "Наступает облегчение. Минут на двадцать тревога отпускает, я могу спокойно ехать. Но если меня отвлечь во время проверки — приходится начинать весь ритуал заново.", emotion: "взволнован", essenceId: "e3" },
+          { id: "q4", text: "Каким человеком вы были по характеру ещё в школьные годы?", reply: "Всегда был очень тревожным, мнительным, перепроверял домашку по пять раз, боялся ошибиться.", emotion: "задумчив", essenceId: "e4" },
+          { id: "q5", text: "Видите ли вы микробов на руках невооружённым глазом?", reply: "Нет конечно, просто боюсь заразиться.", emotion: "спокоен", essenceId: null },
+          { id: "q6", text: "Давно ли вы работаете программистом?", reply: "Пять лет, в коде, кстати, это даже помогает — всё перепроверяю.", emotion: "спокоен", essenceId: null },
+          { id: "q7", text: "Хорошо ли вы питаетесь?", reply: "Да, аппетит нормальный.", emotion: "спокоен", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Эгодистонность и критика", desc: "Осознаёт бессмысленность навязчивостей, тяготится ими и борется (борьба мотивов).", isDistractor: false },
+          { id: "e2", title: "Принадлежность мыслей собственному «Я»", desc: "Отсутствие отчуждения мыслей (исключает синдром психического автоматизма).", isDistractor: false },
+          { id: "e3", title: "Компульсивные ритуалы", desc: "Символические повторяющиеся действия (проверка 3 раза, мытьё рук) для снятия тревоги.", isDistractor: false },
+          { id: "e4", title: "Тревожно-мнительный преморбид", desc: "С детства свойственны педантизм, сомнения и склонность к перепроверкам.", isDistractor: true }
+        ],
+        combos: [
+          { pair: ["e1", "e2"], thesis: "Истинные обсессии: чуждые личности, но осознаваемые как собственные мысли (не бред)." },
+          { pair: ["e1", "e3"], thesis: "Классический цикл ОКР: обсессивная тревога → защитный ритуал → временное облегчение." }
+        ],
+        diagnoses: [
+          { text: "Обсессивно-компульсивное расстройство (ОКР)", correct: true },
+          { text: "Параноидная шизофрения (синдром Кандинского–Клерамбо)", correct: false },
+          { text: "Хроническое бредовое расстройство", correct: false },
+          { text: "Маниакальный эпизод", correct: false }
+        ],
+        explanation: "Главный критерий ОКР — эгодистонность (симптомы мучают самого пациента, он понимает их абсурдность и борется с ними) и отсутствие ощущения внешнего воздействия. Ритуалы выполняют защитную функцию, временно снижая пик тревоги."
+      },
+      {
+        id: 14,
+        title: "Слова застревают",
+        patientName: "Николай Андреевич, 58 лет (преподаватель)",
+        referral: "Направлен на нейропсихологическую диагностику через месяц после ишемического инсульта.",
+        difficulty: 2,
+        appearance: { hair: "#64748b", shirt: "#1d4ed8", accent: "#38bdf8", gender: "m", glasses: true },
+        initialSpeech: "Здра... здра-вствуй-те... Док-тор... Я... всё по-ни-ма-ю... но... сло-ва... за-стре-ва-ют... (хмурится, качает головой от досады).",
+        hints: [
+          "Оцени сохранность понимания речи, личности и критики, а также проведи нейропсихологическую пробу на переключение движений.",
+          "Попроси выполнить инструкцию («Возьмите ручку, положите на тетрадь») и пробу Лурии «кулак — ребро — ладонь».",
+          "Свяжи [Сохранность понимания речи и критичности при «телеграфном» стиле] + [Трудность переключения артикуляции и кинетического праксиса]."
+        ],
+        questions: [
+          { id: "q1", text: "Выполните, пожалуйста, инструкцию: возьмите со стола карандаш и положите его рядом с часами.", reply: "(Чётко и без колебаний берёт карандаш и кладёт точно рядом с часами, кивает).", emotion: "сосредоточен", essenceId: "e1" },
+          { id: "q2", text: "Повторите за мной серию движений рукой: кулак — ребро — ладонь.", reply: "(Делает кулак, затем с трудом ставит ребро, снова сжимает кулак вместо ладони; злится на себя, стучит здоровой рукой по колену).", emotion: "расстроен", essenceId: "e2" },
+          { id: "q3", text: "Как вы себя чувствуете эмоционально после болезни?", reply: "О-бид-но... Лек-ции... чи-тать... не мо-гу... Но... бу-ду... тре-ни-ро-вать-ся...", emotion: "настроен", essenceId: "e3" },
+          { id: "q4", text: "Повторите скороговорку: «Корабли лавировали».", reply: "Ко-ра-бли... ла-ви... ла-ви-ли... Нет! Труд-но пе-ре-клю-чить язык...", emotion: "расстроен", essenceId: "e4" },
+          { id: "q5", text: "Вы помните имена ваших коллег и события до инсульта?", reply: "(Уверенно кивает и показывает на телефоне список кафедры с комментариями).", emotion: "спокоен", essenceId: "e5" },
+          { id: "q6", text: "Есть ли у вас шум в ушах?", reply: "Нет... толь-ко... пра-ва-я ру-ка... сла-ба-я...", emotion: "устал", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Сохранность импрессивной речи", desc: "Полностью понимает сложные многоступенчатые речевые инструкции.", isDistractor: false },
+          { id: "e2", title: "Нарушение кинетического праксиса", desc: "В пробе Лурии «кулак–ребро–ладонь» застревает на одном движении (инертность).", isDistractor: false },
+          { id: "e3", title: "Сохранность личности, критики и мотивации", desc: "Адекватно переживает дефект, настроен на реабилитацию, интеллект сохранён.", isDistractor: false },
+          { id: "e4", title: "Эфферентная артикуляторная инертность", desc: "Трудность переключения с одного слога на другой, «телеграфный» стиль речи.", isDistractor: false },
+          { id: "e5", title: "Сохранность памяти и ориентировки", desc: "Мнестическая сфера не пострадала (исключает деменцию).", isDistractor: true }
+        ],
+        combos: [
+          { pair: ["e1", "e4"], thesis: "Избирательное нарушение экспрессивной речи при сохранном понимании (эфферентная моторная афазия)." },
+          { pair: ["e2", "e4"], thesis: "Единый нейропсихологический фактор: инертность двигательных и речевых переключений (премоторная кора)." },
+          { pair: ["e3", "e5"], thesis: "Локальный очаговый дефицит при полной сохранности личности и интеллекта." }
+        ],
+        diagnoses: [
+          { text: "Эфферентная моторная афазия и нарушение кинетического праксиса после ОНМК", correct: true },
+          { text: "Сосудистая деменция с тотальным распадом интеллекта", correct: false },
+          { text: "Шизотипическое расстройство (резонерство)", correct: false },
+          { text: "Симуляция речевых нарушений", correct: false }
+        ],
+        explanation: "По классификации А.Р. Лурии, поражение нижних отделов премоторной коры левого полушария (зона Брока) нарушает серийную организацию движений. Пациент всё понимает, критичен к ошибкам, но «застревает» при переключении со слога на слог и с позы на позу в пробе «кулак–ребро–ладонь»."
+      },
+      {
+        id: 15,
+        title: "Тишина в комнате",
+        patientName: "Даниил, 25 лет (бывший программист)",
+        referral: "Приведён родителями: год не работает, почти не выходит из комнаты, ничем не интересуется.",
+        difficulty: 3,
+        appearance: { hair: "#0f172a", shirt: "#334155", accent: "#38bdf8", gender: "m", glasses: false },
+        initialSpeech: "Здравствуйте. (Сидит неподвижно, смотрит в одну точку, говорит тихим монотонным голосом). Родители попросили прийти. Сам я не вижу в этом смысла, но мне всё равно.",
+        hints: [
+          "Ключевая задача здесь — отличить апато-абулический синдром (негативный дефект) от тяжёлой адинамической депрессии.",
+          "Спроси: «Испытываете ли вы душевную боль, тоску или вину за то, что ничего не делаете?» и «Как развивалось это состояние?»",
+          "Свяжи [Отсутствие субъективной тоски, страдания и чувства вины] + [Постепенное угасание побуждений и эмоций без борьбы мотивов]."
+        ],
+        questions: [
+          { id: "q1", text: "Даниил, испытываете ли вы сейчас тяжесть на душе, тоску или грусть?", reply: "Нет. Мне не грустно и не весело. Просто никак. Пусто и спокойно.", emotion: "равнодушен", essenceId: "e1" },
+          { id: "q2", text: "Мучает ли вас чувство вины перед родителями за то, что вы бросили работу?", reply: "Они иногда ругаются, говорят, что я ленюсь. Я понимаю, что им это не нравится, но внутри ничего не ёкает. Ни вины, ни обиды.", emotion: "равнодушен", essenceId: "e2" },
+          { id: "q3", text: "Есть ли у вас желание что-то сделать, но просто не хватает физических сил?", reply: "Нет, желаний вообще никаких нет. Даже если бы дали миллион или путёвку куда угодно — я бы не поехал, незачем.", emotion: "отстранён", essenceId: "e3" },
+          { id: "q4", text: "Как менялось ваше состояние за последние два года?", reply: "Постепенно. Сначала перестал общаться с друзьями, потом уволился, перестал читать, слушать музыку. Просто сузилось всё до кровати и окна.", emotion: "отстранён", essenceId: "e4" },
+          { id: "q5", text: "Бывают ли у вас сейчас голоса или страх слежки?", reply: "Раньше, года полтора назад, казалось, что в сети за мной следят, но это давно прошло. Сейчас в голове тихо.", emotion: "спокоен", essenceId: "e5" },
+          { id: "q6", text: "В какое время суток вам легче?", reply: "Утро, день, вечер — абсолютно одинаково.", emotion: "равнодушен", essenceId: null },
+          { id: "q7", text: "Что вы ели сегодня на завтрак?", reply: "Что мать поставила, то и съел, вкуса особо не заметил.", emotion: "равнодушен", essenceId: null }
+        ],
+        essences: [
+          { id: "e1", title: "Отсутствие депрессивного аффекта", desc: "Нет витальной тоски, душевной боли и суточных колебаний настроения.", isDistractor: false },
+          { id: "e2", title: "Эмоциональное оскудение (апатия)", desc: "Равнодушие к переживаниям близких и собственной судьбе, отсутствие чувства вины.", isDistractor: false },
+          { id: "e3", title: "Абулия (утрата побуждений)", desc: "Нет внутренних мотивов и желаний (при депрессии желание жить и действовать есть, но нет сил).", isDistractor: false },
+          { id: "e4", title: "Прогредиентное снижение активности", desc: "Постепенное угасание всех интересов и контактов в течение 1–2 лет.", isDistractor: false },
+          { id: "e5", title: "Редуцированный психотический эпизод в прошлом", desc: "Полтора года назад были идеи преследования, сменившиеся негативным дефектом.", isDistractor: true }
+        ],
+        combos: [
+          { pair: ["e1", "e3"], thesis: "Разграничение с депрессией: нет душевной боли и тоски, но полностью утрачены побуждения (абулия)." },
+          { pair: ["e2", "e4"], thesis: "Стойкое эмоционально-волевое снижение (негативная симптоматика)." },
+          { pair: ["e3", "e5"], thesis: "Постпроцессуальный апато-абулический дефект после перенесённого психотического эпизода." }
+        ],
+        diagnoses: [
+          { text: "Апато-абулический синдром (негативная симптоматика шизофренического спектра)", correct: true },
+          { text: "Адинамическая депрессия", correct: false },
+          { text: "Паническое расстройство с агорафобией", correct: false },
+          { text: "Установочное поведение (симуляция)", correct: false }
+        ],
+        explanation: "Главное отличие апато-абулического синдрома от депрессии: депрессивный больной страдает от своей бездеятельности, испытывает тоску, вину и хочет вернуть прежнюю жизнь, но не имеет сил. При апато-абулическом синдроме нет ни душевной боли, ни желаний («пусто и всё равно»)."
+      }
+    ];
+
+    // =========================================================================
+    // 3. СОСТОЯНИЕ ИГРЫ И СОХРАНЕНИЕ ПРОГРЕССА
+    // =========================================================================
+    let solvedCases = new Set(JSON.parse(localStorage.getItem('psycho_detective_solved') || '[]'));
+    let currentCase = null;
+    let energy = 10;
+    let askedQuestions = new Set();
+    let collectedEssences = []; // { id, title, desc, isDistractor }
+    let floatingOrbs = [];      // { id, title, desc, isDistractor, x, y, vx, vy, angle, radius, pulse }
+    let locks = [];             // { id, broken, x, y, shakeTimer, breakProgress }
+    let particles = [];         // Частицы для сбора эссенций и разрушения замков
+    let unlockedTheses = [];    // Строки раскрытых тезисов
+    let selectedSlot1 = null;
+    let selectedSlot2 = null;
+    let currentEmotion = "насторожен";
+    let highlightedQuestionId = null;
+
+    // 2.5D Параллакс и анимация персонажа
+    let mouseX = 0.5, mouseY = 0.5;
+    let targetMouseX = 0.5, targetMouseY = 0.5;
+    let animTime = 0;
+    let blinkTimer = 0;
+    let isBlinking = false;
+    let typewriterTimer = null;
+
+    // =========================================================================
+    // 4. DOM ЭЛЕМЕНТЫ
+    // =========================================================================
+    const hubScreen = document.getElementById('hubScreen');
+    const gameScreen = document.getElementById('gameScreen');
+    const casesGrid = document.getElementById('casesGrid');
+    const solvedCountBadge = document.getElementById('solvedCountBadge');
+    const canvas = document.getElementById('sceneCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // =========================================================================
+    // 5. ИНИЦИАЛИЗАЦИЯ ХАБА 15 КЕЙСОВ
+    // =========================================================================
+    function renderHub() {
+      solvedCountBadge.textContent = `${solvedCases.size} / ${CASES_DATA.length}`;
+      casesGrid.innerHTML = '';
+
+      CASES_DATA.forEach(c => {
+        const isSolved = solvedCases.has(c.id);
+        const stars = '★'.repeat(c.difficulty) + '☆'.repeat(3 - c.difficulty);
+
+        const card = document.createElement('div');
+        card.className = `aa-panel rounded-2xl p-5 flex flex-col justify-between transition duration-200 hover:-translate-y-1 hover:border-cyan-400/70 cursor-pointer ${isSolved ? 'border-emerald-500/40' : ''}`;
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="text-xs font-extrabold tracking-wider uppercase px-2.5 py-0.5 rounded-md ${isSolved ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'}">
+                ${isSolved ? '✓ РАСКРЫТО' : `ДЕЛО №${c.id}`}
+              </span>
+              <span class="text-xs text-amber-400 font-bold" title="Сложность">${stars}</span>
+            </div>
+            <h3 class="text-lg font-black text-white mb-1">${c.title}</h3>
+            <div class="text-xs font-semibold text-cyan-200/80 mb-2">${c.patientName}</div>
+            <p class="text-xs text-slate-400 leading-relaxed">${c.referral}</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+            <span class="text-slate-400">🔒 Замков: <b class="text-rose-400">${c.combos.length}</b></span>
+            <span class="font-bold text-cyan-400 group-hover:underline">Начать приём →</span>
+          </div>
+        `;
+        card.addEventListener('click', () => {
+          sfx.click();
+          startCase(c.id);
+        });
+        casesGrid.appendChild(card);
+      });
+    }
+
+    // =========================================================================
+    // 6. ЗАПУСК КОНКРЕТНОГО КЕЙСА
+    // =========================================================================
+    function startCase(caseId) {
+      currentCase = CASES_DATA.find(c => c.id === caseId);
+      if (!currentCase) return;
+
+      energy = 10;
+      askedQuestions = new Set();
+      collectedEssences = [];
+      floatingOrbs = [];
+      particles = [];
+      unlockedTheses = [];
+      selectedSlot1 = null;
+      selectedSlot2 = null;
+      highlightedQuestionId = null;
+      currentEmotion = "насторожен";
+
+      // Инициализируем 3 Психе-Замка вокруг силуэта пациента в 2.5D пространстве
+      const lockCount = currentCase.combos.length;
+      const positions = lockCount === 3
+        ? [{ rx: -0.17, ry: -0.14 }, { rx: 0.17, ry: -0.14 }, { rx: 0, ry: 0.04 }]
+        : [{ rx: -0.18, ry: -0.16 }, { rx: 0.18, ry: -0.16 }, { rx: -0.14, ry: 0.05 }, { rx: 0.14, ry: 0.05 }];
+
+      locks = positions.map((pos, idx) => ({
+        id: idx,
+        rx: pos.rx,
+        ry: pos.ry,
+        broken: false,
+        shakeTimer: 0,
+        pulseOffset: idx * 1.4
+      }));
+
+      // Обновляем HUD
+      document.getElementById('hudCaseNumber').textContent = `ДЕЛО №${currentCase.id} • ${currentCase.patientName}`;
+      document.getElementById('hudCaseTitle').textContent = currentCase.title;
+      document.getElementById('speakerBadge').textContent = currentCase.patientName.split(',')[0];
+      document.getElementById('emotionBadge').textContent = `Состояние: ${currentEmotion}`;
+      document.getElementById('finalDiagnosisBtn').classList.add('hidden');
+      document.getElementById('collectPrompt').classList.add('hidden');
+      document.getElementById('logicFeedback').classList.add('hidden');
+
+      // Сброс подсказок
+      ['hint1Text', 'hint2Text', 'hint3Text'].forEach(id => {
+        const el = document.getElementById(id);
+        el.classList.add('hidden');
+        el.textContent = '';
+      });
+
+      switchTab('questions');
+      updateEnergyHUD();
+      updateLocksHUD();
+      renderQuestions();
+      renderEssenceBank();
+      typewriteText(currentCase.initialSpeech);
+
+      hubScreen.classList.add('hidden');
+      gameScreen.classList.remove('hidden');
+      resizeCanvas();
+    }
+
+    // =========================================================================
+    // 7. ЭФФЕКТ ПЕЧАТНОЙ МАШИНКИ (ACE ATTORNEY DIALOGUE)
+    // =========================================================================
+    function typewriteText(text) {
+      if (typewriterTimer) clearInterval(typewriterTimer);
+      const el = document.getElementById('dialogueText');
+      el.textContent = '';
+      let i = 0;
+      typewriterTimer = setInterval(() => {
+        if (i < text.length) {
+          el.textContent += text[i];
+          if (i % 3 === 0 && text[i] !== ' ') sfx.blip();
+          i++;
+        } else {
+          clearInterval(typewriterTimer);
+        }
+      }, 16);
+    }
+
+    // =========================================================================
+    // 8. ОТОБРАЖЕНИЕ ВОПРОСОВ И ШКАЛЫ 10 ОЧКОВ ЭНЕРГИИ
+    // =========================================================================
+    function updateEnergyHUD() {
+      const container = document.getElementById('energyCrystals');
+      container.innerHTML = '';
+      for (let i = 0; i < 10; i++) {
+        const active = i < energy;
+        const dot = document.createElement('div');
+        dot.className = `w-2.5 sm:w-3 h-4 rounded-sm transition-all duration-300 ${
+          active
+            ? (energy <= 3 ? 'bg-rose-500 shadow-[0_0_8px_#f43f5e]' : 'bg-cyan-400 shadow-[0_0_8px_#38bdf8]')
+            : 'bg-slate-800 border border-slate-700'
+        }`;
+        container.appendChild(dot);
+      }
+      document.getElementById('energyText').textContent = `${energy}/10`;
+      document.getElementById('tabQuestionsBtn').textContent = `💬 Вопросы (${energy})`;
+    }
+
+    function updateLocksHUD() {
+      const remaining = locks.filter(l => !l.broken).length;
+      document.getElementById('locksCounterText').textContent = remaining;
+      if (remaining === 0) {
+        document.getElementById('finalDiagnosisBtn').classList.remove('hidden');
+      }
+    }
+
+    function renderQuestions() {
+      const panel = document.getElementById('questionsPanel');
+      panel.innerHTML = '';
+
+      currentCase.questions.forEach(q => {
+        const isAsked = askedQuestions.has(q.id);
+        const isHighlighted = highlightedQuestionId === q.id && !isAsked;
+        const btn = document.createElement('button');
+        btn.disabled = isAsked || energy <= 0;
+        btn.className = `text-left px-3 py-2 rounded-xl border text-xs leading-snug transition cursor-pointer ${
+          isAsked
+            ? 'bg-slate-900/50 border-slate-800 text-slate-500 line-through cursor-default'
+            : energy <= 0
+              ? 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed'
+              : 'bg-slate-900/95 hover:bg-cyan-950/60 border-slate-700/90 hover:border-cyan-400/70 text-slate-100'
+        } ${isHighlighted ? 'hint-glow bg-amber-950/30' : ''}`;
+        btn.innerHTML = `<span class="text-cyan-400 font-bold mr-1">?</span> ${q.text}`;
+        btn.addEventListener('click', () => handleAskQuestion(q));
+        panel.appendChild(btn);
+      });
+
+      if (energy === 0 && locks.some(l => !l.broken)) {
+        const warn = document.createElement('div');
+        warn.className = 'col-span-full p-2.5 rounded-xl bg-rose-950/70 border border-rose-500/50 text-xs text-rose-200 flex items-center justify-between';
+        warn.innerHTML = `
+          <span>⚡ Энергия вопросов исчерпана! Попробуй связать уже собранные факты во вкладке «Логика» или начни сессию заново.</span>
+          <button onclick="startCase(${currentCase.id})" class="ml-2 px-2.5 py-1 rounded bg-rose-600 text-white font-bold cursor-pointer shrink-0">↻ Заново</button>
+        `;
+        panel.appendChild(warn);
+      }
+    }
+
+    function handleAskQuestion(q) {
+      if (askedQuestions.has(q.id) || energy <= 0) return;
+      sfx.click();
+      askedQuestions.add(q.id);
+      energy--;
+      if (highlightedQuestionId === q.id) highlightedQuestionId = null;
+
+      currentEmotion = q.emotion || "задумчив";
+      document.getElementById('emotionBadge').textContent = `Состояние: ${currentEmotion}`;
+      typewriteText(q.reply);
+
+      // Если вопрос даёт клинический факт — спавним светящуюся эссенцию в 2.5D сцене!
+      if (q.essenceId) {
+        const ess = currentCase.essences.find(e => e.id === q.essenceId);
+        if (ess && !collectedEssences.some(c => c.id === ess.id) && !floatingOrbs.some(o => o.id === ess.id)) {
+          spawnFloatingOrb(ess);
+        }
+      }
+
+      updateEnergyHUD();
+      renderQuestions();
+    }
+
+    // =========================================================================
+    // 9. СВЕТЯЩИЕСЯ ЭССЕНЦИИ ФАКТОВ В 2.5D ПОЛЕ
+    // =========================================================================
+    function spawnFloatingOrb(essence) {
+      const side = Math.random() > 0.5 ? 1 : -1;
+      const rx = side * (0.16 + Math.random() * 0.16);
+      const ry = -0.22 + Math.random() * 0.24;
+      floatingOrbs.push({
+        ...essence,
+        rx,
+        ry,
+        baseRx: rx,
+        baseRy: ry,
+        phase: Math.random() * Math.PI * 2,
+        radius: 26,
+        scale: 0.1
+      });
+      document.getElementById('collectPrompt').classList.remove('hidden');
+      // Всплеск частиц при появлении сферы
+      const cx = canvas.width * (0.5 + rx);
+      const cy = canvas.height * (0.42 + ry);
+      createBurst(cx, cy, '#38bdf8', 18);
+    }
+
+    function collectOrb(orbIndex) {
+      const orb = floatingOrbs[orbIndex];
+      if (!orb) return;
+      sfx.collect();
+      const cx = canvas.width * (0.5 + orb.rx);
+      const cy = canvas.height * (0.42 + orb.ry);
+      createBurst(cx, cy, '#fde047', 26);
+
+      collectedEssences.push({
+        id: orb.id,
+        title: orb.title,
+        desc: orb.desc,
+        isDistractor: orb.isDistractor
+      });
+      floatingOrbs.splice(orbIndex, 1);
+
+      if (floatingOrbs.length === 0) {
+        document.getElementById('collectPrompt').classList.add('hidden');
+      }
+      renderEssenceBank();
+    }
+
+    function renderEssenceBank() {
+      const list = document.getElementById('essenceBankList');
+      document.getElementById('essenceCount').textContent = collectedEssences.length;
+      document.getElementById('thesisCountBadge').textContent = `Тезисов: ${unlockedTheses.length} / ${currentCase.combos.length}`;
+
+      if (collectedEssences.length === 0) {
+        list.innerHTML = `<div class="text-xs text-slate-500 italic py-4 text-center">Задавай вопросы и кликай на светящиеся сферы вокруг пациента.</div>`;
+        return;
+      }
+
+      list.innerHTML = '';
+      collectedEssences.forEach(ess => {
+        const isSel1 = selectedSlot1 && selectedSlot1.id === ess.id;
+        const isSel2 = selectedSlot2 && selectedSlot2.id === ess.id;
+        const isSelected = isSel1 || isSel2;
+
+        const item = document.createElement('div');
+        item.className = `p-2.5 rounded-xl border text-xs transition cursor-pointer ${
+          isSelected
+            ? 'bg-cyan-500/20 border-cyan-400 shadow-[0_0_12px_rgba(56,189,248,0.3)]'
+            : 'bg-slate-900/90 hover:bg-slate-800/90 border-slate-700/80'
+        }`;
+        item.innerHTML = `
+          <div class="flex items-center justify-between gap-1 font-bold text-cyan-300">
+            <span>✦ ${ess.title}</span>
+            ${isSelected ? '<span class="px-1.5 py-0.2 bg-cyan-400 text-slate-950 rounded text-[10px] font-black">ВЫБРАНО</span>' : ''}
+          </div>
+          <div class="text-[11px] text-slate-400 mt-0.5 leading-snug">${ess.desc}</div>
+        `;
+        item.addEventListener('click', () => handleSelectEssenceForLogic(ess));
+        list.appendChild(item);
+      });
+
+      // Отображаем уже сформированные тезисы внизу банка
+      if (unlockedTheses.length > 0) {
+        const sep = document.createElement('div');
+        sep.className = 'pt-2 mt-2 border-t border-slate-800 text-[11px] font-extrabold uppercase text-emerald-400';
+        sep.textContent = '✓ Сформированные тезисы:';
+        list.appendChild(sep);
+
+        unlockedTheses.forEach(th => {
+          const tCard = document.createElement('div');
+          tCard.className = 'p-2 rounded-lg bg-emerald-950/40 border border-emerald-500/30 text-[11px] text-emerald-200 leading-snug';
+          tCard.textContent = th;
+          list.appendChild(tCard);
+        });
+      }
+    }
+
+    // =========================================================================
+    // 10. МЕХАНИКА СВЯЗЫВАНИЯ ФАКТОВ (ACE ATTORNEY INVESTIGATIONS LOGIC)
+    // =========================================================================
+    function switchTab(tab) {
+      const qBtn = document.getElementById('tabQuestionsBtn');
+      const lBtn = document.getElementById('tabLogicBtn');
+      const qPanel = document.getElementById('questionsPanel');
+      const lPanel = document.getElementById('logicPanel');
+
+      if (tab === 'questions') {
+        qBtn.className = 'px-3 py-1 rounded-lg text-xs font-bold bg-cyan-500 text-slate-950 transition cursor-pointer';
+        lBtn.className = 'px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition cursor-pointer flex items-center gap-1';
+        qPanel.classList.remove('hidden');
+        lPanel.classList.add('hidden');
+      } else {
+        lBtn.className = 'px-3 py-1 rounded-lg text-xs font-bold bg-rose-500 text-white transition cursor-pointer flex items-center gap-1';
+        qBtn.className = 'px-3 py-1 rounded-lg text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700 transition cursor-pointer';
+        lPanel.classList.remove('hidden');
+        qPanel.classList.add('hidden');
+      }
+    }
+
+    function handleSelectEssenceForLogic(ess) {
+      sfx.click();
+      // Автоматически переключаемся во вкладку Логики при клике на факт
+      switchTab('logic');
+      document.getElementById('logicFeedback').classList.add('hidden');
+
+      if (selectedSlot1 && selectedSlot1.id === ess.id) {
+        selectedSlot1 = null;
+      } else if (selectedSlot2 && selectedSlot2.id === ess.id) {
+        selectedSlot2 = null;
+      } else if (!selectedSlot1) {
+        selectedSlot1 = ess;
+      } else if (!selectedSlot2) {
+        selectedSlot2 = ess;
+      } else {
+        selectedSlot1 = selectedSlot2;
+        selectedSlot2 = ess;
+      }
+
+      updateLogicSlotsUI();
+      renderEssenceBank();
+    }
+
+    function updateLogicSlotsUI() {
+      const s1 = document.getElementById('slot1Box');
+      const s2 = document.getElementById('slot2Box');
+      const btn = document.getElementById('combineBtn');
+
+      if (selectedSlot1) {
+        s1.textContent = selectedSlot1.title;
+        s1.className = 'flex-1 px-2.5 py-1.5 rounded-lg bg-cyan-950/60 border border-cyan-400 text-cyan-200 font-semibold truncate';
+      } else {
+        s1.textContent = '[Факт 1 не выбран]';
+        s1.className = 'flex-1 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-dashed border-slate-600 text-slate-400 truncate';
+      }
+
+      if (selectedSlot2) {
+        s2.textContent = selectedSlot2.title;
+        s2.className = 'flex-1 px-2.5 py-1.5 rounded-lg bg-cyan-950/60 border border-cyan-400 text-cyan-200 font-semibold truncate';
+      } else {
+        s2.textContent = '[Факт 2 не выбран]';
+        s2.className = 'flex-1 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-dashed border-slate-600 text-slate-400 truncate';
+      }
+
+      btn.disabled = !(selectedSlot1 && selectedSlot2);
+    }
+
+    function attemptCombineFacts() {
+      if (!selectedSlot1 || !selectedSlot2) return;
+      const idA = selectedSlot1.id;
+      const idB = selectedSlot2.id;
+
+      const matchedCombo = currentCase.combos.find(c =>
+        (c.pair[0] === idA && c.pair[1] === idB) || (c.pair[0] === idB && c.pair[1] === idA)
+      );
+
+      const feedback = document.getElementById('logicFeedback');
+
+      if (!matchedCombo) {
+        sfx.error();
+        triggerScreenShake();
+        showShout('НЕСТЫКОВКА!', 'bg-rose-950/95 border-rose-500 text-rose-300');
+        feedback.textContent = 'Эти два факта сами по себе не образуют клинический тезис. Попробуй другую пару или собери недостающую эссенцию!';
+        feedback.classList.remove('hidden');
+        return;
+      }
+
+      if (unlockedTheses.includes(matchedCombo.thesis)) {
+        sfx.error();
+        feedback.textContent = 'Этот тезис уже сформирован! Выбери другую пару фактов для следующего замка.';
+        feedback.classList.remove('hidden');
+        return;
+      }
+
+      // УСПЕХ! Разрушаем один Психе-Замок!
+      sfx.shatter();
+      triggerScreenShake();
+      unlockedTheses.push(matchedCombo.thesis);
+      showShout('ЕСТЬ КОНТАКТ!', 'bg-cyan-950/95 border-cyan-400 text-cyan-200');
+
+      const nextLock = locks.find(l => !l.broken);
+      if (nextLock) {
+        nextLock.broken = true;
+        const lx = canvas.width * (0.5 + nextLock.rx);
+        const ly = canvas.height * (0.42 + nextLock.ry);
+        createBurst(lx, ly, '#f43f5e', 35);
+        createBurst(lx, ly, '#fde047', 22);
+      }
+
+      feedback.innerHTML = `<span class="text-emerald-300 font-bold">Тезис:</span> ${matchedCombo.thesis}`;
+      feedback.classList.remove('hidden');
+
+      selectedSlot1 = null;
+      selectedSlot2 = null;
+      updateLogicSlotsUI();
+      updateLocksHUD();
+      renderEssenceBank();
+
+      if (locks.every(l => l.broken)) {
+        currentEmotion = "облегчение";
+        document.getElementById('emotionBadge').textContent = `Состояние: ${currentEmotion}`;
+        typewriteText("Кажется... вы действительно поняли, что со мной происходит. Готов выслушать ваше заключение.");
+      }
+    }
+
+    function showShout(text, classes) {
+      const banner = document.getElementById('shoutBanner');
+      const box = document.getElementById('shoutBox');
+      box.textContent = text;
+      box.className = `px-8 py-4 rounded-2xl border-4 font-black text-2xl sm:text-5xl tracking-wider uppercase shadow-2xl animate-slam ${classes}`;
+      banner.classList.remove('hidden');
+      setTimeout(() => banner.classList.add('hidden'), 1100);
+    }
+
+    function triggerScreenShake() {
+      gameScreen.classList.remove('animate-shake');
+      void gameScreen.offsetWidth;
+      gameScreen.classList.add('animate-shake');
+    }
+
+    // =========================================================================
+    // 11. ФИНАЛЬНЫЙ ДИАГНОЗ И РАЗБОР
+    // =========================================================================
+    function openDiagnosisModal() {
+      sfx.click();
+      const modal = document.getElementById('diagnosisModal');
+      const selectPhase = document.getElementById('diagSelectPhase');
+      const successPhase = document.getElementById('diagSuccessPhase');
+      const optionsList = document.getElementById('diagOptionsList');
+      const errBox = document.getElementById('diagErrorMsg');
+
+      selectPhase.classList.remove('hidden');
+      successPhase.classList.add('hidden');
+      errBox.classList.add('hidden');
+      optionsList.innerHTML = '';
+
+      // Перемешиваем варианты ответа
+      const shuffled = [...currentCase.diagnoses].sort(() => Math.random() - 0.5);
+      shuffled.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'w-full text-left p-3.5 rounded-xl bg-slate-900 hover:bg-cyan-950/60 border border-slate-700 hover:border-cyan-400 text-sm font-semibold text-slate-100 transition cursor-pointer';
+        btn.textContent = opt.text;
+        btn.addEventListener('click', () => {
+          if (opt.correct) {
+            sfx.win();
+            solvedCases.add(currentCase.id);
+            localStorage.setItem('psycho_detective_solved', JSON.stringify([...solvedCases]));
+            selectPhase.classList.add('hidden');
+            successPhase.classList.remove('hidden');
+            document.getElementById('finalDiagTitle').textContent = opt.text;
+            document.getElementById('finalDiagExplanation').textContent = currentCase.explanation;
+          } else {
+            sfx.error();
+            errBox.textContent = 'Не совсем точно. Перечитай сформированные тезисы в Банке эссенций и сопоставь их с клинической картиной!';
+            errBox.classList.remove('hidden');
+          }
+        });
+        optionsList.appendChild(btn);
+      });
+
+      modal.classList.remove('hidden');
+    }
+
+    // =========================================================================
+    // 12. СИСТЕМА ПОДСКАЗОК ДЛЯ ШКОЛЬНИКОВ (8–11 КЛАССЫ)
+    // =========================================================================
+    function setupHints() {
+      document.getElementById('openHintBtn').addEventListener('click', () => {
+        sfx.click();
+        document.getElementById('hintModal').classList.remove('hidden');
+      });
+      document.getElementById('closeHintBtn').addEventListener('click', () => {
+        document.getElementById('hintModal').classList.add('hidden');
+      });
+
+      document.getElementById('revealHint1Btn').addEventListener('click', () => {
+        sfx.click();
+        const el = document.getElementById('hint1Text');
+        el.textContent = currentCase.hints[0];
+        el.classList.remove('hidden');
+      });
+
+      document.getElementById('revealHint2Btn').addEventListener('click', () => {
+        sfx.click();
+        const unaskedUseful = currentCase.questions.find(q => !askedQuestions.has(q.id) && q.essenceId);
+        const el = document.getElementById('hint2Text');
+        if (unaskedUseful) {
+          highlightedQuestionId = unaskedUseful.id;
+          switchTab('questions');
+          renderQuestions();
+          el.textContent = `Нужный вопрос подсвечен золотой рамкой во вкладке «Вопросы»!`;
+        } else {
+          el.textContent = `Все ключевые вопросы уже заданы! Собери оставшиеся сферы или перейди во вкладку «Логика».`;
+        }
+        el.classList.remove('hidden');
+      });
+
+      document.getElementById('revealHint3Btn').addEventListener('click', () => {
+        sfx.click();
+        const el = document.getElementById('hint3Text');
+        el.textContent = currentCase.hints[2];
+        el.classList.remove('hidden');
+      });
+    }
+
+    // =========================================================================
+    // 13. ОТРИСОВКА 2.5D СЦЕНЫ НА HTML5 CANVAS (ПАРАЛЛАКС, СИЛУЭТ, ЦЕПИ, ЗАМКИ)
+    // =========================================================================
+    function resizeCanvas() {
+      const rect = document.getElementById('canvasWrapper').getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    window.addEventListener('mousemove', e => {
+      targetMouseX = e.clientX / window.innerWidth;
+      targetMouseY = e.clientY / window.innerHeight;
+    });
+
+    canvas.addEventListener('click', e => {
+      if (!currentCase) return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      // Проверка клика по светящейся эссенции факта
+      for (let i = floatingOrbs.length - 1; i >= 0; i--) {
+        const orb = floatingOrbs[i];
+        const ox = canvas.width * (0.5 + orb.rx);
+        const oy = canvas.height * (0.40 + orb.ry);
+        const dist = Math.hypot(mx - ox, my - oy);
+        if (dist <= orb.radius + 14) {
+          collectOrb(i);
+          return;
+        }
+      }
+
+      // Проверка клика по Психе-Замку — открывает вкладку Логики
+      for (const lock of locks) {
+        if (lock.broken) continue;
+        const lx = canvas.width * (0.5 + lock.rx);
+        const ly = canvas.height * (0.40 + lock.ry);
+        if (Math.hypot(mx - lx, my - ly) <= 34) {
+          sfx.click();
+          lock.shakeTimer = 15;
+          switchTab('logic');
+          return;
+        }
+      }
+    });
+
+    function createBurst(x, y, color, count) {
+      for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count + Math.random() * 0.4;
+        const speed = 1.5 + Math.random() * 4.5;
+        particles.push({
+          x, y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 1,
+          decay: 0.02 + Math.random() * 0.025,
+          size: 2.5 + Math.random() * 3.5,
+          color
+        });
+      }
+    }
+
+    function drawScene(dt) {
+      animTime += dt;
+      mouseX += (targetMouseX - mouseX) * 0.08;
+      mouseY += (targetMouseY - mouseY) * 0.08;
+
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      // Смещения 2.5D параллакса для разных планов глубины
+      const pxBack = (mouseX - 0.5) * -18;
+      const pyBack = (mouseY - 0.5) * -10;
+      const pxMid = (mouseX - 0.5) * -32;
+      const pyMid = (mouseY - 0.5) * -16;
+      const pxFront = (mouseX - 0.5) * -48;
+      const pyFront = (mouseY - 0.5) * -22;
+
+      // 1. ДАЛЬНИЙ ПЛАН: Кабинет специалиста (градиент + окно + книжные стеллажи)
+      const bgGrad = ctx.createRadialGradient(w * 0.5 + pxBack, h * 0.35 + pyBack, 40, w * 0.5, h * 0.5, w * 0.85);
+      bgGrad.addColorStop(0, '#13203b');
+      bgGrad.addColorStop(0.55, '#0b1120');
+      bgGrad.addColorStop(1, '#050811');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Перспективная сетка пола/стены для усиления 2.5D глубины
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.06)';
+      ctx.lineWidth = 1;
+      for (let i = -6; i <= 6; i++) {
+        ctx.beginPath();
+        ctx.moveTo(w * 0.5 + i * 90 + pxBack, 0);
+        ctx.lineTo(w * 0.5 + i * 170 + pxFront, h);
+        ctx.stroke();
+      }
+
+      // Стилизованные книжные полки на заднем плане
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+      ctx.fillRect(w * 0.08 + pxBack, h * 0.1 + pyBack, w * 0.18, h * 0.55);
+      ctx.fillRect(w * 0.74 + pxBack, h * 0.1 + pyBack, w * 0.18, h * 0.55);
+
+      // 2. СРЕДНИЙ ПЛАН: Стилизованный векторный силуэт/портрет пациента
+      if (currentCase) {
+        drawPatient25D(w * 0.5 + pxMid, h * 0.43 + pyMid, Math.min(w, h));
+      }
+
+      // 3. ПЕРЕДНИЙ ПЛАН: Психе-Цепи и Психе-Замки (Ace Attorney style)
+      const activeLocks = locks.filter(l => !l.broken);
+      if (activeLocks.length > 0) {
+        drawPsycheChainsAndLocks(w, h, pxFront, pyFront, activeLocks);
+      }
+
+      // 4. СВЕТЯЩИЕСЯ ЭССЕНЦИИ ФАКТОВ В ПОЛЕ
+      floatingOrbs.forEach((orb, idx) => {
+        orb.phase += dt * 2.2;
+        orb.scale += (1 - orb.scale) * 0.1;
+        orb.rx = orb.baseRx + Math.sin(orb.phase * 0.8) * 0.015;
+        orb.ry = orb.baseRy + Math.cos(orb.phase) * 0.018;
+
+        const ox = w * (0.5 + orb.rx) + pxFront * 0.7;
+        const oy = h * (0.40 + orb.ry) + pyFront * 0.7;
+        const r = orb.radius * orb.scale;
+
+        // Аура сферы
+        const aura = ctx.createRadialGradient(ox, oy, r * 0.1, ox, oy, r * 2.1);
+        aura.addColorStop(0, 'rgba(125, 211, 252, 0.95)');
+        aura.addColorStop(0.45, 'rgba(56, 189, 248, 0.45)');
+        aura.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        ctx.fillStyle = aura;
+        ctx.beginPath();
+        ctx.arc(ox, oy, r * 2.1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Ядро сферы
+        ctx.fillStyle = '#e0f2fe';
+        ctx.beginPath();
+        ctx.arc(ox, oy, r * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Вращающееся кольцо вокруг эссенции
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(ox, oy, r * 1.15, r * 0.45, animTime * 1.8 + idx, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Подпись под сферой
+        ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#bae6fd';
+        ctx.fillText('✦ Эссенция', ox, oy + r * 1.55);
+      });
+
+      // 5. ЧАСТИЦЫ ЭФФЕКТОВ
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= p.decay;
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    function drawPatient25D(cx, cy, scaleRef) {
+      const breathe = Math.sin(animTime * 2.1) * 4;
+      const app = currentCase.appearance;
+      const s = Math.max(0.65, Math.min(1.15, scaleRef / 620));
+
+      ctx.save();
+      ctx.translate(cx, cy + breathe);
+      ctx.scale(s, s);
+
+      // Контровой свет за силуэтом пациента
+      const rim = ctx.createRadialGradient(0, -20, 20, 0, 0, 210);
+      rim.addColorStop(0, 'rgba(56, 189, 248, 0.25)');
+      rim.addColorStop(1, 'rgba(56, 189, 248, 0)');
+      ctx.fillStyle = rim;
+      ctx.beginPath();
+      ctx.arc(0, 0, 210, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Плечи и торс (векторный силуэт с градиентом)
+      const bodyGrad = ctx.createLinearGradient(0, 30, 0, 220);
+      bodyGrad.addColorStop(0, app.shirt);
+      bodyGrad.addColorStop(1, '#090d16');
+      ctx.fillStyle = bodyGrad;
+      ctx.beginPath();
+      ctx.moveTo(-125, 220);
+      ctx.quadraticCurveTo(-115, 70, -45, 55);
+      ctx.lineTo(45, 55);
+      ctx.quadraticCurveTo(115, 70, 125, 220);
+      ctx.closePath();
+      ctx.fill();
+
+      // Неоновый контур плеч (2.5D rim-light)
+      ctx.strokeStyle = app.accent;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Шея
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillRect(-18, 22, 36, 40);
+
+      // Голова
+      const headGrad = ctx.createLinearGradient(0, -85, 0, 35);
+      headGrad.addColorStop(0, '#f1f5f9');
+      headGrad.addColorStop(1, '#94a3b8');
+      ctx.fillStyle = headGrad;
+      ctx.beginPath();
+      ctx.ellipse(0, -25, 48, 60, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Причёска
+      ctx.fillStyle = app.hair;
+      ctx.beginPath();
+      if (app.gender === 'f') {
+        ctx.arc(0, -32, 54, Math.PI * 0.85, Math.PI * 2.15);
+        ctx.lineTo(56, 35);
+        ctx.lineTo(-56, 35);
+      } else {
+        ctx.arc(0, -36, 51, Math.PI, Math.PI * 2);
+        ctx.lineTo(50, -20);
+        ctx.lineTo(-50, -20);
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      // Анимация моргания и эмоций (брови и глаза)
+      blinkTimer += 0.016;
+      if (blinkTimer > 3.6) {
+        isBlinking = true;
+        if (blinkTimer > 3.76) {
+          isBlinking = false;
+          blinkTimer = 0;
+        }
+      }
+
+      // Брови в зависимости от эмоции
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 3.2;
+      const browTilt = (currentEmotion.includes('напряж') || currentEmotion.includes('раздраж') || currentEmotion.includes('убежд')) ? 6
+                     : (currentEmotion.includes('груст') || currentEmotion.includes('подав')) ? -5 : 0;
+
+      ctx.beginPath();
+      ctx.moveTo(-28, -36 - browTilt * 0.5);
+      ctx.lineTo(-10, -36 + browTilt * 0.5);
+      ctx.moveTo(10, -36 + browTilt * 0.5);
+      ctx.lineTo(28, -36 - browTilt * 0.5);
+      ctx.stroke();
+
+      // Глаза
+      ctx.fillStyle = '#0f172a';
+      if (isBlinking) {
+        ctx.fillRect(-25, -24, 14, 2.5);
+        ctx.fillRect(11, -24, 14, 2.5);
+      } else {
+        ctx.beginPath();
+        ctx.arc(-18, -24, 4.2, 0, Math.PI * 2);
+        ctx.arc(18, -24, 4.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Очки, если есть у персонажа
+      if (app.glasses) {
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-30, -32, 23, 15);
+        ctx.strokeRect(7, -32, 23, 15);
+        ctx.beginPath();
+        ctx.moveTo(-7, -25);
+        ctx.lineTo(7, -25);
+        ctx.stroke();
+      }
+
+      // Рот (меняется при облегчении/эйфории/грусти)
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      if (currentEmotion.includes('облегч') || currentEmotion.includes('эйфор') || currentEmotion.includes('благодуш')) {
+        ctx.arc(0, 2, 12, 0.15 * Math.PI, 0.85 * Math.PI);
+      } else if (currentEmotion.includes('груст') || currentEmotion.includes('подав')) {
+        ctx.arc(0, 14, 11, 1.15 * Math.PI, 1.85 * Math.PI);
+      } else {
+        ctx.moveTo(-10, 7);
+        ctx.lineTo(10, 7);
+      }
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawPsycheChainsAndLocks(w, h, pxFront, pyFront, activeLocks) {
+      ctx.save();
+      // Светящиеся спектральные цепи через экран
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.42)';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([12, 8]);
+      ctx.lineDashOffset = -animTime * 22;
+
+      activeLocks.forEach(lock => {
+        const lx = w * (0.5 + lock.rx) + pxFront;
+        const ly = h * (0.40 + lock.ry) + pyFront;
+
+        ctx.beginPath();
+        ctx.moveTo(w * 0.15 + pxFront * 0.5, h * 0.15);
+        ctx.lineTo(lx, ly);
+        ctx.lineTo(w * 0.85 + pxFront * 0.5, h * 0.55);
+        ctx.stroke();
+      });
+      ctx.setLineDash([]);
+
+      // Отрисовка каждого неразрушенного Психе-Замка
+      activeLocks.forEach((lock, idx) => {
+        if (lock.shakeTimer > 0) lock.shakeTimer--;
+        const shakeX = lock.shakeTimer > 0 ? Math.sin(lock.shakeTimer * 1.5) * 6 : 0;
+        const floatY = Math.sin(animTime * 2.5 + lock.pulseOffset) * 5;
+
+        const lx = w * (0.5 + lock.rx) + pxFront + shakeX;
+        const ly = h * (0.40 + lock.ry) + pyFront + floatY;
+
+        // Пульсирующая алая аура замка
+        const glow = ctx.createRadialGradient(lx, ly, 6, lx, ly, 44);
+        glow.addColorStop(0, 'rgba(244, 63, 94, 0.75)');
+        glow.addColorStop(1, 'rgba(244, 63, 94, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(lx, ly, 44, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Дужка замка
+        ctx.strokeStyle = '#fda4af';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(lx, ly - 12, 13, Math.PI, Math.PI * 2);
+        ctx.stroke();
+
+        // Корпус замка
+        ctx.fillStyle = '#881337';
+        ctx.strokeStyle = '#fb7185';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.roundRect(lx - 20, ly - 10, 40, 32, 8);
+        ctx.fill();
+        ctx.stroke();
+
+        // Замочная скважина
+        ctx.fillStyle = '#ffe4e6';
+        ctx.beginPath();
+        ctx.arc(lx, ly + 3, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(lx - 2, ly + 5, 4, 8);
+      });
+
+      ctx.restore();
+    }
+
+    let lastFrameTime = performance.now();
+    function gameLoop(now) {
+      const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+      lastFrameTime = now;
+      if (!gameScreen.classList.contains('hidden')) {
+        drawScene(dt);
+      }
+      requestAnimationFrame(gameLoop);
+    }
+
+    // =========================================================================
+    // 14. ОБРАБОТЧИКИ СОБЫТИЙ ИНТЕРФЕЙСА
+    // =========================================================================
+    document.getElementById('backToHubBtn').addEventListener('click', () => {
+      sfx.click();
+      gameScreen.classList.add('hidden');
+      hubScreen.classList.remove('hidden');
+      renderHub();
+    });
+
+    document.getElementById('restartCaseBtn').addEventListener('click', () => {
+      sfx.click();
+      if (currentCase) startCase(currentCase.id);
+    });
+
+    document.getElementById('tabQuestionsBtn').addEventListener('click', () => {
+      sfx.click();
+      switchTab('questions');
+    });
+
+    document.getElementById('tabLogicBtn').addEventListener('click', () => {
+      sfx.click();
+      switchTab('logic');
+    });
+
+    document.getElementById('combineBtn').addEventListener('click', attemptCombineFacts);
+    document.getElementById('finalDiagnosisBtn').addEventListener('click', openDiagnosisModal);
+
+    document.getElementById('closeDiagBtn').addEventListener('click', () => {
+      document.getElementById('diagnosisModal').classList.add('hidden');
+    });
+
+    document.getElementById('nextCaseBtn').addEventListener('click', () => {
+      document.getElementById('diagnosisModal').classList.add('hidden');
+      const nextId = currentCase.id < CASES_DATA.length ? currentCase.id + 1 : 1;
+      startCase(nextId);
+    });
+
+    document.getElementById('backHubFromWinBtn').addEventListener('click', () => {
+      document.getElementById('diagnosisModal').classList.add('hidden');
+      gameScreen.classList.add('hidden');
+      hubScreen.classList.remove('hidden');
+      renderHub();
+    });
+
+    // Модальное окно правил
+    const rulesModal = document.getElementById('rulesModal');
+    document.getElementById('openRulesBtn').addEventListener('click', () => {
+      sfx.click();
+      rulesModal.classList.remove('hidden');
+    });
+    document.getElementById('closeRulesBtn').addEventListener('click', () => rulesModal.classList.add('hidden'));
+    document.getElementById('startTrainingBtn').addEventListener('click', () => {
+      sfx.click();
+      rulesModal.classList.add('hidden');
+    });
+
+    // Управление звуком
+    function toggleMute() {
+      sfx.muted = !sfx.muted;
+      const icon = sfx.muted ? '🔇' : '🔊';
+      document.getElementById('muteBtnHub').textContent = icon;
+      document.getElementById('muteBtnGame').textContent = icon;
+    }
+    document.getElementById('muteBtnHub').addEventListener('click', toggleMute);
+    document.getElementById('muteBtnGame').addEventListener('click', toggleMute);
+
+    // Старт приложения после полной загрузки окна
+    window.onload = function () {
+      renderHub();
+      setupHints();
+      if (!localStorage.getItem('psycho_detective_seen_rules')) {
+        rulesModal.classList.remove('hidden');
+        localStorage.setItem('psycho_detective_seen_rules', '1');
+      }
+      requestAnimationFrame(gameLoop);
+    };
+  </script>
+</body>
+</html>
