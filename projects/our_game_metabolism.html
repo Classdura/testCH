@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Своя Игра: Биологическое топливо и метаболизм</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&family=Orbitron:wght@700;900&display=swap');
+    body {
+      font-family: 'Montserrat', sans-serif;
+      user-select: none;
+    }
+    .font-hud {
+      font-family: 'Orbitron', monospace;
+    }
+    .jeopardy-tile {
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.2s ease;
+    }
+    .jeopardy-tile:hover:not(:disabled) {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 10px 20px -5px rgba(14, 165, 233, 0.4);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center p-2 sm:p-4 selection:bg-amber-400 selection:text-slate-950">
+
+  <!-- Main Frame -->
+  <div class="w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 sm:p-6 flex flex-col gap-4">
+    
+    <!-- Top Bar: Header & Score -->
+    <header class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-amber-400 flex items-center justify-center text-slate-950 font-black text-2xl shadow-lg shadow-indigo-500/20">
+          ⚡
+        </div>
+        <div>
+          <h1 class="text-lg sm:text-xl font-black font-hud text-amber-400 tracking-wider">СВОЯ ИГРА: МЕТАБОЛИЗМ</h1>
+          <p class="text-xs text-slate-400">Еда как топливо, анаболизм и особенности организма в 14–15 лет</p>
+        </div>
+      </div>
+
+      <!-- Live Score & Reset -->
+      <div class="flex items-center gap-4">
+        <div class="bg-slate-950 px-4 py-2 rounded-xl border border-slate-800 text-right">
+          <div class="text-[10px] text-slate-400 uppercase tracking-widest font-hud">Текущий счет</div>
+          <div id="playerScore" class="text-xl sm:text-2xl font-black font-hud text-cyan-400">0</div>
+        </div>
+        <button id="btnResetAll" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition border border-slate-700">
+          🔄 Сброс
+        </button>
+      </div>
+    </header>
+
+    <!-- Jeopardy Board Grid -->
+    <div class="overflow-x-auto pb-2">
+      <div class="min-w-[700px] grid grid-cols-5 gap-2 sm:gap-3" id="jeopardyBoard">
+        <!-- Generated dynamically via JS -->
+      </div>
+    </div>
+
+    <!-- Status Legend -->
+    <footer class="flex flex-wrap items-center justify-between text-xs text-slate-400 border-t border-slate-800 pt-3 gap-2">
+      <div class="flex items-center gap-4">
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-700 inline-block"></span> Доступен</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-600 inline-block"></span> Верно</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-rose-600 inline-block"></span> Ошибка</span>
+      </div>
+      <div>25 вопросов: 5 категорий × 5 уровней сложности</div>
+    </footer>
+  </div>
+
+  <!-- Question Modal Dialog -->
+  <div id="questionModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 z-50">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-5 sm:p-7 shadow-2xl flex flex-col gap-4">
+      
+      <!-- Category Badge & Value -->
+      <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+        <span id="modalCategory" class="text-xs uppercase font-hud tracking-wider text-cyan-400 font-bold">Категория</span>
+        <span id="modalPoints" class="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-hud text-sm font-black border border-amber-500/30">100 очков</span>
+      </div>
+
+      <!-- Question Text -->
+      <div id="modalQuestionText" class="text-base sm:text-lg font-bold text-slate-100 leading-snug min-h-[50px]">
+        Текст вопроса
+      </div>
+
+      <!-- Answer Options (4 choices) -->
+      <div id="optionsContainer" class="flex flex-col gap-2.5">
+        <!-- Dynamic options -->
+      </div>
+
+      <!-- Feedback / Rationale Area -->
+      <div id="feedbackBox" class="hidden p-3 rounded-xl border text-xs leading-relaxed">
+        <div id="feedbackTitle" class="font-bold text-sm mb-1">Верно!</div>
+        <div id="feedbackDesc">Подробное биохимическое объяснение.</div>
+      </div>
+
+      <!-- Modal Footer Action -->
+      <button id="btnCloseModal" class="hidden w-full py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold font-hud tracking-wider transition shadow-lg shadow-cyan-500/25">
+        ПРОДОЛЖИТЬ ИГРУ
+      </button>
+    </div>
+  </div>
+
+  <script>
+    /* =====================================================================
+       JEOPARDY QUESTIONS DATA (5 Categories x 5 Values: 100 to 500)
+       ===================================================================== */
+    const GAME_DATA = [
+      {
+        category: "Еда как топливо",
+        questions: [
+          {
+            points: 100,
+            question: "Какое вещество является универсальной «энергетической валютой» клетки, синтезируемой при расщеплении нутриентов?",
+            options: [
+              "Аденозинтрифосфат (АТФ)",
+              "Гликоген печени",
+              "Холестерин мембран",
+              "Гемоглобин крови"
+            ],
+            correct: 0,
+            rationale: "Именно молекулы АТФ аккумулируют химическую энергию при окислении нутриентов и мгновенно отдают её на мышечные сокращения и биосинтез."
+          },
+          {
+            points: 200,
+            question: "Сколько энергии высвобождается при диссимиляции 1 грамма жира по сравнению с 1 граммом белка или углевода?",
+            options: [
+              "9 ккал против 4 ккал",
+              "4 ккал против 9 ккал",
+              "7 ккал против 4 ккал",
+              "12 ккал против 6 ккал"
+            ],
+            correct: 0,
+            rationale: "Окисление 1 г жиров дает 9 ккал (37,7 кДж), тогда как 1 г белков или углеводов высвобождает около 4 ккал (16,7–17,1 кДж)."
+          },
+          {
+            points: 300,
+            question: "Какой орган человека в состоянии покоя потребляет около 20% всей глюкозы крови в качестве предпочтительного топлива?",
+            options: [
+              "Головной мозг",
+              "Скелетные мышцы",
+              "Почки",
+              "Селезенка"
+            ],
+            correct: 0,
+            rationale: "Глюкоза — ключевой и практически единственный источник оперативной энергии для нейронов центральной нервной системы и головного мозга."
+          },
+          {
+            points: 400,
+            question: "В какой форме организм человека депонирует оперативный суточный запас углеводов (около 400–500 грамм)?",
+            options: [
+              "Гликоген в печени и мышцах",
+              "Глюкоза в плазме крови",
+              "Триглицериды подкожной клетчатки",
+              "Крахмал ворсинок кишечника"
+            ],
+            correct: 0,
+            rationale: "Гликоген — животный полисахарид; около трети его хранится в гепатоцитах печени для поддержания сахара крови, а остальное — в мышцах."
+          },
+          {
+            points: 500,
+            question: "Какое физиологическое явление отражает закон изодинамии питательных веществ Макса Рубнера?",
+            options: [
+              "Взаимозаменяемость нутриентов по их теплотворной способности",
+              "Полная идентичность белков и углеводов в пластическом обмене",
+              "Способность организма синтезировать витамины из жира",
+              "Независимость обмена веществ от температуры среды"
+            ],
+            correct: 0,
+            rationale: "Закон изодинамии Рубнера гласит, что энергонесущие нутриенты могут замещать друг друга в энергетическом балансе строго пропорционально их калорийности."
+          }
+        ]
+      },
+      {
+        category: "Катаболизм vs Анаболизм",
+        questions: [
+          {
+            points: 100,
+            question: "Как в физиологии называется совокупность реакций распада веществ с освобождением энергии?",
+            options: [
+              "Катаболизм (диссимиляция)",
+              "Анаболизм (ассимиляция)",
+              "Транскрипция ДНК",
+              "Полимеризация глюкозы"
+            ],
+            correct: 0,
+            rationale: "Катаболизм (диссимиляция) — разрушение сложных органических молекул до простых соединений с выделением энергии в виде АТФ и тепла."
+          },
+          {
+            points: 200,
+            question: "Какое соотношение катаболизма и анаболизма характерно для растущего организма подростка?",
+            options: [
+              "Преобладание анаболизма над катаболизмом",
+              "Полное преобладание катаболизма",
+              "Абсолютное динамическое равенство 1:1",
+              "Периодическое отключение анаболизма"
+            ],
+            correct: 0,
+            rationale: "В период роста и формирования тканей (до 20–25 лет) анаболические процессы (синтез белков, деление клеток) преобладают над процессами распада."
+          },
+          {
+            points: 300,
+            question: "Как называется минимальный расход энергии, необходимый для работы сердца, дыхания и клеточного метаболизма в полном покое?",
+            options: [
+              "Величина основного обмена (ВОО)",
+              "Пищевой термогенез",
+              "Коэффициент физической активности",
+              "Алиментарная дистрофия"
+            ],
+            correct: 0,
+            rationale: "Величина основного обмена (ВОО) — энергозатраты на поддержание базовой жизнедеятельности в комфортной температуре натощак."
+          },
+          {
+            points: 400,
+            question: "Какой гормон является мощнейшим стимулятором анаболизма углеводов и жиров после приема пищи?",
+            options: [
+              "Инсулин",
+              "Адреналин",
+              "Кортизол",
+              "Глюкагон"
+            ],
+            correct: 0,
+            rationale: "Инсулин активирует транспорт глюкозы в клетки, синтез гликогена и липогенез, подавляя катаболический распад резервов."
+          },
+          {
+            points: 500,
+            question: "К какому опасному состоянию приводит затяжной дисбаланс, при котором катаболизм долго превосходит анаболизм из-за недоедания?",
+            options: [
+              "Алиментарная дистрофия и атрофия мышц",
+              "Гипервитаминоз жирорастворимых форм",
+              "Избыточное накопление гликогена",
+              "Ускоренная минерализация костей"
+            ],
+            correct: 0,
+            rationale: "При дефиците калорий организм начинает расщеплять собственные структурные белки мышц и внутренних органов, приводя к алиментарной дистрофии."
+          }
+        ]
+      },
+      {
+        category: "Белки, жиры и углеводы",
+        questions: [
+          {
+            points: 100,
+            question: "До каких базовых мономеров расщепляются белки в пищеварительном тракте перед всасыванием?",
+            options: [
+              "Аминокислоты",
+              "Моносахариды",
+              "Жирные кислоты",
+              "Нуклеотиды"
+            ],
+            correct: 0,
+            rationale: "Ферменты пепсин и протеазы расщепляют сложные полипептидные цепи белков до отдельных аминокислот."
+          },
+          {
+            points: 200,
+            question: "Какое ключевое отличие белков от жиров и углеводов по химическому составу делает их незаменимыми строителями?",
+            options: [
+              "Наличие атомов азота в молекуле",
+              "Отсутствие атомов углерода",
+              "Высокая растворимость в чистом жире",
+              "Неспособность окисляться с выделением тепла"
+            ],
+            correct: 0,
+            rationale: "Аминокислоты содержат около 16% азота (аминогруппы $NH_2$). Организм не умеет фиксировать азот из углеводов или жиров."
+          },
+          {
+            points: 300,
+            question: "Какие жирные кислоты называют эссенциальными (незаменимыми), так как человек не может их синтезировать de novo?",
+            options: [
+              "Линолевая и альфа-линоленовая",
+              "Пальмитиновая и стеариновая",
+              "Масляная и капроновая",
+              "Лауриновая и миристиновая"
+            ],
+            correct: 0,
+            rationale: "Полиненасыщенные жирные кислоты омега-3 и омега-6 (линолевая и альфа-линоленовая) не синтезируются телом и должны поступать с пищей."
+          },
+          {
+            points: 400,
+            question: "Почему организм стремится не использовать белки как основное топливо для получения АТФ?",
+            options: [
+              "Образуются токсичные азотистые отходы",
+              "Белки выделяют слишком мало тепла",
+              "Белок не может окисляться в митохондриях",
+              "Белки полностью задерживают дыхание"
+            ],
+            correct: 0,
+            rationale: "При катаболизме аминокислот отщепляется токсичный аммиак, требующий от печени и почек колоссальных затрат на превращение в мочевину."
+          },
+          {
+            points: 500,
+            question: "Какая аминокислота считается незаменимой исключительно для растущего детского и подросткового организма?",
+            options: [
+              "Гистидин",
+              "Глицин",
+              "Аланин",
+              "Глутамин"
+            ],
+            correct: 0,
+            rationale: "Эндогенный синтез гистидина у детей и подростков недостаточен для бурного роста тканей, поэтому он причисляется к незаменимым."
+          }
+        ]
+      },
+      {
+        category: "Подростковый метаболизм",
+        questions: [
+          {
+            points: 100,
+            question: "С чем связан резкий скачок суточной потребности в энергии и белке в возрасте 14–15 лет?",
+            options: [
+              "Пубертатный ростовой скачок и созревание тканей",
+              "Снижение физической подвижности",
+              "Замедление сердечного ритма",
+              "Уменьшение объема легочной вентиляции"
+            ],
+            correct: 0,
+            rationale: "В 14–15 лет наблюдается пик ростового скачка, формирование скелета, увеличение мышечной массы и гормональная перестройка."
+          },
+          {
+            points: 200,
+            question: "Какая суточная калорийность рациона в среднем рекомендуется активному подростку 14–15 лет?",
+            options: [
+              "2500–3000 ккал",
+              "1200–1500 ккал",
+              "4500–5000 ккал",
+              "800–1000 ккал"
+            ],
+            correct: 0,
+            rationale: "Энергозатраты растущего подростка из-за высокой скорости метаболизма и учебы/спорта достигают 2500–2900+ ккал в сутки."
+          },
+          {
+            points: 300,
+            question: "Почему дефицит белка в рационе 14–15-летнего подростка наносит больший урон, чем взрослому человеку?",
+            options: [
+              "Тормозится деление клеток и рост костно-мышечной системы",
+              "Увеличивается выработка инсулина поджелудочной железой",
+              "Белок перестает расщепляться ферментами желудка",
+              "Ускоряется отложение солей в связках"
+            ],
+            correct: 0,
+            rationale: "Белок — единственный пластический субстрат. Без незаменимых аминокислот останавливается синтез соматотропных факторов, ферментов и костного матрикса."
+          },
+          {
+            points: 400,
+            question: "Для чего подростковому организму в период полового созревания критически необходимы полезные жиры и холестерин?",
+            options: [
+              "Синтез стероидных половых гормонов и миелинизация нервов",
+              "Быстрое сжигание кальция в костной ткани",
+              "Снижение проницаемости альвеол легких",
+              "Подавление работы щитовидной железы"
+            ],
+            correct: 0,
+            rationale: "Холестерин и фосфолипиды служат основой для стероидных гормонов (тестостерона, эстрогенов), мембран делящихся клеток и миелиновых оболочек мозга."
+          },
+          {
+            points: 500,
+            question: "Какой микронутриент требует резкого увеличения поступления у девушек-подростков в связи с началом менструального цикла?",
+            options: [
+              "Железо",
+              "Витамин К",
+              "Натрий",
+              "Селен"
+            ],
+            correct: 0,
+            rationale: "С началом менструаций потребность в железе возрастает для предотвращения ювенильной железодефицитной анемии и синтеза гемоглобина."
+          }
+        ]
+      },
+      {
+        category: "Ловушки питания",
+        questions: [
+          {
+            points: 100,
+            question: "Почему сладкие газировки и чипсы называют источниками «пустых калорий»?",
+            options: [
+              "Дают избыток сахара/жира без витаминов и белка",
+              "В них полностью отсутствует какая-либо энергия",
+              "Они мгновенно выводятся без переваривания",
+              "Они содержат слишком много клетчатки"
+            ],
+            correct: 0,
+            rationale: "Фастфуд и снеки насыщают калориями, но не поставляют незаменимых аминокислот, биофлавоноидов и минералов для строительства клеток."
+          },
+          {
+            points: 200,
+            question: "Что происходит в организме при резком скачке глюкозы после употребления сладкого батончика на голодный желудок?",
+            options: [
+              "Резкий выброс инсулина с быстрым возвратом чувства голода",
+              "Длительное равномерное поступление энергии на 6 часов",
+              "Мгновенный переход всей глюкозы в мышечные белки",
+              "Полная блокировка выделения желудочного сока"
+            ],
+            correct: 0,
+            rationale: "Быстрые сахара провоцируют инсулиновый пик, сахар в крови резко падает ниже нормы (реактивная гипогликемия), вызывая сонливость и сильный голод."
+          },
+          {
+            points: 300,
+            question: "Почему пропуск завтрака перед школой приводит к снижению концентрации внимания на уроках?",
+            options: [
+              "Истощаются запасы глюкозы для питания нейронов мозга",
+              "Повышается температура внутренних органов",
+              "Останавливается кровоток в капиллярах сетчатки",
+              "Кишечник переполняется пищевыми волокнами"
+            ],
+            correct: 0,
+            rationale: "После ночного сна запасы гликогена в печени снижены; без углеводно-белкового завтрака мозг испытывает дефицит оперативного топлива."
+          },
+          {
+            points: 400,
+            question: "Чем опасны гидрогенизированные растительные масла (трансжиры), часто присутствующие в дешевом фастфуде?",
+            options: [
+              "Встраиваются в биомембраны, нарушая их текучесть и функции",
+              "Слишком быстро превращаются в мышечные волокна",
+              "Полностью нейтрализуют соляную кислоту желудка",
+              "Приводят к мгновенному растворению жирорастворимых витаминов"
+            ],
+            correct: 0,
+            rationale: "Трансизомеры искажают архитектуру клеточных мембран, повышают концентрацию атерогенных липопротеидов (ЛПНП) и провоцируют воспаление."
+          },
+          {
+            points: 500,
+            question: "Какое правило распределения калорийности в течение дня диетологи считают оптимальным для подростка?",
+            options: [
+              "Завтрак 25%, Обед 35%, Полдник 15%, Ужин 25%",
+              "Отказ от еды днем и 80% калорий перед сном",
+              "Равномерные порции сладкого каждые 40 минут",
+              "Один плотный прием пищи раз в сутки (100%)"
+            ],
+            correct: 0,
+            rationale: "Дробное 4-разовое питание обеспечивает стабильный уровень глюкозы и аминокислот без перегрузки ЖКТ и отложения излишков в жировые депо на ночь."
+          }
+        ]
+      }
+    ];
+
+    /* =====================================================================
+       GAME STATE & UI LOGIC
+       ===================================================================== */
+    let currentScore = 0;
+    let answeredQuestions = new Set();
+    let activeQuestion = null;
+
+    const boardEl = document.getElementById('jeopardyBoard');
+    const scoreEl = document.getElementById('playerScore');
+    const modalEl = document.getElementById('questionModal');
+    const modalCatEl = document.getElementById('modalCategory');
+    const modalPtsEl = document.getElementById('modalPoints');
+    const modalQTextEl = document.getElementById('modalQuestionText');
+    const optionsContainerEl = document.getElementById('optionsContainer');
+    const feedbackBoxEl = document.getElementById('feedbackBox');
+    const feedbackTitleEl = document.getElementById('feedbackTitle');
+    const feedbackDescEl = document.getElementById('feedbackDesc');
+    const btnCloseModalEl = document.getElementById('btnCloseModal');
+
+    function initBoard() {
+      boardEl.innerHTML = '';
+
+      // 1. Render Category Headers
+      GAME_DATA.forEach(cat => {
+        const catHeader = document.createElement('div');
+        catHeader.className = 'bg-slate-800/90 text-cyan-300 font-bold text-center text-xs sm:text-sm p-2 sm:p-3 rounded-xl border border-slate-700 flex items-center justify-center min-h-[58px] leading-snug shadow';
+        catHeader.textContent = cat.category;
+        boardEl.appendChild(catHeader);
+      });
+
+      // 2. Render Rows for points: 100, 200, 300, 400, 500
+      for (let rowIndex = 0; rowIndex < 5; rowIndex++) {
+        for (let colIndex = 0; colIndex < 5; colIndex++) {
+          const q = GAME_DATA[colIndex].questions[rowIndex];
+          const qId = `${colIndex}-${rowIndex}`;
+
+          const tileBtn = document.createElement('button');
+          tileBtn.id = `tile-${qId}`;
+          tileBtn.className = 'jeopardy-tile font-hud text-base sm:text-xl font-black py-3 sm:py-5 rounded-xl border border-blue-500/30 bg-blue-900/40 text-amber-300 flex items-center justify-center cursor-pointer shadow-md hover:bg-blue-800/60 disabled:cursor-not-allowed';
+          tileBtn.textContent = q.points;
+
+          if (answeredQuestions.has(qId)) {
+            markTileAnswered(tileBtn, qId);
+          } else {
+            tileBtn.addEventListener('click', () => openQuestion(colIndex, rowIndex, qId));
+          }
+
+          boardEl.appendChild(tileBtn);
+        }
+      }
+    }
+
+    function openQuestion(colIndex, rowIndex, qId) {
+      const cat = GAME_DATA[colIndex];
+      const q = cat.questions[rowIndex];
+      activeQuestion = { ...q, id: qId, colIndex, rowIndex };
+
+      modalCatEl.textContent = cat.category;
+      modalPtsEl.textContent = `${q.points} очков`;
+      modalQTextEl.textContent = q.question;
+
+      // Reset feedback box & buttons
+      feedbackBoxEl.classList.add('hidden');
+      btnCloseModalEl.classList.add('hidden');
+      optionsContainerEl.innerHTML = '';
+
+      // Подготавливаем варианты с фиксацией правильности и перемешиваем
+      const shuffledOptions = q.options.map((optText, idx) => ({
+        text: optText,
+        isCorrect: idx === q.correct
+      })).sort(() => Math.random() - 0.5);
+
+      // Create 4 option buttons (shuffled)
+      shuffledOptions.forEach((opt, idx) => {
+        const optBtn = document.createElement('button');
+        optBtn.className = 'w-full text-left p-3 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-semibold transition border border-slate-700 hover:border-cyan-500 flex items-center gap-3';
+        optBtn.dataset.isCorrect = opt.isCorrect ? 'true' : 'false';
+        optBtn.innerHTML = `<span class="w-6 h-6 rounded-lg bg-slate-900 text-cyan-400 border border-slate-700 flex items-center justify-center font-hud text-xs flex-shrink-0">${['А','Б','В','Г'][idx]}</span> <span>${opt.text}</span>`;
+
+        optBtn.addEventListener('click', () => selectAnswer(opt.isCorrect, optBtn));
+        optionsContainerEl.appendChild(optBtn);
+      });
+
+      modalEl.classList.remove('hidden');
+    }
+
+    function selectAnswer(isRight, clickedBtn) {
+      const q = activeQuestion;
+      const allBtns = optionsContainerEl.querySelectorAll('button');
+
+      // Disable all option clicks
+      allBtns.forEach((btn) => {
+        btn.disabled = true;
+        const btnIsCorrect = btn.dataset.isCorrect === 'true';
+
+        if (btnIsCorrect) {
+          btn.classList.remove('bg-slate-800/80', 'border-slate-700');
+          btn.classList.add('bg-emerald-950/80', 'border-emerald-500', 'text-emerald-200');
+        } else if (btn === clickedBtn && !isRight) {
+          btn.classList.remove('bg-slate-800/80', 'border-slate-700');
+          btn.classList.add('bg-rose-950/80', 'border-rose-500', 'text-rose-200');
+        }
+      });
+
+      // Update Score
+      if (isRight) {
+        currentScore += q.points;
+        feedbackBoxEl.className = 'p-3 rounded-xl border text-xs leading-relaxed bg-emerald-950/50 border-emerald-600 text-emerald-200';
+        feedbackTitleEl.textContent = `🎉 Верно! (+${q.points} баллов)`;
+      } else {
+        currentScore = Math.max(0, currentScore - q.points);
+        feedbackBoxEl.className = 'p-3 rounded-xl border text-xs leading-relaxed bg-rose-950/50 border-rose-600 text-rose-200';
+        feedbackTitleEl.textContent = `❌ Неверно (-${q.points} баллов)`;
+      }
+
+      scoreEl.textContent = currentScore;
+      feedbackDescEl.textContent = q.rationale;
+      feedbackBoxEl.classList.remove('hidden');
+      btnCloseModalEl.classList.remove('hidden');
+
+      // Save state
+      answeredQuestions.add(`${q.id}-${isRight ? 'win' : 'lose'}`);
+      const boardTile = document.getElementById(`tile-${q.id}`);
+      if (boardTile) {
+        boardTile.disabled = true;
+        if (isRight) {
+          boardTile.className = 'jeopardy-tile font-hud text-base sm:text-xl font-bold py-3 sm:py-5 rounded-xl border border-emerald-500 bg-emerald-900/60 text-emerald-300 opacity-80';
+          boardTile.textContent = '✓';
+        } else {
+          boardTile.className = 'jeopardy-tile font-hud text-base sm:text-xl font-bold py-3 sm:py-5 rounded-xl border border-rose-500 bg-rose-900/60 text-rose-300 opacity-80';
+          boardTile.textContent = '✗';
+        }
+      }
+    }
+
+    btnCloseModalEl.addEventListener('click', () => {
+      modalEl.classList.add('hidden');
+    });
+
+    document.getElementById('btnResetAll').addEventListener('click', () => {
+      if (confirm('Сбросить весь прогресс и счет игры?')) {
+        currentScore = 0;
+        scoreEl.textContent = '0';
+        answeredQuestions.clear();
+        initBoard();
+      }
+    });
+
+    // Start
+    initBoard();
+  </script>
+</body>
+</html>
